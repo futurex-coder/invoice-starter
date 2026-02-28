@@ -9,6 +9,12 @@ import {
   UserMinus,
   Mail,
   CheckCircle,
+  FileText,
+  FilePen,
+  FileCheck,
+  FileX,
+  FileMinus2,
+  FilePlus2,
   type LucideIcon,
 } from 'lucide-react';
 import { ActivityType } from '@/lib/db/schema';
@@ -25,6 +31,12 @@ const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.REMOVE_TEAM_MEMBER]: UserMinus,
   [ActivityType.INVITE_TEAM_MEMBER]: Mail,
   [ActivityType.ACCEPT_INVITATION]: CheckCircle,
+  [ActivityType.CREATE_INVOICE]: FileText,
+  [ActivityType.UPDATE_INVOICE]: FilePen,
+  [ActivityType.FINALIZE_INVOICE]: FileCheck,
+  [ActivityType.CANCEL_INVOICE]: FileX,
+  [ActivityType.CREATE_CREDIT_NOTE]: FileMinus2,
+  [ActivityType.CREATE_DEBIT_NOTE]: FilePlus2,
 };
 
 function getRelativeTime(date: Date) {
@@ -63,6 +75,18 @@ function formatAction(action: ActivityType): string {
       return 'You invited a team member';
     case ActivityType.ACCEPT_INVITATION:
       return 'You accepted an invitation';
+    case ActivityType.CREATE_INVOICE:
+      return 'You created an invoice';
+    case ActivityType.UPDATE_INVOICE:
+      return 'You updated an invoice';
+    case ActivityType.FINALIZE_INVOICE:
+      return 'You finalized an invoice';
+    case ActivityType.CANCEL_INVOICE:
+      return 'You cancelled an invoice';
+    case ActivityType.CREATE_CREDIT_NOTE:
+      return 'You created a credit note';
+    case ActivityType.CREATE_DEBIT_NOTE:
+      return 'You created a debit note';
     default:
       return 'Unknown action occurred';
   }

@@ -13,6 +13,7 @@ import {
   unique,
   index,
   foreignKey,
+  boolean,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
@@ -77,6 +78,106 @@ export const invitations = pgTable('invitations', {
   status: varchar('status', { length: 20 }).notNull().default('pending'),
 });
 
+/** One per team — Supplier (Доставчик) / company profile + bank defaults */
+export const teamCompanyProfiles = pgTable(
+  'team_company_profiles',
+  {
+    id: serial('id').primaryKey(),
+    teamId: integer('team_id')
+      .notNull()
+      .references(() => teams.id, { onDelete: 'cascade' }),
+
+    legalName: varchar('legal_name', { length: 255 }).notNull(),
+    eik: varchar('eik', { length: 13 }).notNull(),
+    vatNumber: varchar('vat_number', { length: 14 }),
+    isVatRegistered: boolean('is_vat_registered').notNull().default(true),
+
+    country: char('country', { length: 2 }).notNull().default('BG'),
+    city: varchar('city', { length: 100 }).notNull(),
+    street: varchar('street', { length: 255 }).notNull(),
+    postCode: varchar('post_code', { length: 20 }),
+
+    mol: varchar('mol', { length: 255 }),
+
+    bankName: varchar('bank_name', { length: 255 }),
+    iban: varchar('iban', { length: 34 }),
+    bicSwift: varchar('bic_swift', { length: 11 }),
+
+    defaultCurrency: char('default_currency', { length: 3 }).notNull().default('EUR'),
+    defaultVatRate: integer('default_vat_rate').notNull().default(20),
+    defaultPaymentMethod: varchar('default_payment_method', { length: 20 })
+      .notNull()
+      .default('bank'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('team_company_profiles_team_id_unique').on(t.teamId),
+    index('idx_team_company_profiles_team_id').on(t.teamId),
+  ]
+);
+
+/** Clients/recipients (Получатели) — team-scoped; recipient per invoice is snapshot */
+export const partners = pgTable(
+  'partners',
+  {
+    id: serial('id').primaryKey(),
+    teamId: integer('team_id')
+      .notNull()
+      .references(() => teams.id, { onDelete: 'cascade' }),
+
+    name: varchar('name', { length: 255 }).notNull(),
+    eik: varchar('eik', { length: 13 }).notNull(),
+    vatNumber: varchar('vat_number', { length: 14 }),
+    isIndividual: boolean('is_individual').notNull().default(false),
+
+    country: char('country', { length: 2 }).notNull().default('BG'),
+    city: varchar('city', { length: 100 }).notNull(),
+    street: varchar('street', { length: 255 }).notNull(),
+    postCode: varchar('post_code', { length: 20 }),
+
+    mol: varchar('mol', { length: 255 }),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique('partners_team_id_eik_unique').on(t.teamId, t.eik),
+    index('idx_partners_team_id').on(t.teamId),
+    index('idx_partners_team_name').on(t.teamId, t.name),
+    index('idx_partners_team_eik').on(t.teamId, t.eik),
+  ]
+);
+
+/** Articles/items (Артикули) — team-scoped catalog */
+export const articles = pgTable(
+  'articles',
+  {
+    id: serial('id').primaryKey(),
+    teamId: integer('team_id')
+      .notNull()
+      .references(() => teams.id, { onDelete: 'cascade' }),
+
+    name: varchar('name', { length: 255 }).notNull(),
+    unit: varchar('unit', { length: 20 }).notNull().default('бр.'),
+    tags: text('tags'), // comma-separated or JSON array string; optional
+
+    defaultUnitPrice: numeric('default_unit_price', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    currency: char('currency', { length: 3 }).notNull().default('EUR'),
+    type: varchar('type', { length: 20 }).default('service'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('idx_articles_team_id').on(t.teamId),
+    index('idx_articles_team_name').on(t.teamId, t.name),
+  ]
+);
+
 export const invoiceSequences = pgTable(
   'invoice_sequences',
   {
@@ -123,6 +224,16 @@ export const invoices = pgTable(
     items: jsonb('items'),
     totals: jsonb('totals'),
 
+    language: char('language', { length: 2 }).notNull().default('bg'),
+    paymentMethod: varchar('payment_method', { length: 20 }).notNull().default('bank'),
+    paymentStatus: varchar('payment_status', { length: 20 }).notNull().default('unpaid'),
+    dueDate: date('due_date'),
+    vatMode: varchar('vat_mode', { length: 20 }).notNull().default('standard'),
+    noVatReason: text('no_vat_reason'),
+    amountInWords: text('amount_in_words'),
+    customerNote: text('customer_note'),
+    internalComment: text('internal_comment'),
+
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
@@ -137,18 +248,46 @@ export const invoices = pgTable(
     index('idx_invoices_team_id').on(t.teamId),
     index('idx_invoices_team_status').on(t.teamId, t.status),
     index('idx_invoices_team_issue_date').on(t.teamId, t.issueDate.desc()),
+    index('idx_invoices_team_payment_status').on(t.teamId, t.paymentStatus),
     index('idx_invoices_created_by_user_id')
       .on(t.createdByUserId)
       .where(sql`${t.createdByUserId} IS NOT NULL`),
   ]
 );
 
-export const teamsRelations = relations(teams, ({ many }) => ({
+export const teamsRelations = relations(teams, ({ one, many }) => ({
   teamMembers: many(teamMembers),
   activityLogs: many(activityLogs),
   invitations: many(invitations),
+  teamCompanyProfile: one(teamCompanyProfiles),
+  partners: many(partners),
+  articles: many(articles),
   invoiceSequences: many(invoiceSequences),
   invoices: many(invoices),
+}));
+
+export const teamCompanyProfilesRelations = relations(
+  teamCompanyProfiles,
+  ({ one }) => ({
+    team: one(teams, {
+      fields: [teamCompanyProfiles.teamId],
+      references: [teams.id],
+    }),
+  })
+);
+
+export const partnersRelations = relations(partners, ({ one }) => ({
+  team: one(teams, {
+    fields: [partners.teamId],
+    references: [teams.id],
+  }),
+}));
+
+export const articlesRelations = relations(articles, ({ one }) => ({
+  team: one(teams, {
+    fields: [articles.teamId],
+    references: [teams.id],
+  }),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -230,6 +369,12 @@ export type ActivityLog = typeof activityLogs.$inferSelect;
 export type NewActivityLog = typeof activityLogs.$inferInsert;
 export type Invitation = typeof invitations.$inferSelect;
 export type NewInvitation = typeof invitations.$inferInsert;
+export type TeamCompanyProfile = typeof teamCompanyProfiles.$inferSelect;
+export type NewTeamCompanyProfile = typeof teamCompanyProfiles.$inferInsert;
+export type Partner = typeof partners.$inferSelect;
+export type NewPartner = typeof partners.$inferInsert;
+export type Article = typeof articles.$inferSelect;
+export type NewArticle = typeof articles.$inferInsert;
 export type InvoiceSequence = typeof invoiceSequences.$inferSelect;
 export type NewInvoiceSequence = typeof invoiceSequences.$inferInsert;
 export type Invoice = typeof invoices.$inferSelect;

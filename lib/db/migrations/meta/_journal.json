@@ -15,6 +15,20 @@
       "when": 1772294527398,
       "tag": "0001_dear_diamondback",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772296109251,
+      "tag": "0002_known_kabuki",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772296526914,
+      "tag": "0003_gorgeous_skin",
+      "breakpoints": true
     }
   ]
 }

@@ -140,3 +140,244 @@ export function formatDocumentTitle(doc: InvoiceDocument): string {
   }
   return `${label} (чернова) / ${dateStr}`;
 }
+
+// ---------------------------------------------------------------------------
+// Print model — structured data for print/preview layout
+// ---------------------------------------------------------------------------
+
+/** Uppercase document type for print header */
+const DOC_TYPE_LABELS_UPPER: Record<string, string> = {
+  invoice: 'ФАКТУРА',
+  proforma: 'ПРОФОРМА ФАКТУРА',
+  credit_note: 'КРЕДИТНО ИЗВЕСТИЕ',
+  debit_note: 'ДЕБИТНО ИЗВЕСТИЕ',
+};
+
+export const PRINT_ORIGINAL_LABEL = 'ОРИГИНАЛ';
+
+export interface PrintModelParty {
+  legalName: string;
+  address: string;
+  eik: string;
+  vatNumber: string | null;
+}
+
+export interface PrintModelItem {
+  no: number;
+  artukul: string;
+  quantity: string;
+  unitPrice: string;
+  stoimost: string;
+}
+
+export interface PrintModelTotals {
+  danuchnaOsnova: string;
+  ddsPercent: string;
+  ddsAmount: string;
+  sumaZaPlashtane: string;
+  currency: string;
+}
+
+export interface PrintModel {
+  docTypeTitle: string;
+  originalLabel: string;
+  invoiceNumber: string;
+  issueDate: string;
+  taxEventDate: string | null;
+  supplier: PrintModelParty;
+  recipient: PrintModelParty;
+  items: PrintModelItem[];
+  totals: PrintModelTotals;
+  amountInWords: string | null;
+  paymentMethodLabel: string;
+  createdBy: string;
+  currencyConversion: { amountEur: string; rate: number; amountBgn: string } | null;
+  bankDetails: { bankName: string; iban: string; bic: string | null } | null;
+}
+
+/** Input shape for building print model (invoice row or similar) */
+export interface InvoiceForPrint {
+  docType: string;
+  number: number | null;
+  issueDate: string;
+  supplyDate: string | null;
+  currency: string;
+  fxRate: string | number;
+  supplierSnapshot: unknown;
+  recipientSnapshot: unknown;
+  items: unknown;
+  totals: unknown;
+  amountInWords: string | null;
+  paymentMethod: string | null;
+  createdByUserName?: string | null;
+}
+
+function partyToPrintParty(p: { legalName?: string; address?: string; uic?: string; vatNumber?: string | null } | null): PrintModelParty {
+  if (!p) return { legalName: '', address: '', eik: '', vatNumber: null };
+  return {
+    legalName: p.legalName ?? '',
+    address: p.address ?? '',
+    eik: p.uic ?? '',
+    vatNumber: p.vatNumber ?? null,
+  };
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  bank: 'Банков път',
+  cash: 'В брой',
+  barter: 'Бартер',
+};
+
+/**
+ * Build a PrintModel from an invoice-like object. Use formatter for all display strings.
+ */
+export function buildPrintModel(
+  invoice: InvoiceForPrint,
+  options?: { createdByName?: string | null }
+): PrintModel {
+  const supplier = partyToPrintParty(invoice.supplierSnapshot as PartySnapshot);
+  const recipient = partyToPrintParty(invoice.recipientSnapshot as PartySnapshot);
+  const items = (invoice.items ?? []) as LineItem[];
+  const totals = (invoice.totals ?? { totalNet: 0, totalVat: 0, totalGross: 0, vatBreakdown: [] }) as {
+    totalNet: number;
+    totalVat: number;
+    totalGross: number;
+    vatBreakdown: Array<{ vatRate: number; vatAmount: number }>;
+  };
+  const fxRate = Number(invoice.fxRate ?? 1);
+  const currency = (invoice.currency ?? 'EUR').toUpperCase();
+  const isEur = currency === 'EUR';
+
+  const formattedItems = items.map((item, i) => {
+    const row = formatLineItem(item);
+    return {
+      no: i + 1,
+      artukul: row.description,
+      quantity: row.quantity,
+      unitPrice: row.unitPrice,
+      stoimost: row.grossAmount,
+    };
+  });
+
+  const vatPercent =
+    totals.vatBreakdown?.length === 1
+      ? totals.vatBreakdown[0].vatRate
+      : totals.totalNet > 0
+        ? Math.round((totals.totalVat / totals.totalNet) * 100)
+        : 0;
+
+  const supplierSnap = invoice.supplierSnapshot as PartySnapshot & { bankName?: string; iban?: string; bic?: string };
+  const bankDetails =
+    invoice.paymentMethod === 'bank' &&
+    supplierSnap?.iban
+      ? {
+          bankName: supplierSnap.bankName ?? '',
+          iban: supplierSnap.iban,
+          bic: supplierSnap.bic ?? null,
+        }
+      : null;
+
+  const createdBy =
+    options?.createdByName ?? invoice.createdByUserName ?? '';
+
+  return {
+    docTypeTitle: DOC_TYPE_LABELS_UPPER[invoice.docType] ?? invoice.docType.toUpperCase(),
+    originalLabel: PRINT_ORIGINAL_LABEL,
+    invoiceNumber: invoice.number != null ? formatInvoiceNumber(invoice.number) : '—',
+    issueDate: formatDateBg(invoice.issueDate),
+    taxEventDate: invoice.supplyDate ? formatDateBg(invoice.supplyDate) : null,
+    supplier,
+    recipient,
+    items: formattedItems,
+    totals: {
+      danuchnaOsnova: formatMoney(totals.totalNet),
+      ddsPercent: `${vatPercent}%`,
+      ddsAmount: formatMoney(totals.totalVat),
+      sumaZaPlashtane: formatMoney(totals.totalGross),
+      currency,
+    },
+    amountInWords: invoice.amountInWords?.trim() || null,
+    paymentMethodLabel: PAYMENT_METHOD_LABELS[invoice.paymentMethod ?? ''] ?? (invoice.paymentMethod ?? 'Банков път'),
+    createdBy,
+    currencyConversion: isEur && fxRate !== 1
+      ? {
+          amountEur: formatMoney(totals.totalGross),
+          rate: fxRate,
+          amountBgn: formatMoney(totals.totalGross * fxRate),
+        }
+      : null,
+    bankDetails,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Amount in words (Словом) — Bulgarian
+// ---------------------------------------------------------------------------
+
+const BG_ONES = ['', 'един', 'два', 'три', 'четири', 'пет', 'шест', 'седем', 'осем', 'девет'];
+const BG_TEENS = ['десет', 'единадесет', 'дванадесет', 'тринадесет', 'четиринадесет', 'петнадесет', 'шестнадесет', 'седемнадесет', 'осемнадесет', 'деветнадесет'];
+const BG_TENS = ['', '', 'двадесет', 'тридесет', 'четиридесет', 'петдесет', 'шестдесет', 'седемдесет', 'осемдесет', 'деветдесет'];
+const BG_HUNDRED = 'сто';
+const BG_HUNDREDS = ['', 'сто', 'двеста', 'триста', 'четиристотин', 'петстотин', 'шестстотин', 'седемстотин', 'осемстотин', 'деветстотин'];
+
+function numberToWordsBg(n: number): string {
+  const int = Math.floor(Math.abs(n));
+  if (int === 0) return 'нула';
+  if (int >= 1_000_000_000) return String(int); // fallback for huge numbers
+
+  const parts: string[] = [];
+  let rest = int;
+
+  if (rest >= 1_000_000) {
+    const mil = Math.floor(rest / 1_000_000);
+    rest %= 1_000_000;
+    if (mil === 1) parts.push('един милион');
+    else parts.push(numberToWordsBg(mil) + ' милиона');
+  }
+  if (rest >= 1_000) {
+    const thou = Math.floor(rest / 1_000);
+    rest %= 1_000;
+    if (thou === 1) parts.push('хиляда');
+    else if (thou < 20) parts.push(numberToWordsBg(thou) + ' хиляди');
+    else parts.push(numberToWordsBg(thou) + ' хиляди');
+  }
+  if (rest >= 100) {
+    const h = Math.floor(rest / 100);
+    rest %= 100;
+    parts.push(BG_HUNDREDS[h]);
+  }
+  if (rest >= 20) {
+    const t = Math.floor(rest / 10);
+    rest %= 10;
+    parts.push(BG_TENS[t]);
+  }
+  if (rest >= 10) {
+    parts.push(BG_TEENS[rest - 10]);
+    rest = 0;
+  }
+  if (rest > 0) {
+    parts.push(BG_ONES[rest]);
+  }
+
+  return parts.filter(Boolean).join(' и ');
+}
+
+/**
+ * Format amount as words in Bulgarian (Словом). Mandatory on invoices.
+ * e.g. amountInWordsBg(1234.56, 'EUR') => "хиляда двеста тридесет и четири евро и 56 цента"
+ */
+export function amountInWordsBg(amount: number, currency: string): string {
+  const abs = Math.abs(amount);
+  const intPart = Math.floor(abs);
+  const decPart = Math.round((abs - intPart) * 100);
+
+  const curr = currency.toUpperCase();
+  const isEur = curr === 'EUR';
+  const mainUnit = intPart === 1 ? (isEur ? 'евро' : 'лев') : isEur ? 'евро' : 'лева';
+  const subUnit = isEur ? (decPart === 1 ? 'цент' : 'цента') : decPart === 1 ? 'стотинка' : 'стотинки';
+
+  const intWords = numberToWordsBg(intPart);
+  const mainStr = intPart === 0 ? 'нула' : intWords + ' ' + mainUnit;
+  if (decPart === 0) return mainStr;
+  return mainStr + ' и ' + decPart + ' ' + subUnit;
+}

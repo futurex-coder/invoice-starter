@@ -2,6 +2,8 @@
 
 This repo uses **Drizzle Kit** for migrations. Migrations are stored in `lib/db/migrations/`.
 
+**Env var:** Drizzle uses **`POSTGRES_URL`** (not `DATABASE_URL`). Set it in `.env` for both local runs and Supabase.
+
 ## Environment
 
 Set `POSTGRES_URL` in your `.env` to your **Supabase connection string**:
@@ -47,17 +49,42 @@ This runs `drizzle-kit migrate`, which:
 npx drizzle-kit migrate
 ```
 
-## Current migration (Bulgarian invoicing)
+## Current migrations
 
-- `0000_soft_the_anarchist.sql` — initial schema
+- `0000_soft_the_anarchist.sql` — initial schema (users, teams, etc.)
 - `0001_dear_diamondback.sql` — adds `invoice_sequences` and `invoices` tables
+- `0002_known_kabuki.sql` — adds `team_company_profiles`, `partners`, `articles`; adds invoice columns (`language`, `payment_method`, `payment_status`, `due_date`, `vat_mode`, `no_vat_reason`, `amount_in_words`) and index `idx_invoices_team_payment_status`
 
 ## Verification
 
-After applying:
+**Option A — Drizzle Studio**
 
 ```bash
 pnpm db:studio
 ```
 
-Opens Drizzle Studio to inspect tables. Ensure `invoice_sequences` and `invoices` exist.
+Opens Drizzle Studio. Confirm tables: `team_company_profiles`, `partners`, `articles`, and that `invoices` has the new columns.
+
+**Option B — Supabase SQL Editor**
+
+In Supabase Dashboard → **SQL Editor**, run:
+
+```sql
+SELECT table_name
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name IN ('team_company_profiles', 'partners', 'articles', 'invoices')
+ORDER BY table_name;
+```
+
+You should see all four rows. To confirm new invoice columns:
+
+```sql
+SELECT column_name
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'invoices'
+  AND column_name IN ('language', 'payment_method', 'payment_status', 'due_date', 'vat_mode', 'no_vat_reason', 'amount_in_words')
+ORDER BY column_name;
+```
+
+All seven columns should appear.

@@ -1,11 +1,11 @@
 'use server';
 
-import { and, eq, desc, sql, ilike, gte, lte } from 'drizzle-orm';
+import { and, eq, desc, sql, ilike, gte, lte, or } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import {
   invoices,
   invoiceSequences,
-  teamMembers,
+  teamCompanyProfiles,
   activityLogs,
   ActivityType,
   type Invoice,
@@ -14,7 +14,7 @@ import {
 import { getUser, getUserWithTeam } from '@/lib/db/queries';
 import { calculateInvoice } from './calculator';
 import { validateInvoice } from './validator';
-import { formatInvoiceNumber } from './formatter';
+import { formatInvoiceNumber, amountInWordsBg } from './formatter';
 import { DEFAULT_SERIES, canTransition, requiresReference } from './rules';
 import type {
   DocType,
@@ -43,10 +43,20 @@ interface CreateInvoiceDraftInput {
   supplyDate?: string | null;
   currency?: string;
   fxRate?: number;
-  supplier: PartySnapshot;
+  /** If omitted, fetched from team company profile */
+  supplier?: PartySnapshot;
   recipient: PartySnapshot;
   lineItems: LineItemInput[];
   referencedInvoiceId?: number | null;
+  language?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  dueDate?: string | null;
+  vatMode?: string;
+  noVatReason?: string | null;
+  amountInWords?: string | null;
+  customerNote?: string | null;
+  internalComment?: string | null;
 }
 
 interface UpdateInvoiceDraftInput {
@@ -58,6 +68,15 @@ interface UpdateInvoiceDraftInput {
   recipient?: PartySnapshot;
   lineItems?: LineItemInput[];
   referencedInvoiceId?: number | null;
+  language?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  dueDate?: string | null;
+  vatMode?: string;
+  noVatReason?: string | null;
+  amountInWords?: string | null;
+  customerNote?: string | null;
+  internalComment?: string | null;
 }
 
 interface NoteOverrides {
@@ -70,9 +89,10 @@ interface NoteOverrides {
   lineItems?: LineItemInput[];
 }
 
-interface ListInvoicesFilters {
+export interface ListInvoicesFilters {
   status?: InvoiceStatus;
   docType?: DocType;
+  paymentStatus?: string;
   search?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -152,6 +172,26 @@ async function allocateNumber(
 }
 
 // ---------------------------------------------------------------------------
+// Supplier from team company profile
+// ---------------------------------------------------------------------------
+
+async function getSupplierFromCompanyProfile(teamId: number): Promise<PartySnapshot | null> {
+  const [profile] = await db
+    .select()
+    .from(teamCompanyProfiles)
+    .where(eq(teamCompanyProfiles.teamId, teamId))
+    .limit(1);
+  if (!profile) return null;
+  const address = [profile.street, [profile.postCode, profile.city].filter(Boolean).join(' '), profile.country].filter(Boolean).join(', ');
+  return {
+    legalName: profile.legalName,
+    address,
+    uic: profile.eik,
+    vatNumber: profile.vatNumber ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // DB row <-> domain document mapping
 // ---------------------------------------------------------------------------
 
@@ -194,8 +234,21 @@ export async function createInvoiceDraft(
   const { teamId } = await requireTeamMembership(user.id);
   // Members and owners can create drafts
 
+  let supplier = input.supplier;
+  if (!supplier) {
+    const fromProfile = await getSupplierFromCompanyProfile(teamId);
+    if (!fromProfile) {
+      return { error: 'Company profile (Supplier) is required. Please complete it in Settings.' };
+    }
+    supplier = fromProfile;
+  }
+
   const series = input.series ?? DEFAULT_SERIES[input.docType];
   const calc = calculateInvoice(input.lineItems);
+  const currency = input.currency ?? 'EUR';
+  const words =
+    input.amountInWords?.trim() ||
+    amountInWordsBg(calc.totals.totalGross, currency);
 
   // Validate the prospective document
   const doc: InvoiceDocument = {
@@ -205,9 +258,9 @@ export async function createInvoiceDraft(
     number: null,
     issueDate: input.issueDate,
     supplyDate: input.supplyDate ?? null,
-    currency: input.currency ?? 'EUR',
+    currency,
     fxRate: input.fxRate ?? 1,
-    supplier: input.supplier,
+    supplier,
     recipient: input.recipient,
     items: calc.items,
     totals: calc.totals,
@@ -247,13 +300,22 @@ export async function createInvoiceDraft(
     number: null,
     issueDate: input.issueDate,
     supplyDate: input.supplyDate ?? null,
-    currency: input.currency ?? 'EUR',
+    currency,
     fxRate: String(input.fxRate ?? 1),
-    supplierSnapshot: input.supplier,
+    supplierSnapshot: supplier,
     recipientSnapshot: input.recipient,
     items: calc.items,
     totals: calc.totals,
     referencedInvoiceId: input.referencedInvoiceId ?? null,
+    language: input.language ?? 'bg',
+    paymentMethod: input.paymentMethod ?? 'bank',
+    paymentStatus: input.paymentStatus ?? 'unpaid',
+    dueDate: input.dueDate ?? null,
+    vatMode: input.vatMode ?? 'standard',
+    noVatReason: input.noVatReason ?? null,
+    amountInWords: words,
+    customerNote: input.customerNote ?? null,
+    internalComment: input.internalComment ?? null,
   };
 
   const [created] = await db.insert(invoices).values(newRow).returning();
@@ -353,6 +415,15 @@ export async function updateInvoiceDraft(
       referencedInvoiceId: input.referencedInvoiceId !== undefined
         ? input.referencedInvoiceId
         : existing.referencedInvoiceId,
+      ...(input.language !== undefined && { language: input.language }),
+      ...(input.paymentMethod !== undefined && { paymentMethod: input.paymentMethod }),
+      ...(input.paymentStatus !== undefined && { paymentStatus: input.paymentStatus }),
+      ...(input.dueDate !== undefined && { dueDate: input.dueDate ?? null }),
+      ...(input.vatMode !== undefined && { vatMode: input.vatMode }),
+      ...(input.noVatReason !== undefined && { noVatReason: input.noVatReason ?? null }),
+      ...(input.amountInWords !== undefined && { amountInWords: input.amountInWords ?? null }),
+      ...(input.customerNote !== undefined && { customerNote: input.customerNote ?? null }),
+      ...(input.internalComment !== undefined && { internalComment: input.internalComment ?? null }),
       updatedAt: new Date(),
     })
     .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
@@ -403,6 +474,12 @@ export async function finalizeInvoice(
     return { error: 'Validation failed', validationErrors: vr.errors };
   }
 
+  const totals = (existing.totals ?? { totalGross: 0 }) as InvoiceTotals;
+  const currency = existing.currency ?? 'EUR';
+  const amountInWords =
+    existing.amountInWords?.trim() ||
+    amountInWordsBg(totals.totalGross, currency);
+
   // Atomic: allocate number + update invoice within a transaction
   const result = await db.transaction(async (tx) => {
     const allocatedNumber = await allocateNumber(tx, teamId, existing.series);
@@ -412,6 +489,7 @@ export async function finalizeInvoice(
       .set({
         status: 'issued',
         number: allocatedNumber,
+        amountInWords: amountInWords || undefined,
         updatedAt: new Date(),
       })
       .where(
@@ -676,11 +754,23 @@ export async function listInvoices(
   if (filters.docType) {
     conditions.push(eq(invoices.docType, filters.docType));
   }
+  if (filters.paymentStatus) {
+    conditions.push(eq(invoices.paymentStatus, filters.paymentStatus));
+  }
   if (filters.dateFrom) {
     conditions.push(gte(invoices.issueDate, filters.dateFrom));
   }
   if (filters.dateTo) {
     conditions.push(lte(invoices.issueDate, filters.dateTo));
+  }
+  if (filters.search?.trim()) {
+    const term = `%${filters.search.trim()}%`;
+    conditions.push(
+      or(
+        sql`${invoices.number}::text LIKE ${term}`,
+        sql`${invoices.recipientSnapshot}->>'legalName' ILIKE ${term}`
+      )
+    );
   }
 
   const where = and(...conditions);

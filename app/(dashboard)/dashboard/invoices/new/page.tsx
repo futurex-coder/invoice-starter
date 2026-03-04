@@ -21,7 +21,9 @@ import {
   updateInvoiceDraft,
   finalizeInvoice,
   getInvoice,
+  getInvoiceLines,
 } from '@/src/features/bulgarian-invoicing/actions';
+import type { RecipientInput, LineItemWithArticle } from '@/src/features/bulgarian-invoicing/actions';
 import { calculateInvoice, amountInWordsBg } from '@/src/features/bulgarian-invoicing';
 import type { PartySnapshot, LineItemInput, BgVatRate } from '@/src/features/bulgarian-invoicing/types';
 import type { TeamCompanyProfile } from '@/lib/db/schema';
@@ -35,14 +37,19 @@ const PAYMENT_METHODS = ['bank', 'cash', 'barter'] as const;
 const LANGUAGES = [{ value: 'bg', label: 'Български' }, { value: 'en', label: 'English' }];
 const CURRENCIES = ['BGN', 'EUR'];
 
-function partnerToSnapshot(p: Partner): PartySnapshot {
-  const address = [p.street, [p.postCode, p.city].filter(Boolean).join(' '), p.country].filter(Boolean).join(', ');
-  return {
-    legalName: p.name,
-    address,
-    uic: p.eik,
-    vatNumber: p.vatNumber ?? null,
-  };
+interface RecipientForm {
+  name: string;
+  eik: string;
+  vatNumber: string;
+  country: string;
+  city: string;
+  street: string;
+  postCode: string;
+  mol: string;
+}
+
+interface LineItemForm extends LineItemInput {
+  articleId: number | null;
 }
 
 function buildSupplierSnapshot(profile: TeamCompanyProfile): PartySnapshot {
@@ -55,20 +62,25 @@ function buildSupplierSnapshot(profile: TeamCompanyProfile): PartySnapshot {
   };
 }
 
-const emptyRecipient: PartySnapshot = {
-  legalName: '',
-  address: '',
-  uic: '',
-  vatNumber: null,
+const emptyRecipient: RecipientForm = {
+  name: '',
+  eik: '',
+  vatNumber: '',
+  country: 'BG',
+  city: '',
+  street: '',
+  postCode: '',
+  mol: '',
 };
 
-const defaultLineItem: LineItemInput = {
+const defaultLineItem: LineItemForm = {
   description: '',
   quantity: 1,
   unit: 'бр.',
   unitPrice: 0,
   vatRate: 20,
   discountPercent: 0,
+  articleId: null,
 };
 
 export default function NewInvoicePage() {
@@ -85,7 +97,7 @@ export default function NewInvoicePage() {
   const [validationErrors, setValidationErrors] = useState<{ field: string; message: string }[]>([]);
 
   // Form state
-  const [recipient, setRecipient] = useState<PartySnapshot>(emptyRecipient);
+  const [recipient, setRecipient] = useState<RecipientForm>(emptyRecipient);
   const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>('');
   const [docType, setDocType] = useState<string>('invoice');
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -93,7 +105,7 @@ export default function NewInvoicePage() {
   const [language, setLanguage] = useState('bg');
   const [currency, setCurrency] = useState('EUR');
   const [fxRate, setFxRate] = useState(1);
-  const [lineItems, setLineItems] = useState<LineItemInput[]>([{ ...defaultLineItem }]);
+  const [lineItems, setLineItems] = useState<LineItemForm[]>([{ ...defaultLineItem }]);
   const [vatMode, setVatMode] = useState<'standard' | 'no_vat'>('standard');
   const [noVatReason, setNoVatReason] = useState('');
   const [amountInWordsOverride, setAmountInWordsOverride] = useState('');
@@ -145,32 +157,76 @@ export default function NewInvoicePage() {
         return;
       }
       setDraftId(inv.id);
-      const rec = (inv.recipientSnapshot ?? {}) as PartySnapshot;
-      setRecipient({
-        legalName: rec.legalName ?? '',
-        address: rec.address ?? '',
-        uic: rec.uic ?? '',
-        vatNumber: rec.vatNumber ?? null,
-      });
+
+      // Load structured recipient from partner FK or fallback to snapshot
+      if (inv.partnerId) {
+        setSelectedPartnerId(inv.partnerId);
+        const partner = partnersRes.data?.items.find((p) => p.id === inv.partnerId);
+        if (partner) {
+          setRecipient({
+            name: partner.name,
+            eik: partner.eik,
+            vatNumber: partner.vatNumber ?? '',
+            country: partner.country,
+            city: partner.city,
+            street: partner.street,
+            postCode: partner.postCode ?? '',
+            mol: partner.mol ?? '',
+          });
+        }
+      } else {
+        const rec = (inv.recipientSnapshot ?? {}) as PartySnapshot;
+        setRecipient({
+          name: rec.legalName ?? '',
+          eik: rec.uic ?? '',
+          vatNumber: rec.vatNumber ?? '',
+          country: 'BG',
+          city: '',
+          street: rec.address ?? '',
+          postCode: '',
+          mol: '',
+        });
+      }
+
       setDocType(inv.docType ?? 'invoice');
       setIssueDate(inv.issueDate ?? issueDate);
       setSupplyDate(inv.supplyDate ?? inv.issueDate ?? supplyDate);
       setLanguage(inv.language ?? 'bg');
       setCurrency(inv.currency ?? 'EUR');
       setFxRate(Number(inv.fxRate ?? 1));
-      const items = (inv.items ?? []) as Array<LineItemInput & { sortOrder?: number }>;
-      setLineItems(
-        items.length
-          ? items.map((i) => ({
-              description: i.description,
-              quantity: i.quantity,
-              unit: i.unit,
-              unitPrice: i.unitPrice,
-              vatRate: (i.vatRate ?? 20) as BgVatRate,
-              discountPercent: i.discountPercent ?? 0,
-            }))
-          : [{ ...defaultLineItem }]
-      );
+
+      // Load line items from invoice_lines (with articleId) or fallback to JSONB
+      const linesRes = await getInvoiceLines(editId);
+      const dbLines = linesRes.data ?? [];
+      if (dbLines.length > 0) {
+        setLineItems(
+          dbLines.map((l) => ({
+            description: l.description,
+            quantity: Number(l.quantity),
+            unit: l.unit,
+            unitPrice: Number(l.unitPrice),
+            vatRate: (l.vatRate ?? 20) as BgVatRate,
+            discountPercent: Number(l.discountPercent ?? 0),
+            articleId: l.articleId ?? null,
+          }))
+        );
+      } else {
+        const items = (inv.items ?? []) as Array<LineItemInput & { sortOrder?: number }>;
+        setLineItems(
+          items.length
+            ? items.map((i) => ({
+                description: i.description,
+                quantity: i.quantity,
+                unit: i.unit,
+                unitPrice: i.unitPrice,
+                vatRate: (i.vatRate ?? 20) as BgVatRate,
+                discountPercent: i.discountPercent ?? 0,
+                articleId: null,
+              }))
+            : [{ ...defaultLineItem }]
+        );
+      }
+
       setVatMode((inv.vatMode as 'standard' | 'no_vat') ?? 'standard');
       setNoVatReason(inv.noVatReason ?? '');
       setAmountInWordsOverride(inv.amountInWords ?? '');
@@ -188,9 +244,23 @@ export default function NewInvoicePage() {
 
   const handlePartnerSelect = (id: number | '') => {
     setSelectedPartnerId(id);
-    if (id === '') return;
+    if (id === '') {
+      setRecipient(emptyRecipient);
+      return;
+    }
     const p = partners.find((x) => x.id === id);
-    if (p) setRecipient(partnerToSnapshot(p));
+    if (p) {
+      setRecipient({
+        name: p.name,
+        eik: p.eik,
+        vatNumber: p.vatNumber ?? '',
+        country: p.country,
+        city: p.city,
+        street: p.street,
+        postCode: p.postCode ?? '',
+        mol: p.mol ?? '',
+      });
+    }
   };
 
   const handleSaveDraft = async () => {
@@ -202,17 +272,33 @@ export default function NewInvoicePage() {
     setError(null);
     setValidationErrors([]);
     const supplier = buildSupplierSnapshot(companyProfile);
-    const itemsWithVat = lineItems.map((item) => ({
-      ...item,
+    const itemsWithVat: LineItemWithArticle[] = lineItems.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unit: item.unit,
+      unitPrice: item.unitPrice,
       vatRate: effectiveVatRate as BgVatRate,
+      discountPercent: item.discountPercent,
+      articleId: item.articleId,
     }));
+    const recipientInput: RecipientInput = {
+      partnerId: selectedPartnerId || undefined,
+      name: recipient.name,
+      eik: recipient.eik,
+      vatNumber: recipient.vatNumber || null,
+      country: recipient.country || 'BG',
+      city: recipient.city,
+      street: recipient.street,
+      postCode: recipient.postCode || null,
+      mol: recipient.mol || null,
+    };
     const payload = {
       docType: docType as 'invoice' | 'proforma' | 'credit_note' | 'debit_note',
       issueDate,
       supplyDate: supplyDate || null,
       currency,
       fxRate,
-      recipient,
+      recipient: recipientInput,
       lineItems: itemsWithVat,
       language,
       paymentMethod,
@@ -272,7 +358,7 @@ export default function NewInvoicePage() {
     setLineItems((prev) => [...prev, { ...defaultLineItem, vatRate: effectiveVatRate as BgVatRate }]);
   };
 
-  const updateLine = (index: number, patch: Partial<LineItemInput>) => {
+  const updateLine = (index: number, patch: Partial<LineItemForm>) => {
     setLineItems((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], ...patch };
@@ -345,8 +431,8 @@ export default function NewInvoicePage() {
               <Label htmlFor="recipientName">Name *</Label>
               <Input
                 id="recipientName"
-                value={recipient.legalName}
-                onChange={(e) => setRecipient((r) => ({ ...r, legalName: e.target.value }))}
+                value={recipient.name}
+                onChange={(e) => setRecipient((r) => ({ ...r, name: e.target.value }))}
                 placeholder="Legal name"
               />
             </div>
@@ -355,8 +441,8 @@ export default function NewInvoicePage() {
               <div className="flex gap-2">
                 <Input
                   id="recipientEik"
-                  value={recipient.uic}
-                  onChange={(e) => setRecipient((r) => ({ ...r, uic: e.target.value }))}
+                  value={recipient.eik}
+                  onChange={(e) => setRecipient((r) => ({ ...r, eik: e.target.value }))}
                   placeholder="9 or 10 digits"
                 />
                 <Button
@@ -371,21 +457,62 @@ export default function NewInvoicePage() {
               </div>
             </div>
           </div>
-          <div>
-            <Label htmlFor="recipientAddress">Address *</Label>
-            <Input
-              id="recipientAddress"
-              value={recipient.address}
-              onChange={(e) => setRecipient((r) => ({ ...r, address: e.target.value }))}
-              placeholder="Street, post code, city, country"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="recipientCity">City *</Label>
+              <Input
+                id="recipientCity"
+                value={recipient.city}
+                onChange={(e) => setRecipient((r) => ({ ...r, city: e.target.value }))}
+                placeholder="City"
+              />
+            </div>
+            <div>
+              <Label htmlFor="recipientStreet">Street *</Label>
+              <Input
+                id="recipientStreet"
+                value={recipient.street}
+                onChange={(e) => setRecipient((r) => ({ ...r, street: e.target.value }))}
+                placeholder="Street address"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="recipientPostCode">Post code</Label>
+              <Input
+                id="recipientPostCode"
+                value={recipient.postCode}
+                onChange={(e) => setRecipient((r) => ({ ...r, postCode: e.target.value }))}
+                placeholder="1000"
+              />
+            </div>
+            <div>
+              <Label htmlFor="recipientCountry">Country</Label>
+              <Input
+                id="recipientCountry"
+                value={recipient.country}
+                onChange={(e) => setRecipient((r) => ({ ...r, country: e.target.value }))}
+                placeholder="BG"
+                maxLength={2}
+              />
+            </div>
+            <div>
+              <Label htmlFor="recipientMol">MOL</Label>
+              <Input
+                id="recipientMol"
+                value={recipient.mol}
+                onChange={(e) => setRecipient((r) => ({ ...r, mol: e.target.value }))}
+                placeholder="Representative"
+              />
+            </div>
           </div>
           <div>
             <Label htmlFor="recipientVat">VAT number (optional)</Label>
             <Input
               id="recipientVat"
-              value={recipient.vatNumber ?? ''}
-              onChange={(e) => setRecipient((r) => ({ ...r, vatNumber: e.target.value || null }))}
+              value={recipient.vatNumber}
+              onChange={(e) => setRecipient((r) => ({ ...r, vatNumber: e.target.value }))}
               placeholder="BG123456789"
             />
           </div>
@@ -538,22 +665,25 @@ export default function NewInvoicePage() {
                         <div className="space-y-1">
                           <select
                             className="w-full max-w-[200px] h-8 rounded border px-2 text-sm"
-                            value={articles.some((a) => a.name === line.description) ? line.description : ''}
+                            value={line.articleId ? String(line.articleId) : ''}
                             onChange={(e) => {
                               const val = e.target.value;
-                              const art = articles.find((a) => a.name === val);
+                              const art = articles.find((a) => a.id === Number(val));
                               if (art) {
                                 updateLine(i, {
+                                  articleId: art.id,
                                   description: art.name,
                                   unit: art.unit,
                                   unitPrice: Number(art.defaultUnitPrice),
                                 });
+                              } else {
+                                updateLine(i, { articleId: null });
                               }
                             }}
                           >
                             <option value="">From article...</option>
                             {articles.map((a) => (
-                              <option key={a.id} value={a.name}>
+                              <option key={a.id} value={String(a.id)}>
                                 {a.name}
                               </option>
                             ))}

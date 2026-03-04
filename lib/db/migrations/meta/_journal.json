@@ -29,6 +29,13 @@
       "when": 1772296526914,
       "tag": "0003_gorgeous_skin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772531200000,
+      "tag": "0004_invoice_relational",
+      "breakpoints": true
     }
   ]
 }

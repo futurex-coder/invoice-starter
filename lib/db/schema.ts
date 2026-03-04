@@ -207,6 +207,14 @@ export const invoices = pgTable(
     }),
     referencedInvoiceId: integer('referenced_invoice_id'),
 
+    partnerId: integer('partner_id').references(() => partners.id, {
+      onDelete: 'set null',
+    }),
+    supplierProfileId: integer('supplier_profile_id').references(
+      () => teamCompanyProfiles.id,
+      { onDelete: 'set null' }
+    ),
+
     docType: varchar('doc_type', { length: 30 }).notNull().default('invoice'),
     status: varchar('status', { length: 20 }).notNull().default('draft'),
 
@@ -252,6 +260,52 @@ export const invoices = pgTable(
     index('idx_invoices_created_by_user_id')
       .on(t.createdByUserId)
       .where(sql`${t.createdByUserId} IS NOT NULL`),
+    index('idx_invoices_partner_id')
+      .on(t.partnerId)
+      .where(sql`${t.partnerId} IS NOT NULL`),
+  ]
+);
+
+export const invoiceLines = pgTable(
+  'invoice_lines',
+  {
+    id: serial('id').primaryKey(),
+    invoiceId: integer('invoice_id')
+      .notNull()
+      .references(() => invoices.id, { onDelete: 'cascade' }),
+    articleId: integer('article_id').references(() => articles.id, {
+      onDelete: 'set null',
+    }),
+    sortOrder: integer('sort_order').notNull().default(0),
+
+    description: varchar('description', { length: 500 }).notNull(),
+    quantity: numeric('quantity', { precision: 15, scale: 4 }).notNull(),
+    unit: varchar('unit', { length: 20 }).notNull().default('бр.'),
+    unitPrice: numeric('unit_price', { precision: 15, scale: 4 }).notNull(),
+    vatRate: integer('vat_rate').notNull().default(20),
+    discountPercent: numeric('discount_percent', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    discountAmount: numeric('discount_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    netAmount: numeric('net_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    vatAmount: numeric('vat_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    grossAmount: numeric('gross_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('idx_invoice_lines_invoice_id').on(t.invoiceId),
+    index('idx_invoice_lines_article_id')
+      .on(t.articleId)
+      .where(sql`${t.articleId} IS NOT NULL`),
   ]
 );
 
@@ -264,6 +318,7 @@ export const teamsRelations = relations(teams, ({ one, many }) => ({
   articles: many(articles),
   invoiceSequences: many(invoiceSequences),
   invoices: many(invoices),
+  invoiceLines: many(invoiceLines),
 }));
 
 export const teamCompanyProfilesRelations = relations(
@@ -276,18 +331,20 @@ export const teamCompanyProfilesRelations = relations(
   })
 );
 
-export const partnersRelations = relations(partners, ({ one }) => ({
+export const partnersRelations = relations(partners, ({ one, many }) => ({
   team: one(teams, {
     fields: [partners.teamId],
     references: [teams.id],
   }),
+  invoices: many(invoices),
 }));
 
-export const articlesRelations = relations(articles, ({ one }) => ({
+export const articlesRelations = relations(articles, ({ one, many }) => ({
   team: one(teams, {
     fields: [articles.teamId],
     references: [teams.id],
   }),
+  invoiceLines: many(invoiceLines),
 }));
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -357,6 +414,26 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   creditNotes: many(invoices, {
     relationName: 'invoiceReferences',
   }),
+  partner: one(partners, {
+    fields: [invoices.partnerId],
+    references: [partners.id],
+  }),
+  supplierProfile: one(teamCompanyProfiles, {
+    fields: [invoices.supplierProfileId],
+    references: [teamCompanyProfiles.id],
+  }),
+  lines: many(invoiceLines),
+}));
+
+export const invoiceLinesRelations = relations(invoiceLines, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceLines.invoiceId],
+    references: [invoices.id],
+  }),
+  article: one(articles, {
+    fields: [invoiceLines.articleId],
+    references: [articles.id],
+  }),
 }));
 
 export type User = typeof users.$inferSelect;
@@ -379,6 +456,8 @@ export type InvoiceSequence = typeof invoiceSequences.$inferSelect;
 export type NewInvoiceSequence = typeof invoiceSequences.$inferInsert;
 export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
+export type InvoiceLine = typeof invoiceLines.$inferSelect;
+export type NewInvoiceLine = typeof invoiceLines.$inferInsert;
 export type TeamDataWithMembers = Team & {
   teamMembers: (TeamMember & {
     user: Pick<User, 'id' | 'name' | 'email'>;

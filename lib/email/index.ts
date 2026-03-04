@@ -14,7 +14,7 @@ export async function sendInvitationEmail(to: string, teamName: string, role: st
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to,
-    subject: `Join ${teamName} on Next.js SaaS Starter`,
+    subject: `Join ${teamName} on Invoice Manager`,
     text: `You've been invited to join ${teamName} as a ${role}. Accept here: ${inviteLink}`,
     html: `
       <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">

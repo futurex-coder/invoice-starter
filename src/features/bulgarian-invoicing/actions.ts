@@ -4,12 +4,16 @@ import { and, eq, desc, sql, ilike, gte, lte, or } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import {
   invoices,
+  invoiceLines,
   invoiceSequences,
   teamCompanyProfiles,
+  partners,
+  articles,
   activityLogs,
   ActivityType,
   type Invoice,
   type NewInvoice,
+  type InvoiceLine,
 } from '@/lib/db/schema';
 import { getUser, getUserWithTeam } from '@/lib/db/queries';
 import { calculateInvoice } from './calculator';
@@ -36,6 +40,23 @@ interface ActionResult<T = undefined> {
   data?: T;
 }
 
+export interface RecipientInput {
+  partnerId?: number | null;
+  name: string;
+  eik: string;
+  vatNumber?: string | null;
+  isIndividual?: boolean;
+  country?: string;
+  city: string;
+  street: string;
+  postCode?: string | null;
+  mol?: string | null;
+}
+
+export interface LineItemWithArticle extends LineItemInput {
+  articleId?: number | null;
+}
+
 interface CreateInvoiceDraftInput {
   docType: DocType;
   series?: string;
@@ -45,8 +66,8 @@ interface CreateInvoiceDraftInput {
   fxRate?: number;
   /** If omitted, fetched from team company profile */
   supplier?: PartySnapshot;
-  recipient: PartySnapshot;
-  lineItems: LineItemInput[];
+  recipient: RecipientInput;
+  lineItems: LineItemWithArticle[];
   referencedInvoiceId?: number | null;
   language?: string;
   paymentMethod?: string;
@@ -65,8 +86,8 @@ interface UpdateInvoiceDraftInput {
   currency?: string;
   fxRate?: number;
   supplier?: PartySnapshot;
-  recipient?: PartySnapshot;
-  lineItems?: LineItemInput[];
+  recipient?: RecipientInput;
+  lineItems?: LineItemWithArticle[];
   referencedInvoiceId?: number | null;
   language?: string;
   paymentMethod?: string;
@@ -85,8 +106,8 @@ interface NoteOverrides {
   currency?: string;
   fxRate?: number;
   supplier?: PartySnapshot;
-  recipient?: PartySnapshot;
-  lineItems?: LineItemInput[];
+  recipient?: RecipientInput;
+  lineItems?: LineItemWithArticle[];
 }
 
 export interface ListInvoicesFilters {
@@ -175,20 +196,159 @@ async function allocateNumber(
 // Supplier from team company profile
 // ---------------------------------------------------------------------------
 
-async function getSupplierFromCompanyProfile(teamId: number): Promise<PartySnapshot | null> {
+async function getSupplierProfile(teamId: number) {
   const [profile] = await db
     .select()
     .from(teamCompanyProfiles)
     .where(eq(teamCompanyProfiles.teamId, teamId))
     .limit(1);
-  if (!profile) return null;
-  const address = [profile.street, [profile.postCode, profile.city].filter(Boolean).join(' '), profile.country].filter(Boolean).join(', ');
+  return profile ?? null;
+}
+
+function profileToSnapshot(profile: {
+  legalName: string;
+  street: string;
+  postCode: string | null;
+  city: string;
+  country: string;
+  eik: string;
+  vatNumber: string | null;
+}): PartySnapshot {
+  const address = [
+    profile.street,
+    [profile.postCode, profile.city].filter(Boolean).join(' '),
+    profile.country,
+  ]
+    .filter(Boolean)
+    .join(', ');
   return {
     legalName: profile.legalName,
     address,
     uic: profile.eik,
     vatNumber: profile.vatNumber ?? null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Recipient → PartySnapshot + auto-create partner
+// ---------------------------------------------------------------------------
+
+function recipientInputToSnapshot(r: RecipientInput): PartySnapshot {
+  const address = [
+    r.street,
+    [r.postCode, r.city].filter(Boolean).join(' '),
+    r.country || 'BG',
+  ]
+    .filter(Boolean)
+    .join(', ');
+  return {
+    legalName: r.name,
+    address,
+    uic: r.eik,
+    vatNumber: r.vatNumber ?? null,
+  };
+}
+
+async function resolvePartner(
+  teamId: number,
+  input: RecipientInput
+): Promise<number | null> {
+  if (input.partnerId) return input.partnerId;
+  if (!input.eik?.trim()) return null;
+
+  const [existing] = await db
+    .select()
+    .from(partners)
+    .where(and(eq(partners.teamId, teamId), eq(partners.eik, input.eik.trim())))
+    .limit(1);
+
+  if (existing) return existing.id;
+
+  const [created] = await db
+    .insert(partners)
+    .values({
+      teamId,
+      name: input.name,
+      eik: input.eik.trim(),
+      vatNumber: input.vatNumber ?? null,
+      isIndividual: input.isIndividual ?? false,
+      country: (input.country as string) ?? 'BG',
+      city: input.city || '-',
+      street: input.street || '-',
+      postCode: input.postCode ?? null,
+      mol: input.mol ?? null,
+    })
+    .returning();
+
+  return created?.id ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Article auto-create from line item
+// ---------------------------------------------------------------------------
+
+async function resolveArticle(
+  teamId: number,
+  line: LineItemWithArticle,
+  currency: string
+): Promise<number | null> {
+  if (line.articleId) return line.articleId;
+  if (!line.description?.trim()) return null;
+
+  const trimmed = line.description.trim();
+  const [existing] = await db
+    .select()
+    .from(articles)
+    .where(and(eq(articles.teamId, teamId), eq(articles.name, trimmed)))
+    .limit(1);
+
+  if (existing) return existing.id;
+
+  const [created] = await db
+    .insert(articles)
+    .values({
+      teamId,
+      name: trimmed,
+      unit: line.unit || 'бр.',
+      defaultUnitPrice: String(line.unitPrice ?? 0),
+      currency,
+      type: 'service',
+    })
+    .returning();
+
+  return created?.id ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Save invoice_lines rows
+// ---------------------------------------------------------------------------
+
+async function saveInvoiceLines(
+  invoiceId: number,
+  calcItems: LineItem[],
+  articleIds: (number | null)[]
+): Promise<void> {
+  await db.delete(invoiceLines).where(eq(invoiceLines.invoiceId, invoiceId));
+
+  if (calcItems.length === 0) return;
+
+  await db.insert(invoiceLines).values(
+    calcItems.map((item, i) => ({
+      invoiceId,
+      articleId: articleIds[i] ?? null,
+      sortOrder: item.sortOrder,
+      description: item.description,
+      quantity: String(item.quantity),
+      unit: item.unit,
+      unitPrice: String(item.unitPrice),
+      vatRate: item.vatRate,
+      discountPercent: String(item.discountPercent ?? 0),
+      discountAmount: String(item.discountAmount),
+      netAmount: String(item.netAmount),
+      vatAmount: String(item.vatAmount),
+      grossAmount: String(item.grossAmount),
+    }))
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -232,16 +392,17 @@ export async function createInvoiceDraft(
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
   const { teamId } = await requireTeamMembership(user.id);
-  // Members and owners can create drafts
 
+  const profile = await getSupplierProfile(teamId);
   let supplier = input.supplier;
   if (!supplier) {
-    const fromProfile = await getSupplierFromCompanyProfile(teamId);
-    if (!fromProfile) {
+    if (!profile) {
       return { error: 'Company profile (Supplier) is required. Please complete it in Settings.' };
     }
-    supplier = fromProfile;
+    supplier = profileToSnapshot(profile);
   }
+
+  const recipientSnapshot = recipientInputToSnapshot(input.recipient);
 
   const series = input.series ?? DEFAULT_SERIES[input.docType];
   const calc = calculateInvoice(input.lineItems);
@@ -250,7 +411,6 @@ export async function createInvoiceDraft(
     input.amountInWords?.trim() ||
     amountInWordsBg(calc.totals.totalGross, currency);
 
-  // Validate the prospective document
   const doc: InvoiceDocument = {
     docType: input.docType,
     status: 'draft',
@@ -261,7 +421,7 @@ export async function createInvoiceDraft(
     currency,
     fxRate: input.fxRate ?? 1,
     supplier,
-    recipient: input.recipient,
+    recipient: recipientSnapshot,
     items: calc.items,
     totals: calc.totals,
     referencedInvoiceNumber: input.referencedInvoiceId
@@ -274,7 +434,6 @@ export async function createInvoiceDraft(
     return { error: 'Validation failed', validationErrors: vr.errors };
   }
 
-  // Verify referenced invoice belongs to same team
   if (input.referencedInvoiceId) {
     const [ref] = await db
       .select({ id: invoices.id })
@@ -291,9 +450,19 @@ export async function createInvoiceDraft(
     }
   }
 
+  // Resolve partner (find or auto-create)
+  const partnerId = await resolvePartner(teamId, input.recipient);
+
+  // Resolve articles per line item (find or auto-create)
+  const articleIds = await Promise.all(
+    input.lineItems.map((l) => resolveArticle(teamId, l, currency))
+  );
+
   const newRow: NewInvoice = {
     teamId,
     createdByUserId: user.id,
+    partnerId,
+    supplierProfileId: profile?.id ?? null,
     docType: input.docType,
     status: 'draft',
     series,
@@ -303,7 +472,7 @@ export async function createInvoiceDraft(
     currency,
     fxRate: String(input.fxRate ?? 1),
     supplierSnapshot: supplier,
-    recipientSnapshot: input.recipient,
+    recipientSnapshot: recipientSnapshot,
     items: calc.items,
     totals: calc.totals,
     referencedInvoiceId: input.referencedInvoiceId ?? null,
@@ -320,6 +489,9 @@ export async function createInvoiceDraft(
 
   const [created] = await db.insert(invoices).values(newRow).returning();
 
+  // Save relational line items
+  await saveInvoiceLines(created.id, calc.items, articleIds);
+
   await logInvoiceActivity(teamId, user.id, ActivityType.CREATE_INVOICE);
 
   return { data: created };
@@ -335,7 +507,6 @@ export async function updateInvoiceDraft(
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
   const { teamId } = await requireTeamMembership(user.id);
-  // Members and owners can update drafts
 
   const [existing] = await db
     .select()
@@ -351,7 +522,9 @@ export async function updateInvoiceDraft(
   }
 
   const supplier = input.supplier ?? (existing.supplierSnapshot as PartySnapshot);
-  const recipient = input.recipient ?? (existing.recipientSnapshot as PartySnapshot);
+  const recipientSnapshot = input.recipient
+    ? recipientInputToSnapshot(input.recipient)
+    : (existing.recipientSnapshot as PartySnapshot);
   const lineItemInputs = input.lineItems;
   const calc = lineItemInputs
     ? calculateInvoice(lineItemInputs)
@@ -372,7 +545,7 @@ export async function updateInvoiceDraft(
     currency,
     fxRate,
     supplier,
-    recipient,
+    recipient: recipientSnapshot,
     items: calc.items,
     totals: calc.totals,
     referencedInvoiceNumber: existing.referencedInvoiceId
@@ -401,6 +574,20 @@ export async function updateInvoiceDraft(
     }
   }
 
+  // Resolve partner if recipient was provided
+  let partnerId: number | null | undefined;
+  if (input.recipient) {
+    partnerId = await resolvePartner(teamId, input.recipient);
+  }
+
+  // Resolve articles per line item if items were provided
+  let articleIds: (number | null)[] | undefined;
+  if (lineItemInputs) {
+    articleIds = await Promise.all(
+      lineItemInputs.map((l) => resolveArticle(teamId, l, currency))
+    );
+  }
+
   const [updated] = await db
     .update(invoices)
     .set({
@@ -409,9 +596,10 @@ export async function updateInvoiceDraft(
       currency,
       fxRate: String(fxRate),
       supplierSnapshot: supplier,
-      recipientSnapshot: recipient,
+      recipientSnapshot: recipientSnapshot,
       items: calc.items,
       totals: calc.totals,
+      ...(partnerId !== undefined && { partnerId }),
       referencedInvoiceId: input.referencedInvoiceId !== undefined
         ? input.referencedInvoiceId
         : existing.referencedInvoiceId,
@@ -428,6 +616,11 @@ export async function updateInvoiceDraft(
     })
     .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
     .returning();
+
+  // Re-save relational line items if items were provided
+  if (lineItemInputs && articleIds) {
+    await saveInvoiceLines(invoiceId, calc.items, articleIds);
+  }
 
   await logInvoiceActivity(teamId, user.id, ActivityType.UPDATE_INVOICE);
 
@@ -616,8 +809,12 @@ async function createNoteFromInvoice(
 
   const supplier = overrides?.supplier
     ?? (original.supplierSnapshot as PartySnapshot);
-  const recipient = overrides?.recipient
-    ?? (original.recipientSnapshot as PartySnapshot);
+
+  // Build recipient snapshot: from overrides or copy from original
+  const recipientSnapshot = overrides?.recipient
+    ? recipientInputToSnapshot(overrides.recipient)
+    : (original.recipientSnapshot as PartySnapshot);
+
   const issueDate = overrides?.issueDate ?? today;
   const supplyDate = overrides?.supplyDate !== undefined
     ? overrides.supplyDate
@@ -625,14 +822,22 @@ async function createNoteFromInvoice(
   const currency = overrides?.currency ?? original.currency;
   const fxRate = overrides?.fxRate ?? Number(original.fxRate);
 
-  const lineItemInputs: LineItemInput[] = overrides?.lineItems
-    ?? (original.items as LineItem[]).map((item): LineItemInput => ({
+  // Load original invoice_lines to get article IDs
+  const originalLines = await db
+    .select()
+    .from(invoiceLines)
+    .where(eq(invoiceLines.invoiceId, originalInvoiceId))
+    .orderBy(invoiceLines.sortOrder);
+
+  const lineItemInputs: LineItemWithArticle[] = overrides?.lineItems
+    ?? (original.items as LineItem[]).map((item, i): LineItemWithArticle => ({
         description: item.description,
         quantity: item.quantity,
         unit: item.unit,
         unitPrice: item.unitPrice,
         vatRate: item.vatRate,
         discountPercent: item.discountPercent ?? 0,
+        articleId: originalLines[i]?.articleId ?? null,
       }));
 
   const calc = calculateInvoice(lineItemInputs);
@@ -651,7 +856,7 @@ async function createNoteFromInvoice(
     currency,
     fxRate,
     supplier,
-    recipient,
+    recipient: recipientSnapshot,
     items: calc.items,
     totals: calc.totals,
     referencedInvoiceNumber: refNumber,
@@ -666,6 +871,14 @@ async function createNoteFromInvoice(
     ? ActivityType.CREATE_CREDIT_NOTE
     : ActivityType.CREATE_DEBIT_NOTE;
 
+  // Resolve partner from original or override
+  const partnerId = overrides?.recipient
+    ? await resolvePartner(teamId, overrides.recipient)
+    : original.partnerId;
+
+  // Resolve article IDs for each line
+  const articleIds = lineItemInputs.map((l) => l.articleId ?? null);
+
   const result = await db.transaction(async (tx) => {
     const allocatedNumber = await allocateNumber(tx, teamId, series);
 
@@ -675,6 +888,8 @@ async function createNoteFromInvoice(
         teamId,
         createdByUserId: user.id,
         referencedInvoiceId: original.id,
+        partnerId: partnerId ?? null,
+        supplierProfileId: original.supplierProfileId,
         docType: noteType,
         status: 'issued',
         series,
@@ -684,7 +899,7 @@ async function createNoteFromInvoice(
         currency,
         fxRate: String(fxRate),
         supplierSnapshot: supplier,
-        recipientSnapshot: recipient,
+        recipientSnapshot: recipientSnapshot,
         items: calc.items,
         totals: calc.totals,
       })
@@ -703,6 +918,9 @@ async function createNoteFromInvoice(
 
     return created;
   });
+
+  // Save relational line items
+  await saveInvoiceLines(result.id, calc.items, articleIds);
 
   return { data: result };
 }
@@ -729,6 +947,36 @@ export async function getInvoice(
   }
 
   return { data: row };
+}
+
+// ---------------------------------------------------------------------------
+// getInvoiceLines
+// ---------------------------------------------------------------------------
+
+export async function getInvoiceLines(
+  invoiceId: number
+): Promise<ActionResult<InvoiceLine[]>> {
+  const user = await requireAuth();
+  const { teamId } = await requireTeamMembership(user.id);
+
+  // Verify invoice belongs to team
+  const [row] = await db
+    .select({ id: invoices.id })
+    .from(invoices)
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
+    .limit(1);
+
+  if (!row) {
+    return { error: 'Invoice not found' };
+  }
+
+  const lines = await db
+    .select()
+    .from(invoiceLines)
+    .where(eq(invoiceLines.invoiceId, invoiceId))
+    .orderBy(invoiceLines.sortOrder);
+
+  return { data: lines };
 }
 
 // ---------------------------------------------------------------------------
@@ -768,7 +1016,8 @@ export async function listInvoices(
     conditions.push(
       or(
         sql`${invoices.number}::text LIKE ${term}`,
-        sql`${invoices.recipientSnapshot}->>'legalName' ILIKE ${term}`
+        sql`${invoices.recipientSnapshot}->>'legalName' ILIKE ${term}`,
+        sql`EXISTS (SELECT 1 FROM partners p WHERE p.id = ${invoices.partnerId} AND (p.name ILIKE ${term} OR p.eik LIKE ${term}))`
       )
     );
   }

@@ -54,6 +54,8 @@ npx drizzle-kit migrate
 - `0000_soft_the_anarchist.sql` — initial schema (users, teams, etc.)
 - `0001_dear_diamondback.sql` — adds `invoice_sequences` and `invoices` tables
 - `0002_known_kabuki.sql` — adds `team_company_profiles`, `partners`, `articles`; adds invoice columns (`language`, `payment_method`, `payment_status`, `due_date`, `vat_mode`, `no_vat_reason`, `amount_in_words`) and index `idx_invoices_team_payment_status`
+- `0003_gorgeous_skin.sql` — adds `customer_note`, `internal_comment` columns to invoices
+- `0004_invoice_relational.sql` — adds `partner_id`, `supplier_profile_id` FK columns to `invoices`; creates `invoice_lines` table with `article_id` FK (hybrid relational + snapshot model)
 
 ## Verification
 

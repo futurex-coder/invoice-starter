@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -13,12 +14,24 @@ import { customerPortalAction } from '@/lib/payments/actions';
 import { useActionState } from 'react';
 import { TeamDataWithMembers, User } from '@/lib/db/schema';
 import { removeTeamMember, inviteTeamMember } from '@/app/(login)/actions';
+import { useDashboardStatus } from './dashboard-context';
 import useSWR from 'swr';
 import { Suspense } from 'react';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Loader2, PlusCircle } from 'lucide-react';
+import {
+  Loader2,
+  PlusCircle,
+  CheckCircle2,
+  Circle,
+  FileText,
+  Handshake,
+  Package,
+  Building2,
+  Landmark,
+  ArrowRight,
+} from 'lucide-react';
 
 type ActionState = {
   error?: string;
@@ -335,10 +348,127 @@ function InviteTeamMember() {
   );
 }
 
+function OnboardingChecklist() {
+  const data = useDashboardStatus();
+
+  if (!data) return null;
+
+  const items = [
+    {
+      done: data.hasCompanyProfile,
+      label: 'Company profile set up',
+      href: '/dashboard/company',
+      icon: Building2,
+    },
+    {
+      done: data.hasBankDetails,
+      label: 'Add bank details',
+      href: '/dashboard/company',
+      icon: Landmark,
+    },
+    {
+      done: data.articleCount > 0,
+      label: 'Add your first article',
+      href: '/dashboard/articles',
+      icon: Package,
+    },
+    {
+      done: data.partnerCount > 0,
+      label: 'Add your first partner / client',
+      href: '/dashboard/partners',
+      icon: Handshake,
+    },
+    {
+      done: data.invoiceCount > 0,
+      label: 'Create your first invoice',
+      href: '/dashboard/invoices/new',
+      icon: FileText,
+    },
+  ];
+
+  const completedCount = items.filter((i) => i.done).length;
+  const allDone = completedCount === items.length;
+
+  return (
+    <Card className="mb-8">
+      <CardHeader>
+        <CardTitle>
+          Welcome, {data.teamName}!
+        </CardTitle>
+        {!allDone && (
+          <p className="text-sm text-muted-foreground">
+            Complete these steps to get the most out of your account.
+          </p>
+        )}
+      </CardHeader>
+      <CardContent>
+        {allDone ? (
+          <p className="text-sm text-green-600 font-medium">
+            You&apos;re all set! All onboarding steps are complete.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {items.map((item) => (
+              <li key={item.label}>
+                <Link
+                  href={item.href}
+                  className="flex items-center gap-3 group"
+                >
+                  {item.done ? (
+                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                  ) : (
+                    <Circle className="h-5 w-5 text-gray-300 shrink-0" />
+                  )}
+                  <item.icon className="h-4 w-4 text-gray-400 shrink-0" />
+                  <span
+                    className={`text-sm ${
+                      item.done
+                        ? 'text-gray-400 line-through'
+                        : 'text-gray-700 group-hover:text-orange-600'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                  {!item.done && (
+                    <ArrowRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-orange-500 ml-auto" />
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Quick actions */}
+        <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t border-gray-100">
+          <Link href="/dashboard/invoices/new">
+            <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white">
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
+              New Invoice
+            </Button>
+          </Link>
+          <Link href="/dashboard/partners">
+            <Button size="sm" variant="outline">
+              <Handshake className="mr-1.5 h-3.5 w-3.5" />
+              Add Partner
+            </Button>
+          </Link>
+          <Link href="/dashboard/articles">
+            <Button size="sm" variant="outline">
+              <Package className="mr-1.5 h-3.5 w-3.5" />
+              Add Article
+            </Button>
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <section className="flex-1 p-4 lg:p-8">
-      <h1 className="text-lg lg:text-2xl font-medium mb-6">Team Settings</h1>
+      <h1 className="text-lg lg:text-2xl font-medium mb-6">Dashboard</h1>
+      <OnboardingChecklist />
       <Suspense fallback={<SubscriptionSkeleton />}>
         <ManageSubscription />
       </Suspense>

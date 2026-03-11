@@ -7,6 +7,8 @@ import {
   partners,
   articles,
   activityLogs,
+  invoices,
+  teams,
   type TeamCompanyProfile,
   type Partner,
   type Article,
@@ -532,5 +534,66 @@ export async function listArticles(
     return { data: { items: rows, total, page, pageSize } };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to list articles' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// D) Onboarding Status
+// ---------------------------------------------------------------------------
+
+export async function getOnboardingStatus(): Promise<
+  ActionResult<{
+    hasCompanyProfile: boolean;
+    hasBankDetails: boolean;
+    articleCount: number;
+    partnerCount: number;
+    invoiceCount: number;
+    teamName: string;
+  }>
+> {
+  try {
+    const user = await requireAuth();
+    const { teamId } = await requireTeamMembership(user.id);
+
+    const [[profile], [articleResult], [partnerResult], [invoiceResult], [team]] =
+      await Promise.all([
+        db
+          .select()
+          .from(teamCompanyProfiles)
+          .where(eq(teamCompanyProfiles.teamId, teamId))
+          .limit(1),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(articles)
+          .where(eq(articles.teamId, teamId)),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(partners)
+          .where(eq(partners.teamId, teamId)),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(invoices)
+          .where(eq(invoices.teamId, teamId)),
+        db
+          .select({ name: teams.name })
+          .from(teams)
+          .where(eq(teams.id, teamId))
+          .limit(1),
+      ]);
+
+    return {
+      data: {
+        hasCompanyProfile: !!profile?.legalName,
+        hasBankDetails: !!profile?.iban,
+        articleCount: articleResult?.count ?? 0,
+        partnerCount: partnerResult?.count ?? 0,
+        invoiceCount: invoiceResult?.count ?? 0,
+        teamName: team?.name ?? 'Your Team',
+      },
+    };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : 'Failed to load onboarding status',
+    };
   }
 }

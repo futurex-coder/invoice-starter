@@ -6,13 +6,12 @@ import { db } from '@/lib/db/drizzle';
 import {
   User,
   users,
-  teams,
-  teamMembers,
+  companies,
+  companyMembers,
   activityLogs,
   type NewUser,
-  type NewTeam,
-  type NewTeamMember,
-  type NewActivityLog,
+  type NewCompany,
+  type NewCompanyMember,
   ActivityType,
   invitations
 } from '@/lib/db/schema';
@@ -21,7 +20,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { createCheckoutSession } from '@/lib/payments/stripe';
-import { getUser, getUserWithTeam } from '@/lib/db/queries';
+import { getUser, getCompaniesForUser } from '@/lib/db/queries';
 import { sendInvitationEmail } from '@/lib/email';
 import {
   validatedAction,
@@ -29,21 +28,25 @@ import {
 } from '@/lib/auth/middleware';
 
 async function logActivity(
-  teamId: number | null | undefined,
+  companyId: number | null | undefined,
   userId: number,
   type: ActivityType,
   ipAddress?: string
 ) {
-  if (teamId === null || teamId === undefined) {
+  if (companyId === null || companyId === undefined) {
     return;
   }
-  const newActivity: NewActivityLog = {
-    teamId,
+  await db.insert(activityLogs).values({
+    companyId,
     userId,
     action: type,
     ipAddress: ipAddress || ''
-  };
-  await db.insert(activityLogs).values(newActivity);
+  });
+}
+
+async function getFirstCompanyId(userId: number): Promise<number | null> {
+  const memberships = await getCompaniesForUser(userId);
+  return memberships[0]?.company?.id ?? null;
 }
 
 const signInSchema = z.object({
@@ -54,26 +57,19 @@ const signInSchema = z.object({
 export const signIn = validatedAction(signInSchema, async (data, formData) => {
   const { email, password } = data;
 
-  const userWithTeam = await db
-    .select({
-      user: users,
-      team: teams
-    })
+  const [foundUser] = await db
+    .select()
     .from(users)
-    .leftJoin(teamMembers, eq(users.id, teamMembers.userId))
-    .leftJoin(teams, eq(teamMembers.teamId, teams.id))
     .where(eq(users.email, email))
     .limit(1);
 
-  if (userWithTeam.length === 0) {
+  if (!foundUser) {
     return {
       error: 'Invalid email or password. Please try again.',
       email,
       password
     };
   }
-
-  const { user: foundUser, team: foundTeam } = userWithTeam[0];
 
   const isPasswordValid = await comparePasswords(
     password,
@@ -88,15 +84,17 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     };
   }
 
+  const companyId = await getFirstCompanyId(foundUser.id);
+
   await Promise.all([
     setSession(foundUser),
-    logActivity(foundTeam?.id, foundUser.id, ActivityType.SIGN_IN)
+    logActivity(companyId, foundUser.id, ActivityType.SIGN_IN)
   ]);
 
   const redirectTo = formData.get('redirect') as string | null;
   if (redirectTo === 'checkout') {
     const priceId = formData.get('priceId') as string;
-    return createCheckoutSession({ team: foundTeam, priceId });
+    return createCheckoutSession({ user: foundUser, priceId });
   }
 
   redirect('/dashboard');
@@ -127,12 +125,10 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
   const passwordHash = await hashPassword(password);
 
-  let teamId: number | null = null;
+  let companyId: number | null = null;
   let memberRole: string = 'owner';
-  let createdTeam: typeof teams.$inferSelect | null = null;
 
   if (inviteId) {
-    // Check if there's a valid invitation
     const [invitation] = await db
       .select()
       .from(invitations)
@@ -146,7 +142,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
       .limit(1);
 
     if (invitation) {
-      teamId = invitation.teamId;
+      companyId = invitation.companyId;
       memberRole = invitation.role;
     } else {
       return { error: 'Invalid or expired invitation.', email, password };
@@ -168,57 +164,37 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     };
   }
 
-  if (inviteId && teamId) {
+  if (inviteId && companyId) {
     await db
       .update(invitations)
       .set({ status: 'accepted' })
       .where(eq(invitations.id, parseInt(inviteId)));
 
-    await logActivity(teamId, createdUser.id, ActivityType.ACCEPT_INVITATION);
+    await logActivity(companyId, createdUser.id, ActivityType.ACCEPT_INVITATION);
+  }
+  // NOTE: Company creation on sign-up is removed.
+  // Users now create companies explicitly via the "Create Company" flow.
+  // If there's no invitation, the user signs up without a company.
 
-    [createdTeam] = await db
-      .select()
-      .from(teams)
-      .where(eq(teams.id, teamId))
-      .limit(1);
-  } else {
-    // Create a new team if there's no invitation
-    const newTeam: NewTeam = {
-      name: `${email}'s Team`
+  if (companyId) {
+    const newMember: NewCompanyMember = {
+      userId: createdUser.id,
+      companyId,
+      role: memberRole
     };
 
-    [createdTeam] = await db.insert(teams).values(newTeam).returning();
-
-    if (!createdTeam) {
-      return {
-        error: 'Failed to create team. Please try again.',
-        email,
-        password
-      };
-    }
-
-    teamId = createdTeam.id;
-    memberRole = 'owner';
-
-    await logActivity(teamId, createdUser.id, ActivityType.CREATE_TEAM);
+    await db.insert(companyMembers).values(newMember);
   }
 
-  const newTeamMember: NewTeamMember = {
-    userId: createdUser.id,
-    teamId: teamId,
-    role: memberRole
-  };
-
   await Promise.all([
-    db.insert(teamMembers).values(newTeamMember),
-    logActivity(teamId, createdUser.id, ActivityType.SIGN_UP),
+    logActivity(companyId, createdUser.id, ActivityType.SIGN_UP),
     setSession(createdUser)
   ]);
 
   const redirectTo = formData.get('redirect') as string | null;
   if (redirectTo === 'checkout') {
     const priceId = formData.get('priceId') as string;
-    return createCheckoutSession({ team: createdTeam, priceId });
+    return createCheckoutSession({ user: createdUser, priceId });
   }
 
   redirect('/dashboard');
@@ -226,8 +202,8 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
 export async function signOut() {
   const user = (await getUser()) as User;
-  const userWithTeam = await getUserWithTeam(user.id);
-  await logActivity(userWithTeam?.teamId, user.id, ActivityType.SIGN_OUT);
+  const companyId = await getFirstCompanyId(user.id);
+  await logActivity(companyId, user.id, ActivityType.SIGN_OUT);
   (await cookies()).delete('session');
 }
 
@@ -275,14 +251,14 @@ export const updatePassword = validatedActionWithUser(
     }
 
     const newPasswordHash = await hashPassword(newPassword);
-    const userWithTeam = await getUserWithTeam(user.id);
+    const companyId = await getFirstCompanyId(user.id);
 
     await Promise.all([
       db
         .update(users)
         .set({ passwordHash: newPasswordHash })
         .where(eq(users.id, user.id)),
-      logActivity(userWithTeam?.teamId, user.id, ActivityType.UPDATE_PASSWORD)
+      logActivity(companyId, user.id, ActivityType.UPDATE_PASSWORD)
     ]);
 
     return {
@@ -308,33 +284,26 @@ export const deleteAccount = validatedActionWithUser(
       };
     }
 
-    const userWithTeam = await getUserWithTeam(user.id);
+    const companyId = await getFirstCompanyId(user.id);
 
     await logActivity(
-      userWithTeam?.teamId,
+      companyId,
       user.id,
       ActivityType.DELETE_ACCOUNT
     );
 
-    // Soft delete
     await db
       .update(users)
       .set({
         deletedAt: sql`CURRENT_TIMESTAMP`,
-        email: sql`CONCAT(email, '-', id, '-deleted')` // Ensure email uniqueness
+        email: sql`CONCAT(email, '-', id, '-deleted')`
       })
       .where(eq(users.id, user.id));
 
-    if (userWithTeam?.teamId) {
-      await db
-        .delete(teamMembers)
-        .where(
-          and(
-            eq(teamMembers.userId, user.id),
-            eq(teamMembers.teamId, userWithTeam.teamId)
-          )
-        );
-    }
+    // Remove from all companies
+    await db
+      .delete(companyMembers)
+      .where(eq(companyMembers.userId, user.id));
 
     (await cookies()).delete('session');
     redirect('/sign-in');
@@ -350,86 +319,85 @@ export const updateAccount = validatedActionWithUser(
   updateAccountSchema,
   async (data, _, user) => {
     const { name, email } = data;
-    const userWithTeam = await getUserWithTeam(user.id);
+    const companyId = await getFirstCompanyId(user.id);
 
     await Promise.all([
       db.update(users).set({ name, email }).where(eq(users.id, user.id)),
-      logActivity(userWithTeam?.teamId, user.id, ActivityType.UPDATE_ACCOUNT)
+      logActivity(companyId, user.id, ActivityType.UPDATE_ACCOUNT)
     ]);
 
     return { name, success: 'Account updated successfully.' };
   }
 );
 
-const removeTeamMemberSchema = z.object({
+const removeCompanyMemberSchema = z.object({
   memberId: z.number()
 });
 
-export const removeTeamMember = validatedActionWithUser(
-  removeTeamMemberSchema,
+export const removeCompanyMember = validatedActionWithUser(
+  removeCompanyMemberSchema,
   async (data, _, user) => {
     const { memberId } = data;
-    const userWithTeam = await getUserWithTeam(user.id);
+    const companyId = await getFirstCompanyId(user.id);
 
-    if (!userWithTeam?.teamId) {
-      return { error: 'User is not part of a team' };
+    if (!companyId) {
+      return { error: 'User is not part of a company' };
     }
 
     await db
-      .delete(teamMembers)
+      .delete(companyMembers)
       .where(
         and(
-          eq(teamMembers.id, memberId),
-          eq(teamMembers.teamId, userWithTeam.teamId)
+          eq(companyMembers.id, memberId),
+          eq(companyMembers.companyId, companyId)
         )
       );
 
     await logActivity(
-      userWithTeam.teamId,
+      companyId,
       user.id,
-      ActivityType.REMOVE_TEAM_MEMBER
+      ActivityType.REMOVE_MEMBER
     );
 
-    return { success: 'Team member removed successfully' };
+    return { success: 'Member removed successfully' };
   }
 );
 
-const inviteTeamMemberSchema = z.object({
+const inviteCompanyMemberSchema = z.object({
   email: z.string().email('Invalid email address'),
   role: z.enum(['accountant', 'owner'])
 });
 
-export const inviteTeamMember = validatedActionWithUser(
-  inviteTeamMemberSchema,
+export const inviteCompanyMember = validatedActionWithUser(
+  inviteCompanyMemberSchema,
   async (data, _, user) => {
     const { email, role } = data;
-    const userWithTeam = await getUserWithTeam(user.id);
+    const companyId = await getFirstCompanyId(user.id);
 
-    if (!userWithTeam?.teamId) {
-      return { error: 'User is not part of a team' };
+    if (!companyId) {
+      return { error: 'User is not part of a company' };
     }
 
     const existingMember = await db
       .select()
       .from(users)
-      .leftJoin(teamMembers, eq(users.id, teamMembers.userId))
+      .leftJoin(companyMembers, eq(users.id, companyMembers.userId))
       .where(
-        and(eq(users.email, email), eq(teamMembers.teamId, userWithTeam.teamId))
+        and(eq(users.email, email), eq(companyMembers.companyId, companyId))
       )
       .limit(1);
 
     if (existingMember.length > 0) {
-      return { error: 'User is already a member of this team' };
+      return { error: 'User is already a member of this company' };
     }
 
-    // Check if there's an existing invitation
     const existingInvitation = await db
       .select()
       .from(invitations)
       .where(
         and(
           eq(invitations.email, email),
-          eq(invitations.teamId, userWithTeam.teamId),
+          eq(invitations.companyId, companyId),
           eq(invitations.status, 'pending')
         )
       )
@@ -439,11 +407,10 @@ export const inviteTeamMember = validatedActionWithUser(
       return { error: 'An invitation has already been sent to this email' };
     }
 
-    // Create a new invitation
     const [invitation] = await db
       .insert(invitations)
       .values({
-        teamId: userWithTeam.teamId,
+        companyId,
         email,
         role,
         invitedBy: user.id,
@@ -452,27 +419,29 @@ export const inviteTeamMember = validatedActionWithUser(
       .returning();
 
     await logActivity(
-      userWithTeam.teamId,
+      companyId,
       user.id,
-      ActivityType.INVITE_TEAM_MEMBER
+      ActivityType.INVITE_MEMBER
     );
 
     const inviteLink = `${process.env.BASE_URL}/sign-up?inviteId=${invitation.id}&email=${encodeURIComponent(email)}`;
 
-    const teamName = userWithTeam.team?.name || 'our team';
+    // TODO: Fetch company name from company record for email
+    const memberships = await getCompaniesForUser(user.id);
+    const companyName = memberships.find(m => m.company.id === companyId)?.company.legalName || 'our company';
 
     await sendInvitationEmail(
       email,
-      teamName,
+      companyName,
       role,
       inviteLink
     );
 
     revalidatePath('/dashboard');
 
-    return { 
+    return {
       success: 'Invitation sent successfully',
-      inviteLink 
+      inviteLink
     };
   }
 );

@@ -26,7 +26,7 @@ import {
 import type { RecipientInput, LineItemWithArticle } from '@/src/features/bulgarian-invoicing/actions';
 import { calculateInvoice, amountInWordsBg } from '@/src/features/bulgarian-invoicing';
 import type { PartySnapshot, LineItemInput, BgVatRate } from '@/src/features/bulgarian-invoicing/types';
-import type { TeamCompanyProfile } from '@/lib/db/schema';
+import type { Company } from '@/lib/db/schema';
 import type { Partner } from '@/lib/db/schema';
 import type { Article } from '@/lib/db/schema';
 import { DOC_TYPES, BG_VAT_RATES } from '@/src/features/bulgarian-invoicing/types';
@@ -52,7 +52,7 @@ interface LineItemForm extends LineItemInput {
   articleId: number | null;
 }
 
-function buildSupplierSnapshot(profile: TeamCompanyProfile): PartySnapshot {
+function buildSupplierSnapshot(profile: Company): PartySnapshot {
   const address = [profile.street, [profile.postCode, profile.city].filter(Boolean).join(' '), profile.country].filter(Boolean).join(', ');
   return {
     legalName: profile.legalName,
@@ -88,7 +88,7 @@ export default function NewInvoicePage() {
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit') ? Number(searchParams.get('edit')) : null;
 
-  const [companyProfile, setCompanyProfile] = useState<TeamCompanyProfile | null>(null);
+  const [companyProfile, setCompanyProfile] = useState<Company | null>(null);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);

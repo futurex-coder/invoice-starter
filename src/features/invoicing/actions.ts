@@ -3,20 +3,18 @@
 import { and, eq, desc, sql, ilike, or } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import {
-  teamCompanyProfiles,
+  companies,
   partners,
   articles,
   activityLogs,
   invoices,
-  teams,
-  type TeamCompanyProfile,
+  type Company,
   type Partner,
   type Article,
-  type NewTeamCompanyProfile,
   type NewPartner,
   type NewArticle,
 } from '@/lib/db/schema';
-import { getUser, getUserWithTeam } from '@/lib/db/queries';
+import { getUser, getCompaniesForUser } from '@/lib/db/queries';
 import {
   upsertCompanyProfileSchema,
   createPartnerSchema,
@@ -58,16 +56,11 @@ async function requireAuth() {
   return user;
 }
 
-async function requireTeamMembership(userId: number) {
-  const result = await getUserWithTeam(userId);
-  if (!result?.teamId) throw new Error('User is not part of a team');
-  // TODO: Replace with verifyCompanyRole() check after Step 2.3
-  return { teamId: result.teamId };
-}
-
-// TODO: Replace with verifyCompanyRole() check after Step 2.3
-function requireRole(_role: string, _allowed: string[]) {
-  // No-op: user.role is removed. Role checks will use company_members.
+async function requireCompanyMembership(userId: number) {
+  const memberships = await getCompaniesForUser(userId);
+  if (memberships.length === 0) throw new Error('User is not part of a company');
+  // TODO: Replace with verifyCompanyAccess() using companyId from URL/context after route restructuring
+  return { companyId: memberships[0].company.id };
 }
 
 // ---------------------------------------------------------------------------
@@ -75,13 +68,13 @@ function requireRole(_role: string, _allowed: string[]) {
 // ---------------------------------------------------------------------------
 
 async function logActivity(
-  teamId: number,
+  companyId: number,
   userId: number,
   action: string,
   ipAddress?: string
 ) {
   await db.insert(activityLogs).values({
-    teamId,
+    companyId,
     userId,
     action,
     ipAddress: ipAddress ?? '',
@@ -93,17 +86,16 @@ async function logActivity(
 // ---------------------------------------------------------------------------
 
 export async function getCompanyProfile(): Promise<
-  ActionResult<TeamCompanyProfile | null>
+  ActionResult<Company | null>
 > {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
-    // Member or Owner can view
+    const { companyId } = await requireCompanyMembership(user.id);
 
     const [row] = await db
       .select()
-      .from(teamCompanyProfiles)
-      .where(eq(teamCompanyProfiles.teamId, teamId))
+      .from(companies)
+      .where(eq(companies.id, companyId))
       .limit(1);
 
     return { data: row ?? null };
@@ -114,10 +106,10 @@ export async function getCompanyProfile(): Promise<
 
 export async function upsertCompanyProfile(
   input: UpsertCompanyProfileInput
-): Promise<ActionResult<TeamCompanyProfile>> {
+): Promise<ActionResult<Company>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
     // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = upsertCompanyProfileSchema.safeParse(input);
@@ -130,12 +122,6 @@ export async function upsertCompanyProfile(
     }
 
     const data = parsed.data;
-    const [existing] = await db
-      .select()
-      .from(teamCompanyProfiles)
-      .where(eq(teamCompanyProfiles.teamId, teamId))
-      .limit(1);
-
     const now = new Date();
     const payload = {
       legalName: data.legalName,
@@ -156,26 +142,14 @@ export async function upsertCompanyProfile(
       updatedAt: now,
     };
 
-    if (existing) {
-      const [updated] = await db
-        .update(teamCompanyProfiles)
-        .set(payload)
-        .where(eq(teamCompanyProfiles.teamId, teamId))
-        .returning();
-      await logActivity(teamId, user.id, 'company_profile.update');
-      return { data: updated! };
-    } else {
-      const [created] = await db
-        .insert(teamCompanyProfiles)
-        .values({
-          ...payload,
-          teamId,
-          createdAt: now,
-        } as NewTeamCompanyProfile)
-        .returning();
-      await logActivity(teamId, user.id, 'company_profile.create');
-      return { data: created! };
-    }
+    const [updated] = await db
+      .update(companies)
+      .set(payload)
+      .where(eq(companies.id, companyId))
+      .returning();
+
+    await logActivity(companyId, user.id, 'company_profile.update');
+    return { data: updated! };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to save company profile' };
   }
@@ -190,7 +164,7 @@ export async function createPartner(
 ): Promise<ActionResult<Partner>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
     // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = createPartnerSchema.safeParse(input);
@@ -206,7 +180,7 @@ export async function createPartner(
     const [created] = await db
       .insert(partners)
       .values({
-        teamId,
+        companyId,
         name: data.name,
         eik: data.eik,
         vatNumber: data.vatNumber ?? null,
@@ -220,11 +194,11 @@ export async function createPartner(
       .returning();
 
     if (!created) return { error: 'Failed to create partner' };
-    await logActivity(teamId, user.id, 'partner.create');
+    await logActivity(companyId, user.id, 'partner.create');
     return { data: created };
   } catch (e) {
     if ((e instanceof Error && e.message.includes('unique')) || (e as { code?: string })?.code === '23505') {
-      return { error: 'A partner with this EIK already exists in this team' };
+      return { error: 'A partner with this EIK already exists in this company' };
     }
     return { error: e instanceof Error ? e.message : 'Failed to create partner' };
   }
@@ -236,7 +210,7 @@ export async function updatePartner(
 ): Promise<ActionResult<Partner>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
     // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = updatePartnerSchema.safeParse(input);
@@ -251,7 +225,7 @@ export async function updatePartner(
     const [existing] = await db
       .select()
       .from(partners)
-      .where(and(eq(partners.id, id), eq(partners.teamId, teamId)))
+      .where(and(eq(partners.id, id), eq(partners.companyId, companyId)))
       .limit(1);
 
     if (!existing) return { error: 'Partner not found' };
@@ -271,15 +245,15 @@ export async function updatePartner(
     const [updated] = await db
       .update(partners)
       .set(update)
-      .where(and(eq(partners.id, id), eq(partners.teamId, teamId)))
+      .where(and(eq(partners.id, id), eq(partners.companyId, companyId)))
       .returning();
 
     if (!updated) return { error: 'Failed to update partner' };
-    await logActivity(teamId, user.id, 'partner.update');
+    await logActivity(companyId, user.id, 'partner.update');
     return { data: updated };
   } catch (e) {
     if (e instanceof Error && (e.message.includes('unique') || (e as { code?: string })?.code === '23505')) {
-      return { error: 'A partner with this EIK already exists in this team' };
+      return { error: 'A partner with this EIK already exists in this company' };
     }
     return { error: e instanceof Error ? e.message : 'Failed to update partner' };
   }
@@ -288,21 +262,21 @@ export async function updatePartner(
 export async function deletePartner(id: number): Promise<ActionResult<void>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
     // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const [existing] = await db
       .select({ id: partners.id })
       .from(partners)
-      .where(and(eq(partners.id, id), eq(partners.teamId, teamId)))
+      .where(and(eq(partners.id, id), eq(partners.companyId, companyId)))
       .limit(1);
 
     if (!existing) return { error: 'Partner not found' };
 
     await db
       .delete(partners)
-      .where(and(eq(partners.id, id), eq(partners.teamId, teamId)));
-    await logActivity(teamId, user.id, 'partner.delete');
+      .where(and(eq(partners.id, id), eq(partners.companyId, companyId)));
+    await logActivity(companyId, user.id, 'partner.delete');
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to delete partner' };
@@ -312,12 +286,12 @@ export async function deletePartner(id: number): Promise<ActionResult<void>> {
 export async function getPartner(id: number): Promise<ActionResult<Partner | null>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
 
     const [row] = await db
       .select()
       .from(partners)
-      .where(and(eq(partners.id, id), eq(partners.teamId, teamId)))
+      .where(and(eq(partners.id, id), eq(partners.companyId, companyId)))
       .limit(1);
 
     return { data: row ?? null };
@@ -331,7 +305,7 @@ export async function listPartners(
 ): Promise<ActionResult<ListResult<Partner>>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
 
     const parsed = listQuerySchema.safeParse(query);
     const page = parsed.success ? parsed.data.page : 1;
@@ -339,7 +313,7 @@ export async function listPartners(
     const search = parsed.success ? parsed.data.search : undefined;
     const offset = (page - 1) * pageSize;
 
-    const conditions = [eq(partners.teamId, teamId)];
+    const conditions = [eq(partners.companyId, companyId)];
     if (search && search.trim()) {
       const term = `%${search.trim()}%`;
       const trimmed = search.trim();
@@ -376,7 +350,7 @@ export async function createArticle(
 ): Promise<ActionResult<Article>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
     // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = createArticleSchema.safeParse(input);
@@ -392,7 +366,7 @@ export async function createArticle(
     const [created] = await db
       .insert(articles)
       .values({
-        teamId,
+        companyId,
         name: data.name,
         unit: data.unit,
         tags: data.tags ?? null,
@@ -403,7 +377,7 @@ export async function createArticle(
       .returning();
 
     if (!created) return { error: 'Failed to create article' };
-    await logActivity(teamId, user.id, 'article.create');
+    await logActivity(companyId, user.id, 'article.create');
     return { data: created };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to create article' };
@@ -416,7 +390,7 @@ export async function updateArticle(
 ): Promise<ActionResult<Article>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
     // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = updateArticleSchema.safeParse(input);
@@ -431,7 +405,7 @@ export async function updateArticle(
     const [existing] = await db
       .select()
       .from(articles)
-      .where(and(eq(articles.id, id), eq(articles.teamId, teamId)))
+      .where(and(eq(articles.id, id), eq(articles.companyId, companyId)))
       .limit(1);
 
     if (!existing) return { error: 'Article not found' };
@@ -448,11 +422,11 @@ export async function updateArticle(
     const [updated] = await db
       .update(articles)
       .set(update)
-      .where(and(eq(articles.id, id), eq(articles.teamId, teamId)))
+      .where(and(eq(articles.id, id), eq(articles.companyId, companyId)))
       .returning();
 
     if (!updated) return { error: 'Failed to update article' };
-    await logActivity(teamId, user.id, 'article.update');
+    await logActivity(companyId, user.id, 'article.update');
     return { data: updated };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to update article' };
@@ -462,21 +436,21 @@ export async function updateArticle(
 export async function deleteArticle(id: number): Promise<ActionResult<void>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
     // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const [existing] = await db
       .select({ id: articles.id })
       .from(articles)
-      .where(and(eq(articles.id, id), eq(articles.teamId, teamId)))
+      .where(and(eq(articles.id, id), eq(articles.companyId, companyId)))
       .limit(1);
 
     if (!existing) return { error: 'Article not found' };
 
     await db
       .delete(articles)
-      .where(and(eq(articles.id, id), eq(articles.teamId, teamId)));
-    await logActivity(teamId, user.id, 'article.delete');
+      .where(and(eq(articles.id, id), eq(articles.companyId, companyId)));
+    await logActivity(companyId, user.id, 'article.delete');
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to delete article' };
@@ -486,12 +460,12 @@ export async function deleteArticle(id: number): Promise<ActionResult<void>> {
 export async function getArticle(id: number): Promise<ActionResult<Article | null>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
 
     const [row] = await db
       .select()
       .from(articles)
-      .where(and(eq(articles.id, id), eq(articles.teamId, teamId)))
+      .where(and(eq(articles.id, id), eq(articles.companyId, companyId)))
       .limit(1);
 
     return { data: row ?? null };
@@ -505,7 +479,7 @@ export async function listArticles(
 ): Promise<ActionResult<ListResult<Article>>> {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
 
     const parsed = listQuerySchema.safeParse(query);
     const page = parsed.success ? parsed.data.page : 1;
@@ -513,7 +487,7 @@ export async function listArticles(
     const search = parsed.success ? parsed.data.search : undefined;
     const offset = (page - 1) * pageSize;
 
-    const conditions = [eq(articles.teamId, teamId)];
+    const conditions = [eq(articles.companyId, companyId)];
     if (search && search.trim()) {
       conditions.push(ilike(articles.name, `%${search.trim()}%`));
     }
@@ -548,47 +522,42 @@ export async function getOnboardingStatus(): Promise<
     articleCount: number;
     partnerCount: number;
     invoiceCount: number;
-    teamName: string;
+    companyName: string;
   }>
 > {
   try {
     const user = await requireAuth();
-    const { teamId } = await requireTeamMembership(user.id);
+    const { companyId } = await requireCompanyMembership(user.id);
 
-    const [[profile], [articleResult], [partnerResult], [invoiceResult], [team]] =
+    const [[company], [articleResult], [partnerResult], [invoiceResult]] =
       await Promise.all([
         db
           .select()
-          .from(teamCompanyProfiles)
-          .where(eq(teamCompanyProfiles.teamId, teamId))
+          .from(companies)
+          .where(eq(companies.id, companyId))
           .limit(1),
         db
           .select({ count: sql<number>`count(*)::int` })
           .from(articles)
-          .where(eq(articles.teamId, teamId)),
+          .where(eq(articles.companyId, companyId)),
         db
           .select({ count: sql<number>`count(*)::int` })
           .from(partners)
-          .where(eq(partners.teamId, teamId)),
+          .where(eq(partners.companyId, companyId)),
         db
           .select({ count: sql<number>`count(*)::int` })
           .from(invoices)
-          .where(eq(invoices.teamId, teamId)),
-        db
-          .select({ name: teams.name })
-          .from(teams)
-          .where(eq(teams.id, teamId))
-          .limit(1),
+          .where(eq(invoices.companyId, companyId)),
       ]);
 
     return {
       data: {
-        hasCompanyProfile: !!profile?.legalName,
-        hasBankDetails: !!profile?.iban,
+        hasCompanyProfile: !!company?.legalName,
+        hasBankDetails: !!company?.iban,
         articleCount: articleResult?.count ?? 0,
         partnerCount: partnerResult?.count ?? 0,
         invoiceCount: invoiceResult?.count ?? 0,
-        teamName: team?.name ?? 'Your Team',
+        companyName: company?.legalName ?? 'Your Company',
       },
     };
   } catch (e) {

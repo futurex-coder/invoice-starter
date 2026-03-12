@@ -10,16 +10,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export async function sendInvitationEmail(to: string, teamName: string, role: string, inviteLink: string) {
+export async function sendInvitationEmail(to: string, companyName: string, role: string, inviteLink: string) {
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to,
-    subject: `Join ${teamName} on Invoice Manager`,
-    text: `You've been invited to join ${teamName} as a ${role}. Accept here: ${inviteLink}`,
+    subject: `Join ${companyName} on Invoice Manager`,
+    text: `You've been invited to join ${companyName} as a ${role}. Accept here: ${inviteLink}`,
     html: `
       <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
         <h2 style="color: #f97316;">You're Invited!</h2>
-        <p>You've been invited to join <strong>${teamName}</strong> as a <strong>${role}</strong>.</p>
+        <p>You've been invited to join <strong>${companyName}</strong> as a <strong>${role}</strong>.</p>
         <p style="margin: 30px 0;">
           <a href="${inviteLink}" style="background-color: #f97316; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Accept Invitation</a>
         </p>

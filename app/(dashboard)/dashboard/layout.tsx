@@ -63,7 +63,7 @@ export default function DashboardLayout({
   }, [isOnboarding, router]);
 
   const navItems = [
-    { href: '/dashboard', icon: Users, label: 'Team' },
+    { href: '/dashboard', icon: Users, label: 'Dashboard' },
     { href: '/dashboard/invoices', icon: FileText, label: 'Invoices' },
     { href: '/dashboard/partners', icon: Handshake, label: 'Partners' },
     { href: '/dashboard/articles', icon: Package, label: 'Articles' },

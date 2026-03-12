@@ -12,8 +12,8 @@ import {
 } from '@/components/ui/card';
 import { customerPortalAction } from '@/lib/payments/actions';
 import { useActionState } from 'react';
-import { TeamDataWithMembers, User } from '@/lib/db/schema';
-import { removeTeamMember, inviteTeamMember } from '@/app/(login)/actions';
+import { CompanyWithMembers, User } from '@/lib/db/schema';
+import { removeCompanyMember, inviteCompanyMember } from '@/app/(login)/actions';
 import { useDashboardStatus } from './dashboard-context';
 import useSWR from 'swr';
 import { Suspense } from 'react';
@@ -45,31 +45,31 @@ function SubscriptionSkeleton() {
   return (
     <Card className="mb-8 h-[140px]">
       <CardHeader>
-        <CardTitle>Team Subscription</CardTitle>
+        <CardTitle>Subscription</CardTitle>
       </CardHeader>
     </Card>
   );
 }
 
 function ManageSubscription() {
-  const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  const { data: user } = useSWR<User>('/api/user', fetcher);
 
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Team Subscription</CardTitle>
+        <CardTitle>Subscription</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div className="mb-4 sm:mb-0">
               <p className="font-medium">
-                Current Plan: {teamData?.planName || 'Free'}
+                Current Plan: {user?.planName || 'Free'}
               </p>
               <p className="text-sm text-muted-foreground">
-                {teamData?.subscriptionStatus === 'active'
+                {user?.subscriptionStatus === 'active'
                   ? 'Billed monthly'
-                  : teamData?.subscriptionStatus === 'trialing'
+                  : user?.subscriptionStatus === 'trialing'
                   ? 'Trial period'
                   : 'No active subscription'}
               </p>
@@ -86,11 +86,11 @@ function ManageSubscription() {
   );
 }
 
-function TeamMembersSkeleton() {
+function MembersSkeleton() {
   return (
     <Card className="mb-8 h-[140px]">
       <CardHeader>
-        <CardTitle>Team Members</CardTitle>
+        <CardTitle>Members</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="animate-pulse space-y-4 mt-1">
@@ -107,25 +107,26 @@ function TeamMembersSkeleton() {
   );
 }
 
-function TeamMembers() {
-  const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+function Members() {
+  // TODO: Replace /api/team with proper company-scoped API after route restructuring
+  const { data: companyData } = useSWR<CompanyWithMembers>('/api/team', fetcher);
   const [removeState, removeAction, isRemovePending] = useActionState<
     ActionState,
     FormData
-  >(removeTeamMember, {});
+  >(removeCompanyMember, {});
 
   const getUserDisplayName = (user: Pick<User, 'id' | 'name' | 'email'>) => {
     return user.name || user.email || 'Unknown User';
   };
 
-  if (!teamData?.teamMembers?.length) {
+  if (!companyData?.members?.length) {
     return (
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Team Members</CardTitle>
+          <CardTitle>Members</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">No team members yet.</p>
+          <p className="text-muted-foreground">No members yet.</p>
         </CardContent>
       </Card>
     );
@@ -134,23 +135,14 @@ function TeamMembers() {
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Team Members</CardTitle>
+        <CardTitle>Members</CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-4">
-          {teamData.teamMembers.map((member, index) => (
+          {companyData.members.map((member, index) => (
             <li key={member.id} className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Avatar>
-                  {/* 
-                    This app doesn't save profile images, but here
-                    is how you'd show them:
-
-                    <AvatarImage
-                      src={member.user.image || ''}
-                      alt={getUserDisplayName(member.user)}
-                    />
-                  */}
                   <AvatarFallback>
                     {getUserDisplayName(member.user)
                       .split(' ')
@@ -192,10 +184,11 @@ function TeamMembers() {
 }
 
 function PendingInvitations() {
-  const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
+  // TODO: Replace /api/team with proper company-scoped API after route restructuring
+  const { data: companyData } = useSWR<CompanyWithMembers>('/api/team', fetcher);
 
   // TODO: Replace with verifyCompanyRole() check after Step 2.3
-  if (!teamData?.invitations?.length) {
+  if (!companyData?.invitations?.length) {
     return null;
   }
 
@@ -206,7 +199,7 @@ function PendingInvitations() {
       </CardHeader>
       <CardContent>
         <ul className="space-y-4">
-          {teamData.invitations.map((invitation) => (
+          {companyData.invitations.map((invitation) => (
             <li key={invitation.id} className="flex items-center justify-between">
               <div>
                 <p className="font-medium">{invitation.email}</p>
@@ -234,28 +227,28 @@ function PendingInvitations() {
   );
 }
 
-function InviteTeamMemberSkeleton() {
+function InviteMemberSkeleton() {
   return (
     <Card className="h-[260px]">
       <CardHeader>
-        <CardTitle>Invite Team Member</CardTitle>
+        <CardTitle>Invite Member</CardTitle>
       </CardHeader>
     </Card>
   );
 }
 
-function InviteTeamMember() {
+function InviteMember() {
   // TODO: Replace with verifyCompanyRole() check after Step 2.3
   const isOwner = true;
   const [inviteState, inviteAction, isInvitePending] = useActionState<
     ActionState,
     FormData
-  >(inviteTeamMember, {});
+  >(inviteCompanyMember, {});
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Invite Team Member</CardTitle>
+        <CardTitle>Invite Member</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={inviteAction} className="space-y-4">
@@ -341,7 +334,7 @@ function InviteTeamMember() {
       {!isOwner && (
         <CardFooter>
           <p className="text-sm text-muted-foreground">
-            You must be a team owner to invite new members.
+            You must be a company owner to invite new members.
           </p>
         </CardFooter>
       )}
@@ -394,7 +387,7 @@ function OnboardingChecklist() {
     <Card className="mb-8">
       <CardHeader>
         <CardTitle>
-          Welcome, {data.teamName}!
+          Welcome, {data.companyName}!
         </CardTitle>
         {!allDone && (
           <p className="text-sm text-muted-foreground">
@@ -473,14 +466,14 @@ export default function SettingsPage() {
       <Suspense fallback={<SubscriptionSkeleton />}>
         <ManageSubscription />
       </Suspense>
-      <Suspense fallback={<TeamMembersSkeleton />}>
-        <TeamMembers />
+      <Suspense fallback={<MembersSkeleton />}>
+        <Members />
       </Suspense>
       <Suspense>
         <PendingInvitations />
       </Suspense>
-      <Suspense fallback={<InviteTeamMemberSkeleton />}>
-        <InviteTeamMember />
+      <Suspense fallback={<InviteMemberSkeleton />}>
+        <InviteMember />
       </Suspense>
     </section>
   );

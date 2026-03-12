@@ -27,9 +27,13 @@ const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.UPDATE_PASSWORD]: Lock,
   [ActivityType.DELETE_ACCOUNT]: UserMinus,
   [ActivityType.UPDATE_ACCOUNT]: Settings,
-  [ActivityType.CREATE_TEAM]: UserPlus,
-  [ActivityType.REMOVE_TEAM_MEMBER]: UserMinus,
-  [ActivityType.INVITE_TEAM_MEMBER]: Mail,
+  [ActivityType.CREATE_COMPANY]: UserPlus,
+  [ActivityType.UPDATE_COMPANY]: Settings,
+  [ActivityType.DELETE_COMPANY]: UserMinus,
+  [ActivityType.RESTORE_COMPANY]: CheckCircle,
+  [ActivityType.TRANSFER_OWNERSHIP]: UserCog,
+  [ActivityType.REMOVE_MEMBER]: UserMinus,
+  [ActivityType.INVITE_MEMBER]: Mail,
   [ActivityType.ACCEPT_INVITATION]: CheckCircle,
   [ActivityType.CREATE_INVOICE]: FileText,
   [ActivityType.UPDATE_INVOICE]: FilePen,
@@ -67,12 +71,20 @@ function formatAction(action: ActivityType): string {
       return 'You deleted your account';
     case ActivityType.UPDATE_ACCOUNT:
       return 'You updated your account';
-    case ActivityType.CREATE_TEAM:
-      return 'You created a new team';
-    case ActivityType.REMOVE_TEAM_MEMBER:
-      return 'You removed a team member';
-    case ActivityType.INVITE_TEAM_MEMBER:
-      return 'You invited a team member';
+    case ActivityType.CREATE_COMPANY:
+      return 'You created a new company';
+    case ActivityType.UPDATE_COMPANY:
+      return 'You updated company settings';
+    case ActivityType.DELETE_COMPANY:
+      return 'You deleted a company';
+    case ActivityType.RESTORE_COMPANY:
+      return 'You restored a company';
+    case ActivityType.TRANSFER_OWNERSHIP:
+      return 'You transferred ownership';
+    case ActivityType.REMOVE_MEMBER:
+      return 'You removed a member';
+    case ActivityType.INVITE_MEMBER:
+      return 'You invited a member';
     case ActivityType.ACCEPT_INVITATION:
       return 'You accepted an invitation';
     case ActivityType.CREATE_INVOICE:
@@ -92,8 +104,10 @@ function formatAction(action: ActivityType): string {
   }
 }
 
+// TODO: Pass companyId from route params after /c/[companyId] route restructuring
 export default async function ActivityPage() {
-  const logs = await getActivityLogs();
+  // Temporarily hardcoded — will be replaced with company context from URL
+  const logs: Awaited<ReturnType<typeof getActivityLogs>> = [];
 
   return (
     <section className="flex-1 p-4 lg:p-8">

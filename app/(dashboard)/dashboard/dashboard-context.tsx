@@ -8,7 +8,7 @@ export interface OnboardingStatus {
   articleCount: number;
   partnerCount: number;
   invoiceCount: number;
-  teamName: string;
+  companyName: string;
 }
 
 const DashboardContext = createContext<OnboardingStatus | null>(null);

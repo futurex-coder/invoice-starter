@@ -6,7 +6,7 @@ import {
   invoices,
   invoiceLines,
   invoiceSequences,
-  teamCompanyProfiles,
+  companies,
   partners,
   articles,
   activityLogs,
@@ -15,7 +15,7 @@ import {
   type NewInvoice,
   type InvoiceLine,
 } from '@/lib/db/schema';
-import { getUser, getUserWithTeam } from '@/lib/db/queries';
+import { getUser, getCompaniesForUser } from '@/lib/db/queries';
 import { calculateInvoice } from './calculator';
 import { validateInvoice } from './validator';
 import { formatInvoiceNumber, amountInWordsBg } from './formatter';
@@ -64,7 +64,7 @@ interface CreateInvoiceDraftInput {
   supplyDate?: string | null;
   currency?: string;
   fxRate?: number;
-  /** If omitted, fetched from team company profile */
+  /** If omitted, fetched from company profile */
   supplier?: PartySnapshot;
   recipient: RecipientInput;
   lineItems: LineItemWithArticle[];
@@ -138,16 +138,11 @@ async function requireAuth() {
   return user;
 }
 
-async function requireTeamMembership(userId: number) {
-  const result = await getUserWithTeam(userId);
-  if (!result?.teamId) throw new Error('User is not part of a team');
-  // TODO: Replace with verifyCompanyRole() check after Step 2.3
-  return { teamId: result.teamId };
-}
-
-// TODO: Replace with verifyCompanyRole() check after Step 2.3
-function requireRole(_role: string, _allowed: string[]) {
-  // No-op: user.role is removed. Role checks will use company_members.
+async function requireCompanyMembership(userId: number) {
+  const memberships = await getCompaniesForUser(userId);
+  if (memberships.length === 0) throw new Error('User is not part of a company');
+  // TODO: Replace with verifyCompanyAccess() using companyId from URL/context after route restructuring
+  return { companyId: memberships[0].company.id };
 }
 
 // ---------------------------------------------------------------------------
@@ -155,13 +150,13 @@ function requireRole(_role: string, _allowed: string[]) {
 // ---------------------------------------------------------------------------
 
 async function logInvoiceActivity(
-  teamId: number,
+  companyId: number,
   userId: number,
   type: ActivityType,
   ipAddress?: string
 ) {
   await db.insert(activityLogs).values({
-    teamId,
+    companyId,
     userId,
     action: type,
     ipAddress: ipAddress ?? '',
@@ -174,16 +169,13 @@ async function logInvoiceActivity(
 
 async function allocateNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  teamId: number,
+  companyId: number,
   series: string
 ): Promise<number> {
-  // Upsert the sequence row, then lock & increment atomically.
-  // INSERT ... ON CONFLICT ... DO UPDATE with RETURNING gives us the
-  // allocated number in a single round-trip with implicit row lock.
   const [row] = await tx.execute<{ allocated: number }>(sql`
-    INSERT INTO invoice_sequences (team_id, series, next_number, updated_at)
-    VALUES (${teamId}, ${series}, 2, NOW())
-    ON CONFLICT (team_id, series)
+    INSERT INTO invoice_sequences (company_id, series, next_number, updated_at)
+    VALUES (${companyId}, ${series}, 2, NOW())
+    ON CONFLICT (company_id, series)
     DO UPDATE SET
       next_number = invoice_sequences.next_number + 1,
       updated_at = NOW()
@@ -193,16 +185,16 @@ async function allocateNumber(
 }
 
 // ---------------------------------------------------------------------------
-// Supplier from team company profile
+// Supplier from company profile
 // ---------------------------------------------------------------------------
 
-async function getSupplierProfile(teamId: number) {
-  const [profile] = await db
+async function getSupplierProfile(companyId: number) {
+  const [company] = await db
     .select()
-    .from(teamCompanyProfiles)
-    .where(eq(teamCompanyProfiles.teamId, teamId))
+    .from(companies)
+    .where(eq(companies.id, companyId))
     .limit(1);
-  return profile ?? null;
+  return company ?? null;
 }
 
 function profileToSnapshot(profile: {
@@ -250,7 +242,7 @@ function recipientInputToSnapshot(r: RecipientInput): PartySnapshot {
 }
 
 async function resolvePartner(
-  teamId: number,
+  companyId: number,
   input: RecipientInput
 ): Promise<number | null> {
   if (input.partnerId) return input.partnerId;
@@ -259,7 +251,7 @@ async function resolvePartner(
   const [existing] = await db
     .select()
     .from(partners)
-    .where(and(eq(partners.teamId, teamId), eq(partners.eik, input.eik.trim())))
+    .where(and(eq(partners.companyId, companyId), eq(partners.eik, input.eik.trim())))
     .limit(1);
 
   if (existing) return existing.id;
@@ -267,7 +259,7 @@ async function resolvePartner(
   const [created] = await db
     .insert(partners)
     .values({
-      teamId,
+      companyId,
       name: input.name,
       eik: input.eik.trim(),
       vatNumber: input.vatNumber ?? null,
@@ -288,7 +280,7 @@ async function resolvePartner(
 // ---------------------------------------------------------------------------
 
 async function resolveArticle(
-  teamId: number,
+  companyId: number,
   line: LineItemWithArticle,
   currency: string
 ): Promise<number | null> {
@@ -299,7 +291,7 @@ async function resolveArticle(
   const [existing] = await db
     .select()
     .from(articles)
-    .where(and(eq(articles.teamId, teamId), eq(articles.name, trimmed)))
+    .where(and(eq(articles.companyId, companyId), eq(articles.name, trimmed)))
     .limit(1);
 
   if (existing) return existing.id;
@@ -307,7 +299,7 @@ async function resolveArticle(
   const [created] = await db
     .insert(articles)
     .values({
-      teamId,
+      companyId,
       name: trimmed,
       unit: line.unit || 'бр.',
       defaultUnitPrice: String(line.unitPrice ?? 0),
@@ -391,9 +383,9 @@ export async function createInvoiceDraft(
   input: CreateInvoiceDraftInput
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
-  const { teamId } = await requireTeamMembership(user.id);
+  const { companyId } = await requireCompanyMembership(user.id);
 
-  const profile = await getSupplierProfile(teamId);
+  const profile = await getSupplierProfile(companyId);
   let supplier = input.supplier;
   if (!supplier) {
     if (!profile) {
@@ -441,28 +433,27 @@ export async function createInvoiceDraft(
       .where(
         and(
           eq(invoices.id, input.referencedInvoiceId),
-          eq(invoices.teamId, teamId)
+          eq(invoices.companyId, companyId)
         )
       )
       .limit(1);
     if (!ref) {
-      return { error: 'Referenced invoice not found in this team' };
+      return { error: 'Referenced invoice not found in this company' };
     }
   }
 
   // Resolve partner (find or auto-create)
-  const partnerId = await resolvePartner(teamId, input.recipient);
+  const partnerId = await resolvePartner(companyId, input.recipient);
 
   // Resolve articles per line item (find or auto-create)
   const articleIds = await Promise.all(
-    input.lineItems.map((l) => resolveArticle(teamId, l, currency))
+    input.lineItems.map((l) => resolveArticle(companyId, l, currency))
   );
 
   const newRow: NewInvoice = {
-    teamId,
+    companyId,
     createdByUserId: user.id,
     partnerId,
-    supplierProfileId: profile?.id ?? null,
     docType: input.docType,
     status: 'draft',
     series,
@@ -492,7 +483,7 @@ export async function createInvoiceDraft(
   // Save relational line items
   await saveInvoiceLines(created.id, calc.items, articleIds);
 
-  await logInvoiceActivity(teamId, user.id, ActivityType.CREATE_INVOICE);
+  await logInvoiceActivity(companyId, user.id, ActivityType.CREATE_INVOICE);
 
   return { data: created };
 }
@@ -506,12 +497,12 @@ export async function updateInvoiceDraft(
   input: UpdateInvoiceDraftInput
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
-  const { teamId } = await requireTeamMembership(user.id);
+  const { companyId } = await requireCompanyMembership(user.id);
 
   const [existing] = await db
     .select()
     .from(invoices)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
     .limit(1);
 
   if (!existing) {
@@ -565,26 +556,26 @@ export async function updateInvoiceDraft(
       .where(
         and(
           eq(invoices.id, input.referencedInvoiceId),
-          eq(invoices.teamId, teamId)
+          eq(invoices.companyId, companyId)
         )
       )
       .limit(1);
     if (!ref) {
-      return { error: 'Referenced invoice not found in this team' };
+      return { error: 'Referenced invoice not found in this company' };
     }
   }
 
   // Resolve partner if recipient was provided
   let partnerId: number | null | undefined;
   if (input.recipient) {
-    partnerId = await resolvePartner(teamId, input.recipient);
+    partnerId = await resolvePartner(companyId, input.recipient);
   }
 
   // Resolve articles per line item if items were provided
   let articleIds: (number | null)[] | undefined;
   if (lineItemInputs) {
     articleIds = await Promise.all(
-      lineItemInputs.map((l) => resolveArticle(teamId, l, currency))
+      lineItemInputs.map((l) => resolveArticle(companyId, l, currency))
     );
   }
 
@@ -614,7 +605,7 @@ export async function updateInvoiceDraft(
       ...(input.internalComment !== undefined && { internalComment: input.internalComment ?? null }),
       updatedAt: new Date(),
     })
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
     .returning();
 
   // Re-save relational line items if items were provided
@@ -622,7 +613,7 @@ export async function updateInvoiceDraft(
     await saveInvoiceLines(invoiceId, calc.items, articleIds);
   }
 
-  await logInvoiceActivity(teamId, user.id, ActivityType.UPDATE_INVOICE);
+  await logInvoiceActivity(companyId, user.id, ActivityType.UPDATE_INVOICE);
 
   return { data: updated };
 }
@@ -635,13 +626,13 @@ export async function finalizeInvoice(
   invoiceId: number
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
-  const { teamId } = await requireTeamMembership(user.id);
+  const { companyId } = await requireCompanyMembership(user.id);
   // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
   const [existing] = await db
     .select()
     .from(invoices)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
     .limit(1);
 
   if (!existing) {
@@ -675,7 +666,7 @@ export async function finalizeInvoice(
 
   // Atomic: allocate number + update invoice within a transaction
   const result = await db.transaction(async (tx) => {
-    const allocatedNumber = await allocateNumber(tx, teamId, existing.series);
+    const allocatedNumber = await allocateNumber(tx, companyId, existing.series);
 
     const [finalized] = await tx
       .update(invoices)
@@ -688,7 +679,7 @@ export async function finalizeInvoice(
       .where(
         and(
           eq(invoices.id, invoiceId),
-          eq(invoices.teamId, teamId),
+          eq(invoices.companyId, companyId),
           eq(invoices.status, 'draft')
         )
       )
@@ -699,7 +690,7 @@ export async function finalizeInvoice(
     }
 
     await tx.insert(activityLogs).values({
-      teamId,
+      companyId,
       userId: user.id,
       action: ActivityType.FINALIZE_INVOICE,
       ipAddress: '',
@@ -720,13 +711,13 @@ export async function cancelInvoice(
   reason?: string
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
-  const { teamId } = await requireTeamMembership(user.id);
+  const { companyId } = await requireCompanyMembership(user.id);
   // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
   const [existing] = await db
     .select()
     .from(invoices)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
     .limit(1);
 
   if (!existing) {
@@ -739,7 +730,7 @@ export async function cancelInvoice(
   const [cancelled] = await db
     .update(invoices)
     .set({ status: 'cancelled', updatedAt: new Date() })
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
     .returning();
 
   const actionDesc = reason
@@ -747,7 +738,7 @@ export async function cancelInvoice(
     : ActivityType.CANCEL_INVOICE;
 
   await db.insert(activityLogs).values({
-    teamId,
+    companyId,
     userId: user.id,
     action: actionDesc,
     ipAddress: '',
@@ -788,13 +779,13 @@ async function createNoteFromInvoice(
   overrides?: NoteOverrides
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
-  const { teamId } = await requireTeamMembership(user.id);
+  const { companyId } = await requireCompanyMembership(user.id);
   // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
   const [original] = await db
     .select()
     .from(invoices)
-    .where(and(eq(invoices.id, originalInvoiceId), eq(invoices.teamId, teamId)))
+    .where(and(eq(invoices.id, originalInvoiceId), eq(invoices.companyId, companyId)))
     .limit(1);
 
   if (!original) {
@@ -873,23 +864,22 @@ async function createNoteFromInvoice(
 
   // Resolve partner from original or override
   const partnerId = overrides?.recipient
-    ? await resolvePartner(teamId, overrides.recipient)
+    ? await resolvePartner(companyId, overrides.recipient)
     : original.partnerId;
 
   // Resolve article IDs for each line
   const articleIds = lineItemInputs.map((l) => l.articleId ?? null);
 
   const result = await db.transaction(async (tx) => {
-    const allocatedNumber = await allocateNumber(tx, teamId, series);
+    const allocatedNumber = await allocateNumber(tx, companyId, series);
 
     const [created] = await tx
       .insert(invoices)
       .values({
-        teamId,
+        companyId,
         createdByUserId: user.id,
         referencedInvoiceId: original.id,
         partnerId: partnerId ?? null,
-        supplierProfileId: original.supplierProfileId,
         docType: noteType,
         status: 'issued',
         series,
@@ -910,7 +900,7 @@ async function createNoteFromInvoice(
     }
 
     await tx.insert(activityLogs).values({
-      teamId,
+      companyId,
       userId: user.id,
       action: activityType,
       ipAddress: '',
@@ -933,13 +923,13 @@ export async function getInvoice(
   invoiceId: number
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
-  const { teamId } = await requireTeamMembership(user.id);
+  const { companyId } = await requireCompanyMembership(user.id);
   // Members and owners can view
 
   const [row] = await db
     .select()
     .from(invoices)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
     .limit(1);
 
   if (!row) {
@@ -957,13 +947,13 @@ export async function getInvoiceLines(
   invoiceId: number
 ): Promise<ActionResult<InvoiceLine[]>> {
   const user = await requireAuth();
-  const { teamId } = await requireTeamMembership(user.id);
+  const { companyId } = await requireCompanyMembership(user.id);
 
   // Verify invoice belongs to team
   const [row] = await db
     .select({ id: invoices.id })
     .from(invoices)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.teamId, teamId)))
+    .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
     .limit(1);
 
   if (!row) {
@@ -987,14 +977,14 @@ export async function listInvoices(
   filters: ListInvoicesFilters = {}
 ): Promise<ActionResult<ListInvoicesResult>> {
   const user = await requireAuth();
-  const { teamId } = await requireTeamMembership(user.id);
+  const { companyId } = await requireCompanyMembership(user.id);
   // Members and owners can list
 
   const page = filters.page ?? 1;
   const pageSize = Math.min(filters.pageSize ?? 20, 100);
   const offset = (page - 1) * pageSize;
 
-  const conditions = [eq(invoices.teamId, teamId)];
+  const conditions = [eq(invoices.companyId, companyId)];
 
   if (filters.status) {
     conditions.push(eq(invoices.status, filters.status));

@@ -17,7 +17,7 @@ import {
   getCompanyProfile,
   upsertCompanyProfile,
 } from '@/src/features/invoicing/actions';
-import type { TeamCompanyProfile } from '@/lib/db/schema';
+import type { Company } from '@/lib/db/schema';
 import type { UpsertCompanyProfileInput } from '@/src/features/invoicing/schemas';
 import { Loader2, Save, Building2, CheckCircle } from 'lucide-react';
 
@@ -33,7 +33,7 @@ export default function CompanyProfilePage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [profile, setProfile] = useState<TeamCompanyProfile | null>(null);
+  const [profile, setProfile] = useState<Company | null>(null);
 
   // Form fields
   const [legalName, setLegalName] = useState('');

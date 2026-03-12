@@ -30,6 +30,7 @@ export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const companyId = params.companyId as string;
   const id = Number(params.invoiceId);
   const printMode = searchParams.get('print') === '1';
 
@@ -94,8 +95,7 @@ export default function InvoiceDetailPage() {
       <section className="flex-1 p-4 lg:p-8">
         <p className="text-red-600">{error ?? 'Invoice not found'}</p>
         <Button variant="outline" className="mt-4" asChild>
-          {/* TODO: update to company-scoped route in Phase 4 */}
-          <Link href="/dashboard/invoices">Back to list</Link>
+          <Link href={`/c/${companyId}/invoices`}>Back to list</Link>
         </Button>
       </section>
     );
@@ -128,8 +128,7 @@ export default function InvoiceDetailPage() {
       <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
-            {/* TODO: update to company-scoped route in Phase 4 */}
-            <Link href="/dashboard/invoices">
+            <Link href={`/c/${companyId}/invoices`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -155,8 +154,7 @@ export default function InvoiceDetailPage() {
           {isDraft && (
             <>
               <Button variant="outline" size="sm" asChild>
-                {/* TODO: update to company-scoped route in Phase 4 */}
-                <Link href={`/dashboard/invoices/new?edit=${invoice.id}`}>
+                <Link href={`/c/${companyId}/invoices/new?edit=${invoice.id}`}>
                   <Pencil className="mr-2 h-4 w-4" />
                   Edit draft
                 </Link>
@@ -174,8 +172,7 @@ export default function InvoiceDetailPage() {
           )}
           {!isCancelled && (
             <Button variant="outline" size="sm" asChild>
-              {/* TODO: update to company-scoped route in Phase 4 */}
-              <Link href={`/dashboard/invoices/${invoice.id}?print=1`}>
+              <Link href={`/c/${companyId}/invoices/${invoice.id}?print=1`}>
                 <Printer className="mr-2 h-4 w-4" />
                 Print / Preview
               </Link>

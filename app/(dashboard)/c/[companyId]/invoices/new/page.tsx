@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ import {
   finalizeInvoice,
   getInvoice,
   getInvoiceLines,
+  getNextNumber,
 } from '@/src/features/bulgarian-invoicing/actions';
 import type { RecipientInput, LineItemWithArticle } from '@/src/features/bulgarian-invoicing/actions';
 import { calculateInvoice, amountInWordsBg } from '@/src/features/bulgarian-invoicing';
@@ -86,11 +87,14 @@ const defaultLineItem: LineItemForm = {
 export default function NewInvoicePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const params = useParams();
+  const companyId = params.companyId as string;
   const editId = searchParams.get('edit') ? Number(searchParams.get('edit')) : null;
 
   const [companyProfile, setCompanyProfile] = useState<Company | null>(null);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
+  const [nextInvoiceNumber, setNextInvoiceNumber] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,14 +139,16 @@ export default function NewInvoicePage() {
   const loadInitial = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const [profileRes, partnersRes, articlesRes] = await Promise.all([
+    const [profileRes, partnersRes, articlesRes, nextNumRes] = await Promise.all([
       getCompanyProfile(),
       listPartners({ page: 1, pageSize: 500 }),
       listArticles({ page: 1, pageSize: 500 }),
+      getNextNumber(),
     ]);
     if (profileRes.data) setCompanyProfile(profileRes.data);
     if (partnersRes.data) setPartners(partnersRes.data.items);
     if (articlesRes.data) setArticles(articlesRes.data.items);
+    if (nextNumRes.data != null) setNextInvoiceNumber(nextNumRes.data);
     if (editId) {
       const invRes = await getInvoice(editId);
       if (invRes.error || !invRes.data) {
@@ -326,8 +332,7 @@ export default function NewInvoicePage() {
       }
       if (res.data) {
         setDraftId(res.data.id);
-        // TODO: update to company-scoped route in Phase 4
-        router.replace(`/dashboard/invoices/new?edit=${res.data.id}`);
+        router.replace(`/c/${companyId}/invoices/new?edit=${res.data.id}`);
       }
     }
   };
@@ -345,13 +350,11 @@ export default function NewInvoicePage() {
       setError(res.error);
       return;
     }
-    // TODO: update to company-scoped route in Phase 4
-    if (res.data) router.push(`/dashboard/invoices/${res.data.id}`);
+    if (res.data) router.push(`/c/${companyId}/invoices/${res.data.id}`);
   };
 
   const handlePreview = () => {
-    // TODO: update to company-scoped route in Phase 4
-    if (draftId) router.push(`/dashboard/invoices/${draftId}?print=1`);
+    if (draftId) router.push(`/c/${companyId}/invoices/${draftId}?print=1`);
     else setError('Save draft first to preview.');
   };
 
@@ -384,8 +387,7 @@ export default function NewInvoicePage() {
     <section className="flex-1 p-4 lg:p-8 max-w-4xl mx-auto">
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" size="icon" asChild>
-          {/* TODO: update to company-scoped route in Phase 4 */}
-          <Link href="/dashboard/invoices">
+          <Link href={`/c/${companyId}/invoices`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
@@ -542,6 +544,14 @@ export default function NewInvoicePage() {
               ))}
             </RadioGroup>
           </div>
+          {!editId && nextInvoiceNumber != null && (
+            <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-sm">
+              <span className="text-blue-800">
+                Next invoice number: <strong>{String(nextInvoiceNumber).padStart(10, '0')}</strong>
+              </span>
+              <span className="ml-2 text-blue-600 text-xs">(assigned automatically on save)</span>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="issueDate">Issue date *</Label>

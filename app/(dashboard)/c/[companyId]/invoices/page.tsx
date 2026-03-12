@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,6 +53,7 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
 
 function InvoiceTableRow({
   invoice,
+  companyId,
   onView,
   onEdit,
   onPrint,
@@ -62,6 +63,7 @@ function InvoiceTableRow({
   onDebitNote,
 }: {
   invoice: Invoice;
+  companyId: string;
   onView: (id: number) => void;
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
@@ -75,6 +77,7 @@ function InvoiceTableRow({
   const isDraft = invoice.status === 'draft';
   const isIssued = invoice.status === 'issued';
   const isCancelled = invoice.status === 'cancelled';
+  const isNote = invoice.docType === 'credit_note' || invoice.docType === 'debit_note';
 
   return (
     <tr className="border-b border-gray-200 hover:bg-gray-50/50">
@@ -82,6 +85,14 @@ function InvoiceTableRow({
         {invoice.number != null
           ? formatInvoiceNumber(invoice.number)
           : `#${invoice.id}`}
+        {isNote && invoice.referencedInvoiceId && (
+          <Link
+            href={`/c/${companyId}/invoices/${invoice.referencedInvoiceId}`}
+            className="ml-2 text-xs text-blue-600 hover:underline"
+          >
+            → parent
+          </Link>
+        )}
       </td>
       <td className="px-4 py-3 text-sm">
         {formatDocTypeLabel(invoice.docType)}
@@ -163,6 +174,8 @@ function InvoiceTableRow({
 
 export default function InvoicesPage() {
   const router = useRouter();
+  const params = useParams();
+  const companyId = params.companyId as string;
   const [filters, setFilters] = useState<ListInvoicesFilters>({
     page: 1,
     pageSize: 20,
@@ -207,15 +220,13 @@ export default function InvoicesPage() {
   const handleCreditNote = async (id: number) => {
     const res = await createCreditNoteFromInvoice(id);
     if (res.error) setActionError(res.error);
-    // TODO: update to company-scoped route in Phase 4
-    else if (res.data) router.push(`/dashboard/invoices/${res.data.id}`);
+    else if (res.data) router.push(`/c/${companyId}/invoices/${res.data.id}`);
   };
 
   const handleDebitNote = async (id: number) => {
     const res = await createDebitNoteFromInvoice(id);
     if (res.error) setActionError(res.error);
-    // TODO: update to company-scoped route in Phase 4
-    else if (res.data) router.push(`/dashboard/invoices/${res.data.id}`);
+    else if (res.data) router.push(`/c/${companyId}/invoices/${res.data.id}`);
   };
 
   return (
@@ -223,8 +234,7 @@ export default function InvoicesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-lg lg:text-2xl font-medium">Invoices</h1>
         <Button asChild className="bg-orange-500 hover:bg-orange-600">
-          {/* TODO: update to company-scoped route in Phase 4 */}
-          <Link href="/dashboard/invoices/new">
+          <Link href={`/c/${companyId}/invoices/new`}>
             <Plus className="mr-2 h-4 w-4" />
             New invoice
           </Link>
@@ -372,9 +382,10 @@ export default function InvoicesPage() {
                   <InvoiceTableRow
                     key={inv.id}
                     invoice={inv}
-                    onView={(id) => router.push(`/dashboard/invoices/${id}`)}
-                    onEdit={(id) => router.push(`/dashboard/invoices/new?edit=${id}`)}
-                    onPrint={(id) => router.push(`/dashboard/invoices/${id}?print=1`)}
+                    companyId={companyId}
+                    onView={(id) => router.push(`/c/${companyId}/invoices/${id}`)}
+                    onEdit={(id) => router.push(`/c/${companyId}/invoices/new?edit=${id}`)}
+                    onPrint={(id) => router.push(`/c/${companyId}/invoices/${id}?print=1`)}
                     onCancel={handleCancel}
                     onCopy={() => {}}
                     onCreditNote={handleCreditNote}

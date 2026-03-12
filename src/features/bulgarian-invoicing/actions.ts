@@ -14,7 +14,7 @@ import {
   type NewInvoice,
   type InvoiceLine,
 } from '@/lib/db/schema';
-import { getUser, getActiveCompanyId, verifyCompanyAccess } from '@/lib/db/queries';
+import { getUser, getActiveCompanyId, verifyCompanyAccess, getNextInvoiceNumber } from '@/lib/db/queries';
 import { calculateInvoice } from './calculator';
 import { validateInvoice } from './validator';
 import { formatInvoiceNumber, amountInWordsBg } from './formatter';
@@ -1017,4 +1017,20 @@ export async function listInvoices(
       pageSize,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// getNextNumber — exposes getNextInvoiceNumber to client components
+// ---------------------------------------------------------------------------
+
+export async function getNextNumber(
+  series?: string
+): Promise<ActionResult<number>> {
+  try {
+    const { companyId } = await requireCompanyAccess();
+    const nextNumber = await getNextInvoiceNumber(companyId, series ?? 'INV');
+    return { data: nextNumber };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to get next number' };
+  }
 }

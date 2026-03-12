@@ -6,8 +6,8 @@ import { SWRConfig } from 'swr';
 import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
-  title: 'Invoice Manager',
-  description: 'Get started quickly with Next.js, Postgres, and Stripe.'
+  title: 'Invoicly',
+  description: 'Multi-company invoicing platform for Bulgarian businesses.'
 };
 
 export const viewport: Viewport = {

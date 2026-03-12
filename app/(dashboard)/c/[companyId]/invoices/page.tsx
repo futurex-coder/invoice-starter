@@ -207,12 +207,14 @@ export default function InvoicesPage() {
   const handleCreditNote = async (id: number) => {
     const res = await createCreditNoteFromInvoice(id);
     if (res.error) setActionError(res.error);
+    // TODO: update to company-scoped route in Phase 4
     else if (res.data) router.push(`/dashboard/invoices/${res.data.id}`);
   };
 
   const handleDebitNote = async (id: number) => {
     const res = await createDebitNoteFromInvoice(id);
     if (res.error) setActionError(res.error);
+    // TODO: update to company-scoped route in Phase 4
     else if (res.data) router.push(`/dashboard/invoices/${res.data.id}`);
   };
 
@@ -221,6 +223,7 @@ export default function InvoicesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-lg lg:text-2xl font-medium">Invoices</h1>
         <Button asChild className="bg-orange-500 hover:bg-orange-600">
+          {/* TODO: update to company-scoped route in Phase 4 */}
           <Link href="/dashboard/invoices/new">
             <Plus className="mr-2 h-4 w-4" />
             New invoice

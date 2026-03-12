@@ -10,29 +10,14 @@ import {
   Shield,
   Activity,
   Menu,
-  FileText,
-  Building2,
-  Handshake,
-  Package,
   Loader2,
+  LayoutDashboard,
 } from 'lucide-react';
 import { getOnboardingStatus } from '@/src/features/invoicing/actions';
 import {
   DashboardProvider,
   type OnboardingStatus,
 } from './dashboard-context';
-import { useCompanyOptional } from '@/lib/context/company-context';
-import { CompanySwitcher } from '@/components/company-switcher';
-
-function SidebarCompanySwitcher() {
-  const companyCtx = useCompanyOptional();
-  if (!companyCtx) return null;
-  return (
-    <div className="mb-3 pb-3 border-b border-gray-200">
-      <CompanySwitcher />
-    </div>
-  );
-}
 
 export default function DashboardLayout({
   children,
@@ -75,14 +60,10 @@ export default function DashboardLayout({
   }, [isOnboarding, router]);
 
   const navItems = [
-    { href: '/dashboard', icon: Users, label: 'Dashboard' },
-    { href: '/dashboard/invoices', icon: FileText, label: 'Invoices' },
-    { href: '/dashboard/partners', icon: Handshake, label: 'Partners' },
-    { href: '/dashboard/articles', icon: Package, label: 'Articles' },
-    { href: '/dashboard/company', icon: Building2, label: 'Company' },
+    { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/dashboard/general', icon: Settings, label: 'General' },
-    { href: '/dashboard/activity', icon: Activity, label: 'Activity' },
     { href: '/dashboard/security', icon: Shield, label: 'Security' },
+    { href: '/dashboard/activity', icon: Activity, label: 'Activity' },
   ];
 
   if (!ready) {
@@ -107,7 +88,7 @@ export default function DashboardLayout({
         {/* Mobile header */}
         <div className="lg:hidden flex items-center justify-between bg-white border-b border-gray-200 p-4">
           <div className="flex items-center">
-            <span className="font-medium">Settings</span>
+            <span className="font-medium">Account</span>
           </div>
           <Button
             className="-mr-3"
@@ -129,7 +110,6 @@ export default function DashboardLayout({
             }`}
           >
             <nav className="h-full overflow-y-auto p-4">
-              <SidebarCompanySwitcher />
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href} passHref>
                   <Button

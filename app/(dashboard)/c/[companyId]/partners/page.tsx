@@ -204,7 +204,6 @@ export default function PartnersPage() {
         </div>
       )}
 
-      {/* Add / Edit form */}
       {showForm && (
         <Card className="mb-6">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -344,7 +343,6 @@ export default function PartnersPage() {
         </Card>
       )}
 
-      {/* Search */}
       <Card className="mb-6">
         <CardContent className="pt-6">
           <div className="flex gap-2 max-w-sm">
@@ -361,7 +359,6 @@ export default function PartnersPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card>
         <CardHeader>
           <CardTitle>

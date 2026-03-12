@@ -86,15 +86,16 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // ── /dashboard — redirect to active company if available ───────
-  if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
+  // ── /dashboard (exact) — redirect to active company if available ─
+  // Sub-routes like /dashboard/general and /dashboard/security are
+  // user-level pages and should NOT be redirected.
+  if (pathname === '/dashboard') {
     const activeCompanyId = request.cookies.get('activeCompanyId')?.value;
     if (activeCompanyId && /^\d+$/.test(activeCompanyId)) {
       return NextResponse.redirect(
         new URL(`/c/${activeCompanyId}/dashboard`, request.url)
       );
     }
-    // No cookie → let the page handle it (show company picker / create flow)
   }
 
   return res;

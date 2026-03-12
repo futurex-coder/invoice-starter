@@ -104,9 +104,8 @@ function formatAction(action: ActivityType): string {
   }
 }
 
-// TODO: Pass companyId from route params after /c/[companyId] route restructuring
+// TODO: Wire up companyId from route params to getActivityLogs query
 export default async function ActivityPage() {
-  // Temporarily hardcoded — will be replaced with company context from URL
   const logs: Awaited<ReturnType<typeof getActivityLogs>> = [];
 
   return (
@@ -153,7 +152,7 @@ export default async function ActivityPage() {
               </h3>
               <p className="text-sm text-gray-500 max-w-sm">
                 When you perform actions like signing in or updating your
-                account, they'll appear here.
+                account, they&apos;ll appear here.
               </p>
             </div>
           )}

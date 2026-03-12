@@ -158,7 +158,6 @@ export default function NewInvoicePage() {
       }
       setDraftId(inv.id);
 
-      // Load structured recipient from partner FK or fallback to snapshot
       if (inv.partnerId) {
         setSelectedPartnerId(inv.partnerId);
         const partner = partnersRes.data?.items.find((p) => p.id === inv.partnerId);
@@ -195,7 +194,6 @@ export default function NewInvoicePage() {
       setCurrency(inv.currency ?? 'EUR');
       setFxRate(Number(inv.fxRate ?? 1));
 
-      // Load line items from invoice_lines (with articleId) or fallback to JSONB
       const linesRes = await getInvoiceLines(editId);
       const dbLines = linesRes.data ?? [];
       if (dbLines.length > 0) {
@@ -328,6 +326,7 @@ export default function NewInvoicePage() {
       }
       if (res.data) {
         setDraftId(res.data.id);
+        // TODO: update to company-scoped route in Phase 4
         router.replace(`/dashboard/invoices/new?edit=${res.data.id}`);
       }
     }
@@ -346,10 +345,12 @@ export default function NewInvoicePage() {
       setError(res.error);
       return;
     }
+    // TODO: update to company-scoped route in Phase 4
     if (res.data) router.push(`/dashboard/invoices/${res.data.id}`);
   };
 
   const handlePreview = () => {
+    // TODO: update to company-scoped route in Phase 4
     if (draftId) router.push(`/dashboard/invoices/${draftId}?print=1`);
     else setError('Save draft first to preview.');
   };
@@ -383,6 +384,7 @@ export default function NewInvoicePage() {
     <section className="flex-1 p-4 lg:p-8 max-w-4xl mx-auto">
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" size="icon" asChild>
+          {/* TODO: update to company-scoped route in Phase 4 */}
           <Link href="/dashboard/invoices">
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -653,7 +655,7 @@ export default function NewInvoicePage() {
               </thead>
               <tbody>
                 {lineItems.map((line, i) => {
-                  const itemsWithVat = lineItems.map((item, idx) => ({
+                  const itemsWithVat = lineItems.map((item) => ({
                     ...item,
                     vatRate: effectiveVatRate as BgVatRate,
                   }));

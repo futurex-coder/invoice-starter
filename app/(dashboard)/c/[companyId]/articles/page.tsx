@@ -197,7 +197,6 @@ export default function ArticlesPage() {
         </div>
       )}
 
-      {/* Add / Edit form */}
       {showForm && (
         <Card className="mb-6">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -306,7 +305,6 @@ export default function ArticlesPage() {
         </Card>
       )}
 
-      {/* Search */}
       <Card className="mb-6">
         <CardContent className="pt-6">
           <div className="flex gap-2 max-w-sm">
@@ -323,7 +321,6 @@ export default function ArticlesPage() {
         </CardContent>
       </Card>
 
-      {/* Table */}
       <Card>
         <CardHeader>
           <CardTitle>

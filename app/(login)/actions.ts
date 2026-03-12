@@ -20,8 +20,9 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { createCheckoutSession } from '@/lib/payments/stripe';
-import { getUser, getCompaniesForUser } from '@/lib/db/queries';
+import { getUser, getCompaniesForUser, getActiveCompanyId, verifyCompanyAccess } from '@/lib/db/queries';
 import { sendInvitationEmail } from '@/lib/email';
+import { canRemoveMembers, canInviteMembers } from '@/lib/auth/permissions';
 import {
   validatedAction,
   validatedActionWithUser
@@ -338,10 +339,17 @@ export const removeCompanyMember = validatedActionWithUser(
   removeCompanyMemberSchema,
   async (data, _, user) => {
     const { memberId } = data;
-    const companyId = await getFirstCompanyId(user.id);
-
+    const companyId = await getActiveCompanyId();
     if (!companyId) {
-      return { error: 'User is not part of a company' };
+      return { error: 'No active company selected' };
+    }
+
+    const membership = await verifyCompanyAccess(user.id, companyId);
+    if (!membership) {
+      return { error: 'No access to this company' };
+    }
+    if (!canRemoveMembers(membership.role)) {
+      return { error: 'Only the company owner can remove members' };
     }
 
     await db
@@ -353,11 +361,7 @@ export const removeCompanyMember = validatedActionWithUser(
         )
       );
 
-    await logActivity(
-      companyId,
-      user.id,
-      ActivityType.REMOVE_MEMBER
-    );
+    await logActivity(companyId, user.id, ActivityType.REMOVE_MEMBER);
 
     return { success: 'Member removed successfully' };
   }
@@ -372,10 +376,20 @@ export const inviteCompanyMember = validatedActionWithUser(
   inviteCompanyMemberSchema,
   async (data, _, user) => {
     const { email, role } = data;
-    const companyId = await getFirstCompanyId(user.id);
-
+    const companyId = await getActiveCompanyId();
     if (!companyId) {
-      return { error: 'User is not part of a company' };
+      return { error: 'No active company selected' };
+    }
+
+    const membership = await verifyCompanyAccess(user.id, companyId);
+    if (!membership) {
+      return { error: 'No access to this company' };
+    }
+    if (!canInviteMembers(membership.role)) {
+      return { error: 'Insufficient permissions to invite members' };
+    }
+    if (role === 'owner' && membership.role !== 'owner') {
+      return { error: 'Only owners can invite other owners' };
     }
 
     const existingMember = await db
@@ -418,24 +432,14 @@ export const inviteCompanyMember = validatedActionWithUser(
       })
       .returning();
 
-    await logActivity(
-      companyId,
-      user.id,
-      ActivityType.INVITE_MEMBER
-    );
+    await logActivity(companyId, user.id, ActivityType.INVITE_MEMBER);
 
     const inviteLink = `${process.env.BASE_URL}/sign-up?inviteId=${invitation.id}&email=${encodeURIComponent(email)}`;
 
-    // TODO: Fetch company name from company record for email
     const memberships = await getCompaniesForUser(user.id);
     const companyName = memberships.find(m => m.company.id === companyId)?.company.legalName || 'our company';
 
-    await sendInvitationEmail(
-      email,
-      companyName,
-      role,
-      inviteLink
-    );
+    await sendInvitationEmail(email, companyName, role, inviteLink);
 
     revalidatePath('/dashboard');
 

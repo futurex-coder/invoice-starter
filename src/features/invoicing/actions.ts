@@ -14,7 +14,8 @@ import {
   type NewPartner,
   type NewArticle,
 } from '@/lib/db/schema';
-import { getUser, getCompaniesForUser } from '@/lib/db/queries';
+import { getUser, getActiveCompanyId, verifyCompanyAccess } from '@/lib/db/queries';
+import { canEditCompanySettings } from '@/lib/auth/permissions';
 import {
   upsertCompanyProfileSchema,
   createPartnerSchema,
@@ -50,17 +51,17 @@ export interface ListResult<T> {
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-async function requireAuth() {
+async function requireCompanyAccess() {
   const user = await getUser();
-  if (!user) throw new Error('User is not authenticated');
-  return user;
-}
+  if (!user) throw new Error('Not authenticated');
 
-async function requireCompanyMembership(userId: number) {
-  const memberships = await getCompaniesForUser(userId);
-  if (memberships.length === 0) throw new Error('User is not part of a company');
-  // TODO: Replace with verifyCompanyAccess() using companyId from URL/context after route restructuring
-  return { companyId: memberships[0].company.id };
+  const companyId = await getActiveCompanyId();
+  if (!companyId) throw new Error('No active company selected');
+
+  const membership = await verifyCompanyAccess(user.id, companyId);
+  if (!membership) throw new Error('No access to this company');
+
+  return { user, companyId, role: membership.role };
 }
 
 // ---------------------------------------------------------------------------
@@ -89,8 +90,7 @@ export async function getCompanyProfile(): Promise<
   ActionResult<Company | null>
 > {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
+    const { companyId } = await requireCompanyAccess();
 
     const [row] = await db
       .select()
@@ -108,9 +108,10 @@ export async function upsertCompanyProfile(
   input: UpsertCompanyProfileInput
 ): Promise<ActionResult<Company>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
-    // TODO: Replace with verifyCompanyRole() check after Step 2.3
+    const { user, companyId, role } = await requireCompanyAccess();
+    if (!canEditCompanySettings(role)) {
+      return { error: 'Only the company owner can edit company settings' };
+    }
 
     const parsed = upsertCompanyProfileSchema.safeParse(input);
     if (!parsed.success) {
@@ -163,9 +164,7 @@ export async function createPartner(
   input: CreatePartnerInput
 ): Promise<ActionResult<Partner>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
-    // TODO: Replace with verifyCompanyRole() check after Step 2.3
+    const { user, companyId } = await requireCompanyAccess();
 
     const parsed = createPartnerSchema.safeParse(input);
     if (!parsed.success) {
@@ -209,9 +208,7 @@ export async function updatePartner(
   input: UpdatePartnerInput
 ): Promise<ActionResult<Partner>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
-    // TODO: Replace with verifyCompanyRole() check after Step 2.3
+    const { user, companyId } = await requireCompanyAccess();
 
     const parsed = updatePartnerSchema.safeParse(input);
     if (!parsed.success) {
@@ -261,9 +258,7 @@ export async function updatePartner(
 
 export async function deletePartner(id: number): Promise<ActionResult<void>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
-    // TODO: Replace with verifyCompanyRole() check after Step 2.3
+    const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
       .select({ id: partners.id })
@@ -285,8 +280,7 @@ export async function deletePartner(id: number): Promise<ActionResult<void>> {
 
 export async function getPartner(id: number): Promise<ActionResult<Partner | null>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
+    const { companyId } = await requireCompanyAccess();
 
     const [row] = await db
       .select()
@@ -304,8 +298,7 @@ export async function listPartners(
   query: ListQuery = { page: 1, pageSize: 20 }
 ): Promise<ActionResult<ListResult<Partner>>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
+    const { companyId } = await requireCompanyAccess();
 
     const parsed = listQuerySchema.safeParse(query);
     const page = parsed.success ? parsed.data.page : 1;
@@ -349,9 +342,7 @@ export async function createArticle(
   input: CreateArticleInput
 ): Promise<ActionResult<Article>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
-    // TODO: Replace with verifyCompanyRole() check after Step 2.3
+    const { user, companyId } = await requireCompanyAccess();
 
     const parsed = createArticleSchema.safeParse(input);
     if (!parsed.success) {
@@ -389,9 +380,7 @@ export async function updateArticle(
   input: UpdateArticleInput
 ): Promise<ActionResult<Article>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
-    // TODO: Replace with verifyCompanyRole() check after Step 2.3
+    const { user, companyId } = await requireCompanyAccess();
 
     const parsed = updateArticleSchema.safeParse(input);
     if (!parsed.success) {
@@ -435,9 +424,7 @@ export async function updateArticle(
 
 export async function deleteArticle(id: number): Promise<ActionResult<void>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
-    // TODO: Replace with verifyCompanyRole() check after Step 2.3
+    const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
       .select({ id: articles.id })
@@ -459,8 +446,7 @@ export async function deleteArticle(id: number): Promise<ActionResult<void>> {
 
 export async function getArticle(id: number): Promise<ActionResult<Article | null>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
+    const { companyId } = await requireCompanyAccess();
 
     const [row] = await db
       .select()
@@ -478,8 +464,7 @@ export async function listArticles(
   query: ListQuery = { page: 1, pageSize: 20 }
 ): Promise<ActionResult<ListResult<Article>>> {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
+    const { companyId } = await requireCompanyAccess();
 
     const parsed = listQuerySchema.safeParse(query);
     const page = parsed.success ? parsed.data.page : 1;
@@ -526,8 +511,7 @@ export async function getOnboardingStatus(): Promise<
   }>
 > {
   try {
-    const user = await requireAuth();
-    const { companyId } = await requireCompanyMembership(user.id);
+    const { companyId } = await requireCompanyAccess();
 
     const [[company], [articleResult], [partnerResult], [invoiceResult]] =
       await Promise.all([

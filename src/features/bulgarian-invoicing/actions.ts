@@ -5,7 +5,6 @@ import { db } from '@/lib/db/drizzle';
 import {
   invoices,
   invoiceLines,
-  invoiceSequences,
   companies,
   partners,
   articles,
@@ -15,7 +14,7 @@ import {
   type NewInvoice,
   type InvoiceLine,
 } from '@/lib/db/schema';
-import { getUser, getCompaniesForUser } from '@/lib/db/queries';
+import { getUser, getActiveCompanyId, verifyCompanyAccess } from '@/lib/db/queries';
 import { calculateInvoice } from './calculator';
 import { validateInvoice } from './validator';
 import { formatInvoiceNumber, amountInWordsBg } from './formatter';
@@ -132,17 +131,17 @@ interface ListInvoicesResult {
 // Auth helpers
 // ---------------------------------------------------------------------------
 
-async function requireAuth() {
+async function requireCompanyAccess() {
   const user = await getUser();
-  if (!user) throw new Error('User is not authenticated');
-  return user;
-}
+  if (!user) throw new Error('Not authenticated');
 
-async function requireCompanyMembership(userId: number) {
-  const memberships = await getCompaniesForUser(userId);
-  if (memberships.length === 0) throw new Error('User is not part of a company');
-  // TODO: Replace with verifyCompanyAccess() using companyId from URL/context after route restructuring
-  return { companyId: memberships[0].company.id };
+  const companyId = await getActiveCompanyId();
+  if (!companyId) throw new Error('No active company selected');
+
+  const membership = await verifyCompanyAccess(user.id, companyId);
+  if (!membership) throw new Error('No access to this company');
+
+  return { user, companyId, role: membership.role };
 }
 
 // ---------------------------------------------------------------------------
@@ -382,8 +381,7 @@ function rowToDocument(row: Invoice): InvoiceDocument {
 export async function createInvoiceDraft(
   input: CreateInvoiceDraftInput
 ): Promise<ActionResult<Invoice>> {
-  const user = await requireAuth();
-  const { companyId } = await requireCompanyMembership(user.id);
+  const { user, companyId } = await requireCompanyAccess();
 
   const profile = await getSupplierProfile(companyId);
   let supplier = input.supplier;
@@ -407,7 +405,7 @@ export async function createInvoiceDraft(
     docType: input.docType,
     status: 'draft',
     series,
-    number: null,
+    number: 1,
     issueDate: input.issueDate,
     supplyDate: input.supplyDate ?? null,
     currency,
@@ -450,40 +448,53 @@ export async function createInvoiceDraft(
     input.lineItems.map((l) => resolveArticle(companyId, l, currency))
   );
 
-  const newRow: NewInvoice = {
-    companyId,
-    createdByUserId: user.id,
-    partnerId,
-    docType: input.docType,
-    status: 'draft',
-    series,
-    number: null,
-    issueDate: input.issueDate,
-    supplyDate: input.supplyDate ?? null,
-    currency,
-    fxRate: String(input.fxRate ?? 1),
-    supplierSnapshot: supplier,
-    recipientSnapshot: recipientSnapshot,
-    items: calc.items,
-    totals: calc.totals,
-    referencedInvoiceId: input.referencedInvoiceId ?? null,
-    language: input.language ?? 'bg',
-    paymentMethod: input.paymentMethod ?? 'bank',
-    paymentStatus: input.paymentStatus ?? 'unpaid',
-    dueDate: input.dueDate ?? null,
-    vatMode: input.vatMode ?? 'standard',
-    noVatReason: input.noVatReason ?? null,
-    amountInWords: words,
-    customerNote: input.customerNote ?? null,
-    internalComment: input.internalComment ?? null,
-  };
+  const created = await db.transaction(async (tx) => {
+    const allocatedNumber = await allocateNumber(tx, companyId, series);
 
-  const [created] = await db.insert(invoices).values(newRow).returning();
+    const [row] = await tx
+      .insert(invoices)
+      .values({
+        companyId,
+        createdByUserId: user.id,
+        partnerId,
+        docType: input.docType,
+        status: 'draft',
+        series,
+        number: allocatedNumber,
+        issueDate: input.issueDate,
+        supplyDate: input.supplyDate ?? null,
+        currency,
+        fxRate: String(input.fxRate ?? 1),
+        supplierSnapshot: supplier,
+        recipientSnapshot: recipientSnapshot,
+        items: calc.items,
+        totals: calc.totals,
+        referencedInvoiceId: input.referencedInvoiceId ?? null,
+        language: input.language ?? 'bg',
+        paymentMethod: input.paymentMethod ?? 'bank',
+        paymentStatus: input.paymentStatus ?? 'unpaid',
+        dueDate: input.dueDate ?? null,
+        vatMode: input.vatMode ?? 'standard',
+        noVatReason: input.noVatReason ?? null,
+        amountInWords: words,
+        customerNote: input.customerNote ?? null,
+        internalComment: input.internalComment ?? null,
+      } as NewInvoice)
+      .returning();
 
-  // Save relational line items
+    if (!row) throw new Error('Failed to create invoice');
+
+    await tx.insert(activityLogs).values({
+      companyId,
+      userId: user.id,
+      action: ActivityType.CREATE_INVOICE,
+      ipAddress: '',
+    });
+
+    return row;
+  });
+
   await saveInvoiceLines(created.id, calc.items, articleIds);
-
-  await logInvoiceActivity(companyId, user.id, ActivityType.CREATE_INVOICE);
 
   return { data: created };
 }
@@ -496,8 +507,7 @@ export async function updateInvoiceDraft(
   invoiceId: number,
   input: UpdateInvoiceDraftInput
 ): Promise<ActionResult<Invoice>> {
-  const user = await requireAuth();
-  const { companyId } = await requireCompanyMembership(user.id);
+  const { user, companyId } = await requireCompanyAccess();
 
   const [existing] = await db
     .select()
@@ -625,9 +635,7 @@ export async function updateInvoiceDraft(
 export async function finalizeInvoice(
   invoiceId: number
 ): Promise<ActionResult<Invoice>> {
-  const user = await requireAuth();
-  const { companyId } = await requireCompanyMembership(user.id);
-  // TODO: Replace with verifyCompanyRole() check after Step 2.3
+  const { user, companyId } = await requireCompanyAccess();
 
   const [existing] = await db
     .select()
@@ -647,11 +655,9 @@ export async function finalizeInvoice(
     return { error: `${existing.docType} must reference an original invoice` };
   }
 
-  // Pre-validate the document as if it were issued (with placeholder number)
   const preDoc: InvoiceDocument = {
     ...rowToDocument(existing),
     status: 'issued',
-    number: 1,
   };
   const vr = validateInvoice(preDoc);
   if (!vr.valid) {
@@ -664,42 +670,29 @@ export async function finalizeInvoice(
     existing.amountInWords?.trim() ||
     amountInWordsBg(totals.totalGross, currency);
 
-  // Atomic: allocate number + update invoice within a transaction
-  const result = await db.transaction(async (tx) => {
-    const allocatedNumber = await allocateNumber(tx, companyId, existing.series);
-
-    const [finalized] = await tx
-      .update(invoices)
-      .set({
-        status: 'issued',
-        number: allocatedNumber,
-        amountInWords: amountInWords || undefined,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(invoices.id, invoiceId),
-          eq(invoices.companyId, companyId),
-          eq(invoices.status, 'draft')
-        )
+  const [finalized] = await db
+    .update(invoices)
+    .set({
+      status: 'issued',
+      amountInWords: amountInWords || undefined,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(invoices.id, invoiceId),
+        eq(invoices.companyId, companyId),
+        eq(invoices.status, 'draft')
       )
-      .returning();
+    )
+    .returning();
 
-    if (!finalized) {
-      throw new Error('Failed to finalize — invoice may have been modified concurrently');
-    }
+  if (!finalized) {
+    return { error: 'Failed to finalize — invoice may have been modified concurrently' };
+  }
 
-    await tx.insert(activityLogs).values({
-      companyId,
-      userId: user.id,
-      action: ActivityType.FINALIZE_INVOICE,
-      ipAddress: '',
-    });
+  await logInvoiceActivity(companyId, user.id, ActivityType.FINALIZE_INVOICE);
 
-    return finalized;
-  });
-
-  return { data: result };
+  return { data: finalized };
 }
 
 // ---------------------------------------------------------------------------
@@ -710,9 +703,7 @@ export async function cancelInvoice(
   invoiceId: number,
   reason?: string
 ): Promise<ActionResult<Invoice>> {
-  const user = await requireAuth();
-  const { companyId } = await requireCompanyMembership(user.id);
-  // TODO: Replace with verifyCompanyRole() check after Step 2.3
+  const { user, companyId } = await requireCompanyAccess();
 
   const [existing] = await db
     .select()
@@ -778,9 +769,7 @@ async function createNoteFromInvoice(
   originalInvoiceId: number,
   overrides?: NoteOverrides
 ): Promise<ActionResult<Invoice>> {
-  const user = await requireAuth();
-  const { companyId } = await requireCompanyMembership(user.id);
-  // TODO: Replace with verifyCompanyRole() check after Step 2.3
+  const { user, companyId } = await requireCompanyAccess();
 
   const [original] = await db
     .select()
@@ -922,9 +911,7 @@ async function createNoteFromInvoice(
 export async function getInvoice(
   invoiceId: number
 ): Promise<ActionResult<Invoice>> {
-  const user = await requireAuth();
-  const { companyId } = await requireCompanyMembership(user.id);
-  // Members and owners can view
+  const { companyId } = await requireCompanyAccess();
 
   const [row] = await db
     .select()
@@ -946,10 +933,7 @@ export async function getInvoice(
 export async function getInvoiceLines(
   invoiceId: number
 ): Promise<ActionResult<InvoiceLine[]>> {
-  const user = await requireAuth();
-  const { companyId } = await requireCompanyMembership(user.id);
-
-  // Verify invoice belongs to team
+  const { companyId } = await requireCompanyAccess();
   const [row] = await db
     .select({ id: invoices.id })
     .from(invoices)
@@ -976,9 +960,7 @@ export async function getInvoiceLines(
 export async function listInvoices(
   filters: ListInvoicesFilters = {}
 ): Promise<ActionResult<ListInvoicesResult>> {
-  const user = await requireAuth();
-  const { companyId } = await requireCompanyMembership(user.id);
-  // Members and owners can list
+  const { companyId } = await requireCompanyAccess();
 
   const page = filters.page ?? 1;
   const pageSize = Math.min(filters.pageSize ?? 20, 100);

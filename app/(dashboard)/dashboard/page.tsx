@@ -71,10 +71,9 @@ function CompanyList() {
     '/api/team',
     async (url: string) => {
       const res = await fetch(url);
+      if (!res.ok) return [];
       const data = await res.json();
-      if (Array.isArray(data)) return data;
-      if (data?.company) return [data];
-      return [];
+      return data.memberships ?? [];
     }
   );
 

@@ -137,8 +137,8 @@ export default function NewInvoicePage() {
     setError(null);
     const [profileRes, partnersRes, articlesRes] = await Promise.all([
       getCompanyProfile(),
-      listPartners({ pageSize: 500 }),
-      listArticles({ pageSize: 500 }),
+      listPartners({ page: 1, pageSize: 500 }),
+      listArticles({ page: 1, pageSize: 500 }),
     ]);
     if (profileRes.data) setCompanyProfile(profileRes.data);
     if (partnersRes.data) setPartners(partnersRes.data.items);

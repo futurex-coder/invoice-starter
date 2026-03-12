@@ -327,7 +327,7 @@ export async function getPartner(id: number): Promise<ActionResult<Partner | nul
 }
 
 export async function listPartners(
-  query: ListQuery = {}
+  query: ListQuery = { page: 1, pageSize: 20 }
 ): Promise<ActionResult<ListResult<Partner>>> {
   try {
     const user = await requireAuth();
@@ -344,7 +344,7 @@ export async function listPartners(
       const term = `%${search.trim()}%`;
       const trimmed = search.trim();
       conditions.push(
-        or(ilike(partners.name, term), eq(partners.eik, trimmed))
+        or(ilike(partners.name, term), eq(partners.eik, trimmed))!
       );
     }
     const where = and(...conditions);
@@ -501,7 +501,7 @@ export async function getArticle(id: number): Promise<ActionResult<Article | nul
 }
 
 export async function listArticles(
-  query: ListQuery = {}
+  query: ListQuery = { page: 1, pageSize: 20 }
 ): Promise<ActionResult<ListResult<Article>>> {
   try {
     const user = await requireAuth();

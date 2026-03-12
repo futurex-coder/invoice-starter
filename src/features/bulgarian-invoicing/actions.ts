@@ -1013,13 +1013,12 @@ export async function listInvoices(
   }
   if (filters.search?.trim()) {
     const term = `%${filters.search.trim()}%`;
-    conditions.push(
-      or(
-        sql`${invoices.number}::text LIKE ${term}`,
-        sql`${invoices.recipientSnapshot}->>'legalName' ILIKE ${term}`,
-        sql`EXISTS (SELECT 1 FROM partners p WHERE p.id = ${invoices.partnerId} AND (p.name ILIKE ${term} OR p.eik LIKE ${term}))`
-      )
+    const searchCond = or(
+      sql`${invoices.number}::text LIKE ${term}`,
+      sql`${invoices.recipientSnapshot}->>'legalName' ILIKE ${term}`,
+      sql`EXISTS (SELECT 1 FROM partners p WHERE p.id = ${invoices.partnerId} AND (p.name ILIKE ${term} OR p.eik LIKE ${term}))`
     );
+    if (searchCond) conditions.push(searchCond);
   }
 
   const where = and(...conditions);

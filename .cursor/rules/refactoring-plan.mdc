@@ -1,0 +1,59 @@
+---
+description: Refactoring context for teams → multi-company architecture
+alwaysApply: true
+---
+
+# Active Refactoring: Teams → Multi-Company
+
+This project is being refactored from a single-team SaaS starter to a multi-company accounting platform. All new code must follow the new architecture.
+
+## Critical Renames (never use the old names)
+
+- `teams` table → `companies`
+- `team_members` table → `company_members`
+- `team_company_profiles` → merged into `companies`
+- `teamId` (all FKs, variables, props) → `companyId`
+- `users.role` → REMOVED. Roles live on `company_members` only: `'owner' | 'accountant'`
+- `getTeamForUser()` → `getCompaniesForUser(userId)` (returns array, not single)
+- `getTeamByStripeCustomerId()` → `getUserByStripeCustomerId()`
+- `updateTeamSubscription()` → `updateUserSubscription()`
+
+## Architecture Rules
+
+1. **Company context comes from URL**: `/c/[companyId]/...` pattern. Cookie `activeCompanyId` is fallback for API routes.
+2. **Every company-scoped action must verify access**: call `verifyCompanyAccess(userId, companyId)` before any data operation.
+3. **Permissions are company-scoped**: use helpers from `lib/auth/permissions.ts` — `canEditCompanySettings(role)`, `canManageMembers(role)`, etc.
+4. **Stripe billing is per-user**, not per-company. Stripe fields are on `users` table.
+5. **Invoice numbers are NOT NULL**, assigned at creation, strictly monotonic per `(company_id, series)`. DB trigger enforces this.
+6. **Credit/debit notes inherit parent invoice's number** via `referencedInvoiceId`.
+7. **Partners can soft-link to existing companies** via `linkedCompanyId` (nullable FK). All partner fields are locally overridable.
+8. **Companies support soft delete** (`deletedAt`). EIK uniqueness is partial: `WHERE deleted_at IS NULL`.
+
+## Permission Matrix
+
+| Action | Owner | Accountant |
+|---|---|---|
+| View/create/edit invoices, partners, articles | ✅ | ✅ |
+| Edit company settings (legal info, bank) | ✅ | ❌ |
+| Invite members | ✅ | ✅ (accountant only) |
+| Remove members | ✅ | ❌ |
+| Transfer ownership / delete company | ✅ | ❌ |
+
+## Key Files
+
+### DO NOT MODIFY — these are pre-built and final:
+- `lib/db/schema.ts` — new Drizzle schema (source of truth for all types and table definitions)
+- `lib/db/queries.ts` — all query functions (already written, just import and use them)
+- `lib/db/seed.ts` — seed script (run manually, don't rewrite)
+- DB triggers are already installed in Supabase (enforce invoice numbering)
+
+**Your job is to use these files, not rewrite them.** Import types from `schema.ts`, call functions from `queries.ts`. Never modify their contents, rename their exports, or create alternative query functions.
+
+### TO BE CREATED by you during refactoring:
+- `lib/auth/permissions.ts` — role-based permission helpers
+- `lib/context/company-context.tsx` — React context for active company
+- Route structure under `app/(dashboard)/c/[companyId]/...`
+- Updated components, server actions, and API routes
+
+### Reference docs (read-only, for context):
+- `docs/refactor/REFACTORING_PLAN.md` — full step-by-step plan with detailed prompts

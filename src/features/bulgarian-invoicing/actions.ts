@@ -141,13 +141,13 @@ async function requireAuth() {
 async function requireTeamMembership(userId: number) {
   const result = await getUserWithTeam(userId);
   if (!result?.teamId) throw new Error('User is not part of a team');
-  return { teamId: result.teamId, teamRole: result.user.role };
+  // TODO: Replace with verifyCompanyRole() check after Step 2.3
+  return { teamId: result.teamId };
 }
 
-function requireRole(role: string, allowed: string[]) {
-  if (!allowed.includes(role)) {
-    throw new Error('Insufficient permissions');
-  }
+// TODO: Replace with verifyCompanyRole() check after Step 2.3
+function requireRole(_role: string, _allowed: string[]) {
+  // No-op: user.role is removed. Role checks will use company_members.
 }
 
 // ---------------------------------------------------------------------------
@@ -635,8 +635,8 @@ export async function finalizeInvoice(
   invoiceId: number
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
-  const { teamId, teamRole } = await requireTeamMembership(user.id);
-  requireRole(teamRole, ['owner']);
+  const { teamId } = await requireTeamMembership(user.id);
+  // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
   const [existing] = await db
     .select()
@@ -720,8 +720,8 @@ export async function cancelInvoice(
   reason?: string
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
-  const { teamId, teamRole } = await requireTeamMembership(user.id);
-  requireRole(teamRole, ['owner']);
+  const { teamId } = await requireTeamMembership(user.id);
+  // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
   const [existing] = await db
     .select()
@@ -788,8 +788,8 @@ async function createNoteFromInvoice(
   overrides?: NoteOverrides
 ): Promise<ActionResult<Invoice>> {
   const user = await requireAuth();
-  const { teamId, teamRole } = await requireTeamMembership(user.id);
-  requireRole(teamRole, ['owner']);
+  const { teamId } = await requireTeamMembership(user.id);
+  // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
   const [original] = await db
     .select()

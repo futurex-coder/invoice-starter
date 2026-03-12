@@ -128,7 +128,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const passwordHash = await hashPassword(password);
 
   let teamId: number | null = null;
-  let userRole: string = 'owner';
+  let memberRole: string = 'owner';
   let createdTeam: typeof teams.$inferSelect | null = null;
 
   if (inviteId) {
@@ -147,7 +147,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
 
     if (invitation) {
       teamId = invitation.teamId;
-      userRole = invitation.role;
+      memberRole = invitation.role;
     } else {
       return { error: 'Invalid or expired invitation.', email, password };
     }
@@ -156,7 +156,6 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const newUser: NewUser = {
     email,
     passwordHash,
-    role: userRole
   };
 
   const [createdUser] = await db.insert(users).values(newUser).returning();
@@ -199,7 +198,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     }
 
     teamId = createdTeam.id;
-    userRole = 'owner';
+    memberRole = 'owner';
 
     await logActivity(teamId, createdUser.id, ActivityType.CREATE_TEAM);
   }
@@ -207,7 +206,7 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
   const newTeamMember: NewTeamMember = {
     userId: createdUser.id,
     teamId: teamId,
-    role: userRole
+    role: memberRole
   };
 
   await Promise.all([
@@ -397,7 +396,7 @@ export const removeTeamMember = validatedActionWithUser(
 
 const inviteTeamMemberSchema = z.object({
   email: z.string().email('Invalid email address'),
-  role: z.enum(['member', 'owner'])
+  role: z.enum(['accountant', 'owner'])
 });
 
 export const inviteTeamMember = validatedActionWithUser(

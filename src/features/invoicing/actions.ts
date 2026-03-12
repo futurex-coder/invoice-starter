@@ -61,13 +61,13 @@ async function requireAuth() {
 async function requireTeamMembership(userId: number) {
   const result = await getUserWithTeam(userId);
   if (!result?.teamId) throw new Error('User is not part of a team');
-  return { teamId: result.teamId, teamRole: result.user.role };
+  // TODO: Replace with verifyCompanyRole() check after Step 2.3
+  return { teamId: result.teamId };
 }
 
-function requireRole(role: string, allowed: string[]) {
-  if (!allowed.includes(role)) {
-    throw new Error('Insufficient permissions');
-  }
+// TODO: Replace with verifyCompanyRole() check after Step 2.3
+function requireRole(_role: string, _allowed: string[]) {
+  // No-op: user.role is removed. Role checks will use company_members.
 }
 
 // ---------------------------------------------------------------------------
@@ -117,8 +117,8 @@ export async function upsertCompanyProfile(
 ): Promise<ActionResult<TeamCompanyProfile>> {
   try {
     const user = await requireAuth();
-    const { teamId, teamRole } = await requireTeamMembership(user.id);
-    requireRole(teamRole, ['owner']);
+    const { teamId } = await requireTeamMembership(user.id);
+    // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = upsertCompanyProfileSchema.safeParse(input);
     if (!parsed.success) {
@@ -190,8 +190,8 @@ export async function createPartner(
 ): Promise<ActionResult<Partner>> {
   try {
     const user = await requireAuth();
-    const { teamId, teamRole } = await requireTeamMembership(user.id);
-    requireRole(teamRole, ['owner']);
+    const { teamId } = await requireTeamMembership(user.id);
+    // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = createPartnerSchema.safeParse(input);
     if (!parsed.success) {
@@ -236,8 +236,8 @@ export async function updatePartner(
 ): Promise<ActionResult<Partner>> {
   try {
     const user = await requireAuth();
-    const { teamId, teamRole } = await requireTeamMembership(user.id);
-    requireRole(teamRole, ['owner']);
+    const { teamId } = await requireTeamMembership(user.id);
+    // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = updatePartnerSchema.safeParse(input);
     if (!parsed.success) {
@@ -288,8 +288,8 @@ export async function updatePartner(
 export async function deletePartner(id: number): Promise<ActionResult<void>> {
   try {
     const user = await requireAuth();
-    const { teamId, teamRole } = await requireTeamMembership(user.id);
-    requireRole(teamRole, ['owner']);
+    const { teamId } = await requireTeamMembership(user.id);
+    // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const [existing] = await db
       .select({ id: partners.id })
@@ -376,8 +376,8 @@ export async function createArticle(
 ): Promise<ActionResult<Article>> {
   try {
     const user = await requireAuth();
-    const { teamId, teamRole } = await requireTeamMembership(user.id);
-    requireRole(teamRole, ['owner']);
+    const { teamId } = await requireTeamMembership(user.id);
+    // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = createArticleSchema.safeParse(input);
     if (!parsed.success) {
@@ -416,8 +416,8 @@ export async function updateArticle(
 ): Promise<ActionResult<Article>> {
   try {
     const user = await requireAuth();
-    const { teamId, teamRole } = await requireTeamMembership(user.id);
-    requireRole(teamRole, ['owner']);
+    const { teamId } = await requireTeamMembership(user.id);
+    // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const parsed = updateArticleSchema.safeParse(input);
     if (!parsed.success) {
@@ -462,8 +462,8 @@ export async function updateArticle(
 export async function deleteArticle(id: number): Promise<ActionResult<void>> {
   try {
     const user = await requireAuth();
-    const { teamId, teamRole } = await requireTeamMembership(user.id);
-    requireRole(teamRole, ['owner']);
+    const { teamId } = await requireTeamMembership(user.id);
+    // TODO: Replace with verifyCompanyRole() check after Step 2.3
 
     const [existing] = await db
       .select({ id: articles.id })

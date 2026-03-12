@@ -18,92 +18,64 @@ import {
 import { relations } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 
+// ─────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────
+// Platform-level identity. No global role — roles are company-scoped.
+// Stripe billing lives here (per-user subscription model).
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
-  role: varchar('role', { length: 20 }).notNull().default('member'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
-  deletedAt: timestamp('deleted_at'),
-});
 
-export const teams = pgTable('teams', {
-  id: serial('id').primaryKey(),
-  name: varchar('name', { length: 100 }).notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  // Stripe (per-user billing)
   stripeCustomerId: text('stripe_customer_id').unique(),
   stripeSubscriptionId: text('stripe_subscription_id').unique(),
   stripeProductId: text('stripe_product_id'),
   planName: varchar('plan_name', { length: 50 }),
   subscriptionStatus: varchar('subscription_status', { length: 20 }),
+
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
 });
 
-export const teamMembers = pgTable('team_members', {
-  id: serial('id').primaryKey(),
-  userId: integer('user_id')
-    .notNull()
-    .references(() => users.id),
-  teamId: integer('team_id')
-    .notNull()
-    .references(() => teams.id),
-  role: varchar('role', { length: 50 }).notNull(),
-  joinedAt: timestamp('joined_at').notNull().defaultNow(),
-});
-
-export const activityLogs = pgTable('activity_logs', {
-  id: serial('id').primaryKey(),
-  teamId: integer('team_id')
-    .notNull()
-    .references(() => teams.id),
-  userId: integer('user_id').references(() => users.id),
-  action: text('action').notNull(),
-  timestamp: timestamp('timestamp').notNull().defaultNow(),
-  ipAddress: varchar('ip_address', { length: 45 }),
-});
-
-export const invitations = pgTable('invitations', {
-  id: serial('id').primaryKey(),
-  teamId: integer('team_id')
-    .notNull()
-    .references(() => teams.id),
-  email: varchar('email', { length: 255 }).notNull(),
-  role: varchar('role', { length: 50 }).notNull(),
-  invitedBy: integer('invited_by')
-    .notNull()
-    .references(() => users.id),
-  invitedAt: timestamp('invited_at').notNull().defaultNow(),
-  status: varchar('status', { length: 20 }).notNull().default('pending'),
-});
-
-/** One per team — Supplier (Доставчик) / company profile + bank defaults */
-export const teamCompanyProfiles = pgTable(
-  'team_company_profiles',
+// ─────────────────────────────────────────────
+// COMPANIES
+// ─────────────────────────────────────────────
+// Merged from old `teams` + `teamCompanyProfiles`.
+// Each company is a legal entity with a globally unique EIK.
+// Soft-deletable — partial unique on EIK allows re-registration.
+export const companies = pgTable(
+  'companies',
   {
     id: serial('id').primaryKey(),
-    teamId: integer('team_id')
-      .notNull()
-      .references(() => teams.id, { onDelete: 'cascade' }),
 
+    // Legal identity
     legalName: varchar('legal_name', { length: 255 }).notNull(),
     eik: varchar('eik', { length: 13 }).notNull(),
     vatNumber: varchar('vat_number', { length: 14 }),
     isVatRegistered: boolean('is_vat_registered').notNull().default(true),
 
+    // Address
     country: char('country', { length: 2 }).notNull().default('BG'),
     city: varchar('city', { length: 100 }).notNull(),
     street: varchar('street', { length: 255 }).notNull(),
     postCode: varchar('post_code', { length: 20 }),
 
+    // Representative
     mol: varchar('mol', { length: 255 }),
 
+    // Bank defaults
     bankName: varchar('bank_name', { length: 255 }),
     iban: varchar('iban', { length: 34 }),
     bicSwift: varchar('bic_swift', { length: 11 }),
 
-    defaultCurrency: char('default_currency', { length: 3 }).notNull().default('EUR'),
+    // Invoicing defaults
+    defaultCurrency: char('default_currency', { length: 3 })
+      .notNull()
+      .default('EUR'),
     defaultVatRate: integer('default_vat_rate').notNull().default(20),
     defaultPaymentMethod: varchar('default_payment_method', { length: 20 })
       .notNull()
@@ -111,22 +83,70 @@ export const teamCompanyProfiles = pgTable(
 
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at'),
   },
   (t) => [
-    unique('team_company_profiles_team_id_unique').on(t.teamId),
-    index('idx_team_company_profiles_team_id').on(t.teamId),
+    // Global EIK uniqueness among active (non-deleted) companies
+    uniqueIndex('companies_eik_unique')
+      .on(t.eik)
+      .where(sql`${t.deletedAt} IS NULL`),
+    index('idx_companies_legal_name').on(t.legalName),
   ]
 );
 
-/** Clients/recipients (Получатели) — team-scoped; recipient per invoice is snapshot */
+// ─────────────────────────────────────────────
+// COMPANY MEMBERS
+// ─────────────────────────────────────────────
+// Join table: user ↔ company with a company-scoped role.
+// Roles: 'owner' | 'accountant' (extensible later).
+// Partial unique ensures exactly one owner per company.
+export const companyMembers = pgTable(
+  'company_members',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id),
+    role: varchar('role', { length: 50 }).notNull(),
+    joinedAt: timestamp('joined_at').notNull().defaultNow(),
+  },
+  (t) => [
+    // A user can only have one role per company
+    unique('company_members_user_company_unique').on(t.userId, t.companyId),
+    // Exactly one owner per company
+    uniqueIndex('company_members_one_owner_per_company')
+      .on(t.companyId)
+      .where(sql`${t.role} = 'owner'`),
+    index('idx_company_members_user_id').on(t.userId),
+    index('idx_company_members_company_id').on(t.companyId),
+  ]
+);
+
+// ─────────────────────────────────────────────
+// PARTNERS
+// ─────────────────────────────────────────────
+// Company-scoped client/recipient records.
+// Optional soft-link to an existing company via linkedCompanyId.
+// All fields are locally overridable (partner data can drift from the
+// canonical company record — "soft-link with local overrides").
 export const partners = pgTable(
   'partners',
   {
     id: serial('id').primaryKey(),
-    teamId: integer('team_id')
+    companyId: integer('company_id')
       .notNull()
-      .references(() => teams.id, { onDelete: 'cascade' }),
+      .references(() => companies.id, { onDelete: 'cascade' }),
 
+    // Optional link to a registered company in the system
+    linkedCompanyId: integer('linked_company_id').references(
+      () => companies.id,
+      { onDelete: 'set null' }
+    ),
+
+    // Locally editable partner details (may diverge from linked company)
     name: varchar('name', { length: 255 }).notNull(),
     eik: varchar('eik', { length: 13 }).notNull(),
     vatNumber: varchar('vat_number', { length: 14 }),
@@ -143,27 +163,37 @@ export const partners = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    unique('partners_team_id_eik_unique').on(t.teamId, t.eik),
-    index('idx_partners_team_id').on(t.teamId),
-    index('idx_partners_team_name').on(t.teamId, t.name),
-    index('idx_partners_team_eik').on(t.teamId, t.eik),
+    // Same EIK can only appear once per company
+    unique('partners_company_eik_unique').on(t.companyId, t.eik),
+    index('idx_partners_company_id').on(t.companyId),
+    index('idx_partners_company_name').on(t.companyId, t.name),
+    index('idx_partners_company_eik').on(t.companyId, t.eik),
+    index('idx_partners_linked_company_id')
+      .on(t.linkedCompanyId)
+      .where(sql`${t.linkedCompanyId} IS NOT NULL`),
   ]
 );
 
-/** Articles/items (Артикули) — team-scoped catalog */
+// ─────────────────────────────────────────────
+// ARTICLES
+// ─────────────────────────────────────────────
+// Company-scoped product/service catalog.
 export const articles = pgTable(
   'articles',
   {
     id: serial('id').primaryKey(),
-    teamId: integer('team_id')
+    companyId: integer('company_id')
       .notNull()
-      .references(() => teams.id, { onDelete: 'cascade' }),
+      .references(() => companies.id, { onDelete: 'cascade' }),
 
     name: varchar('name', { length: 255 }).notNull(),
     unit: varchar('unit', { length: 20 }).notNull().default('бр.'),
-    tags: text('tags'), // comma-separated or JSON array string; optional
+    tags: text('tags'),
 
-    defaultUnitPrice: numeric('default_unit_price', { precision: 15, scale: 4 })
+    defaultUnitPrice: numeric('default_unit_price', {
+      precision: 15,
+      scale: 4,
+    })
       .notNull()
       .default('0'),
     currency: char('currency', { length: 3 }).notNull().default('EUR'),
@@ -173,68 +203,103 @@ export const articles = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    index('idx_articles_team_id').on(t.teamId),
-    index('idx_articles_team_name').on(t.teamId, t.name),
+    index('idx_articles_company_id').on(t.companyId),
+    index('idx_articles_company_name').on(t.companyId, t.name),
   ]
 );
 
+// ─────────────────────────────────────────────
+// INVOICE SEQUENCES
+// ─────────────────────────────────────────────
+// Company-scoped numbering series for invoices.
+// Tracks the next available number per (company, series).
+// Only used for doc_type='invoice' — CN/DN inherit their parent's number.
+// When a manual number override exceeds nextNumber, the trigger
+// auto-advances nextNumber to (manual_number + 1).
 export const invoiceSequences = pgTable(
   'invoice_sequences',
   {
     id: serial('id').primaryKey(),
-    teamId: integer('team_id')
+    companyId: integer('company_id')
       .notNull()
-      .references(() => teams.id, { onDelete: 'cascade' }),
+      .references(() => companies.id, { onDelete: 'cascade' }),
     series: varchar('series', { length: 20 }).notNull(),
     nextNumber: integer('next_number').notNull().default(1),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    unique('invoice_sequences_team_series_unique').on(t.teamId, t.series),
-    index('idx_invoice_sequences_team_id').on(t.teamId),
+    unique('invoice_sequences_company_series_unique').on(
+      t.companyId,
+      t.series
+    ),
+    index('idx_invoice_sequences_company_id').on(t.companyId),
   ]
 );
 
+// ─────────────────────────────────────────────
+// INVOICES
+// ─────────────────────────────────────────────
+// Company-scoped invoices. The company IS the supplier — no separate
+// supplierProfileId needed. Supplier details are snapshotted at creation.
+//
+// NUMBERING RULES:
+// - Invoices (doc_type='invoice'): number is assigned at creation from
+//   invoiceSequences, strictly monotonic per (company_id, series).
+//   DB trigger enforces new number > MAX(existing) — see migration SQL.
+//   Manual override allowed but must still be > MAX(existing).
+//   Gaps are fine (deleted drafts); going backward is blocked at DB level.
+//
+// - Credit/debit notes: inherit their parent invoice's number via
+//   referencedInvoiceId. Multiple CN/DN can share the same number.
+//   No monotonic constraint applies to CN/DN.
 export const invoices = pgTable(
   'invoices',
   {
     id: serial('id').primaryKey(),
-    teamId: integer('team_id')
+    companyId: integer('company_id')
       .notNull()
-      .references(() => teams.id, { onDelete: 'cascade' }),
+      .references(() => companies.id, { onDelete: 'cascade' }),
     createdByUserId: integer('created_by_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),
+    // For credit/debit notes: points to the parent invoice.
+    // NULL for regular invoices.
     referencedInvoiceId: integer('referenced_invoice_id'),
 
     partnerId: integer('partner_id').references(() => partners.id, {
       onDelete: 'set null',
     }),
-    supplierProfileId: integer('supplier_profile_id').references(
-      () => teamCompanyProfiles.id,
-      { onDelete: 'set null' }
-    ),
 
+    // 'invoice' | 'credit_note' | 'debit_note'
     docType: varchar('doc_type', { length: 30 }).notNull().default('invoice'),
+    // 'draft' | 'finalized' | 'cancelled'
     status: varchar('status', { length: 20 }).notNull().default('draft'),
 
     series: varchar('series', { length: 20 }).notNull().default('INV'),
-    number: integer('number'),
+    // Always assigned at creation. For CN/DN, copied from parent invoice.
+    number: integer('number').notNull(),
 
     issueDate: date('issue_date').notNull(),
     supplyDate: date('supply_date'),
 
     currency: char('currency', { length: 3 }).notNull().default('EUR'),
-    fxRate: numeric('fx_rate', { precision: 15, scale: 6 }).notNull().default('1'),
+    fxRate: numeric('fx_rate', { precision: 15, scale: 6 })
+      .notNull()
+      .default('1'),
 
+    // Point-in-time snapshots (immutable once finalized)
     supplierSnapshot: jsonb('supplier_snapshot'),
     recipientSnapshot: jsonb('recipient_snapshot'),
     items: jsonb('items'),
     totals: jsonb('totals'),
 
     language: char('language', { length: 2 }).notNull().default('bg'),
-    paymentMethod: varchar('payment_method', { length: 20 }).notNull().default('bank'),
-    paymentStatus: varchar('payment_status', { length: 20 }).notNull().default('unpaid'),
+    paymentMethod: varchar('payment_method', { length: 20 })
+      .notNull()
+      .default('bank'),
+    paymentStatus: varchar('payment_status', { length: 20 })
+      .notNull()
+      .default('unpaid'),
     dueDate: date('due_date'),
     vatMode: varchar('vat_mode', { length: 20 }).notNull().default('standard'),
     noVatReason: text('no_vat_reason'),
@@ -250,22 +315,37 @@ export const invoices = pgTable(
       columns: [t.referencedInvoiceId],
       foreignColumns: [t.id],
     }).onDelete('set null'),
-    uniqueIndex('idx_invoices_team_series_number_unique')
-      .on(t.teamId, t.series, t.number)
-      .where(sql`${t.number} IS NOT NULL`),
-    index('idx_invoices_team_id').on(t.teamId),
-    index('idx_invoices_team_status').on(t.teamId, t.status),
-    index('idx_invoices_team_issue_date').on(t.teamId, t.issueDate.desc()),
-    index('idx_invoices_team_payment_status').on(t.teamId, t.paymentStatus),
+    // Unique numbering only for invoices (not CN/DN — they share parent's number)
+    uniqueIndex('idx_invoices_company_series_number_unique')
+      .on(t.companyId, t.series, t.number)
+      .where(sql`${t.docType} = 'invoice'`),
+    index('idx_invoices_company_id').on(t.companyId),
+    index('idx_invoices_company_status').on(t.companyId, t.status),
+    index('idx_invoices_company_doc_type').on(t.companyId, t.docType),
+    index('idx_invoices_company_issue_date').on(
+      t.companyId,
+      t.issueDate.desc()
+    ),
+    index('idx_invoices_company_payment_status').on(
+      t.companyId,
+      t.paymentStatus
+    ),
     index('idx_invoices_created_by_user_id')
       .on(t.createdByUserId)
       .where(sql`${t.createdByUserId} IS NOT NULL`),
     index('idx_invoices_partner_id')
       .on(t.partnerId)
       .where(sql`${t.partnerId} IS NOT NULL`),
+    // For looking up all CN/DN for a given parent invoice
+    index('idx_invoices_referenced_invoice_id')
+      .on(t.referencedInvoiceId)
+      .where(sql`${t.referencedInvoiceId} IS NOT NULL`),
   ]
 );
 
+// ─────────────────────────────────────────────
+// INVOICE LINES
+// ─────────────────────────────────────────────
 export const invoiceLines = pgTable(
   'invoice_lines',
   {
@@ -309,97 +389,128 @@ export const invoiceLines = pgTable(
   ]
 );
 
-export const teamsRelations = relations(teams, ({ one, many }) => ({
-  teamMembers: many(teamMembers),
+// ─────────────────────────────────────────────
+// ACTIVITY LOGS
+// ─────────────────────────────────────────────
+// Company-scoped audit trail. Every action records both the user
+// AND the company context they were acting in.
+export const activityLogs = pgTable(
+  'activity_logs',
+  {
+    id: serial('id').primaryKey(),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id),
+    userId: integer('user_id').references(() => users.id),
+    action: text('action').notNull(),
+    timestamp: timestamp('timestamp').notNull().defaultNow(),
+    ipAddress: varchar('ip_address', { length: 45 }),
+  },
+  (t) => [
+    index('idx_activity_logs_company_id').on(t.companyId),
+    index('idx_activity_logs_user_id')
+      .on(t.userId)
+      .where(sql`${t.userId} IS NOT NULL`),
+    index('idx_activity_logs_timestamp').on(t.timestamp.desc()),
+  ]
+);
+
+// ─────────────────────────────────────────────
+// INVITATIONS
+// ─────────────────────────────────────────────
+// Company-scoped invitations. Accountants can invite other accountants;
+// only owners can invite with role 'owner' (enforced in app logic).
+export const invitations = pgTable(
+  'invitations',
+  {
+    id: serial('id').primaryKey(),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id),
+    email: varchar('email', { length: 255 }).notNull(),
+    role: varchar('role', { length: 50 }).notNull(),
+    invitedBy: integer('invited_by')
+      .notNull()
+      .references(() => users.id),
+    invitedAt: timestamp('invited_at').notNull().defaultNow(),
+    status: varchar('status', { length: 20 }).notNull().default('pending'),
+  },
+  (t) => [
+    index('idx_invitations_company_id').on(t.companyId),
+    index('idx_invitations_email').on(t.email),
+  ]
+);
+
+// ─────────────────────────────────────────────
+// RELATIONS
+// ─────────────────────────────────────────────
+
+export const usersRelations = relations(users, ({ many }) => ({
+  companyMemberships: many(companyMembers),
+  invitationsSent: many(invitations),
+  invoicesCreated: many(invoices),
   activityLogs: many(activityLogs),
-  invitations: many(invitations),
-  teamCompanyProfile: one(teamCompanyProfiles),
+}));
+
+export const companiesRelations = relations(companies, ({ many }) => ({
+  members: many(companyMembers),
   partners: many(partners),
   articles: many(articles),
   invoiceSequences: many(invoiceSequences),
   invoices: many(invoices),
-  invoiceLines: many(invoiceLines),
+  activityLogs: many(activityLogs),
+  invitations: many(invitations),
 }));
 
-export const teamCompanyProfilesRelations = relations(
-  teamCompanyProfiles,
+export const companyMembersRelations = relations(
+  companyMembers,
   ({ one }) => ({
-    team: one(teams, {
-      fields: [teamCompanyProfiles.teamId],
-      references: [teams.id],
+    user: one(users, {
+      fields: [companyMembers.userId],
+      references: [users.id],
+    }),
+    company: one(companies, {
+      fields: [companyMembers.companyId],
+      references: [companies.id],
     }),
   })
 );
 
 export const partnersRelations = relations(partners, ({ one, many }) => ({
-  team: one(teams, {
-    fields: [partners.teamId],
-    references: [teams.id],
+  company: one(companies, {
+    fields: [partners.companyId],
+    references: [companies.id],
+  }),
+  linkedCompany: one(companies, {
+    fields: [partners.linkedCompanyId],
+    references: [companies.id],
+    relationName: 'linkedPartners',
   }),
   invoices: many(invoices),
 }));
 
 export const articlesRelations = relations(articles, ({ one, many }) => ({
-  team: one(teams, {
-    fields: [articles.teamId],
-    references: [teams.id],
+  company: one(companies, {
+    fields: [articles.companyId],
+    references: [companies.id],
   }),
   invoiceLines: many(invoiceLines),
-}));
-
-export const usersRelations = relations(users, ({ many }) => ({
-  teamMembers: many(teamMembers),
-  invitationsSent: many(invitations),
-  invoicesCreated: many(invoices),
-}));
-
-export const invitationsRelations = relations(invitations, ({ one }) => ({
-  team: one(teams, {
-    fields: [invitations.teamId],
-    references: [teams.id],
-  }),
-  invitedBy: one(users, {
-    fields: [invitations.invitedBy],
-    references: [users.id],
-  }),
-}));
-
-export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
-  user: one(users, {
-    fields: [teamMembers.userId],
-    references: [users.id],
-  }),
-  team: one(teams, {
-    fields: [teamMembers.teamId],
-    references: [teams.id],
-  }),
-}));
-
-export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
-  team: one(teams, {
-    fields: [activityLogs.teamId],
-    references: [teams.id],
-  }),
-  user: one(users, {
-    fields: [activityLogs.userId],
-    references: [users.id],
-  }),
 }));
 
 export const invoiceSequencesRelations = relations(
   invoiceSequences,
   ({ one }) => ({
-    team: one(teams, {
-      fields: [invoiceSequences.teamId],
-      references: [teams.id],
+    company: one(companies, {
+      fields: [invoiceSequences.companyId],
+      references: [companies.id],
     }),
   })
 );
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
-  team: one(teams, {
-    fields: [invoices.teamId],
-    references: [teams.id],
+  company: one(companies, {
+    fields: [invoices.companyId],
+    references: [companies.id],
   }),
   createdByUser: one(users, {
     fields: [invoices.createdByUserId],
@@ -418,10 +529,6 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
     fields: [invoices.partnerId],
     references: [partners.id],
   }),
-  supplierProfile: one(teamCompanyProfiles, {
-    fields: [invoices.supplierProfileId],
-    references: [teamCompanyProfiles.id],
-  }),
   lines: many(invoiceLines),
 }));
 
@@ -436,18 +543,38 @@ export const invoiceLinesRelations = relations(invoiceLines, ({ one }) => ({
   }),
 }));
 
+export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
+  company: one(companies, {
+    fields: [activityLogs.companyId],
+    references: [companies.id],
+  }),
+  user: one(users, {
+    fields: [activityLogs.userId],
+    references: [users.id],
+  }),
+}));
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+  company: one(companies, {
+    fields: [invitations.companyId],
+    references: [companies.id],
+  }),
+  invitedBy: one(users, {
+    fields: [invitations.invitedBy],
+    references: [users.id],
+  }),
+}));
+
+// ─────────────────────────────────────────────
+// INFERRED TYPES
+// ─────────────────────────────────────────────
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
-export type Team = typeof teams.$inferSelect;
-export type NewTeam = typeof teams.$inferInsert;
-export type TeamMember = typeof teamMembers.$inferSelect;
-export type NewTeamMember = typeof teamMembers.$inferInsert;
-export type ActivityLog = typeof activityLogs.$inferSelect;
-export type NewActivityLog = typeof activityLogs.$inferInsert;
-export type Invitation = typeof invitations.$inferSelect;
-export type NewInvitation = typeof invitations.$inferInsert;
-export type TeamCompanyProfile = typeof teamCompanyProfiles.$inferSelect;
-export type NewTeamCompanyProfile = typeof teamCompanyProfiles.$inferInsert;
+export type Company = typeof companies.$inferSelect;
+export type NewCompany = typeof companies.$inferInsert;
+export type CompanyMember = typeof companyMembers.$inferSelect;
+export type NewCompanyMember = typeof companyMembers.$inferInsert;
 export type Partner = typeof partners.$inferSelect;
 export type NewPartner = typeof partners.$inferInsert;
 export type Article = typeof articles.$inferSelect;
@@ -458,24 +585,67 @@ export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
 export type InvoiceLine = typeof invoiceLines.$inferSelect;
 export type NewInvoiceLine = typeof invoiceLines.$inferInsert;
-export type TeamDataWithMembers = Team & {
-  teamMembers: (TeamMember & {
+export type ActivityLog = typeof activityLogs.$inferSelect;
+export type NewActivityLog = typeof activityLogs.$inferInsert;
+export type Invitation = typeof invitations.$inferSelect;
+export type NewInvitation = typeof invitations.$inferInsert;
+
+// Composite types for common query shapes
+export type CompanyWithMembers = Company & {
+  members: (CompanyMember & {
     user: Pick<User, 'id' | 'name' | 'email'>;
   })[];
   invitations: Invitation[];
 };
 
+export type UserCompanyMembership = {
+  company: Company;
+  role: CompanyMember['role'];
+};
+
+// ─────────────────────────────────────────────
+// ENUMS (app-level, not pg enums — easier to extend)
+// ─────────────────────────────────────────────
+
+export enum CompanyRole {
+  OWNER = 'owner',
+  ACCOUNTANT = 'accountant',
+}
+
+export enum DocType {
+  INVOICE = 'invoice',
+  CREDIT_NOTE = 'credit_note',
+  DEBIT_NOTE = 'debit_note',
+}
+
+export enum InvoiceStatus {
+  DRAFT = 'draft',
+  FINALIZED = 'finalized',
+  CANCELLED = 'cancelled',
+}
+
 export enum ActivityType {
+  // Auth
   SIGN_UP = 'SIGN_UP',
   SIGN_IN = 'SIGN_IN',
   SIGN_OUT = 'SIGN_OUT',
   UPDATE_PASSWORD = 'UPDATE_PASSWORD',
   DELETE_ACCOUNT = 'DELETE_ACCOUNT',
   UPDATE_ACCOUNT = 'UPDATE_ACCOUNT',
-  CREATE_TEAM = 'CREATE_TEAM',
-  REMOVE_TEAM_MEMBER = 'REMOVE_TEAM_MEMBER',
-  INVITE_TEAM_MEMBER = 'INVITE_TEAM_MEMBER',
+
+  // Company management
+  CREATE_COMPANY = 'CREATE_COMPANY',
+  UPDATE_COMPANY = 'UPDATE_COMPANY',
+  DELETE_COMPANY = 'DELETE_COMPANY',
+  RESTORE_COMPANY = 'RESTORE_COMPANY',
+  TRANSFER_OWNERSHIP = 'TRANSFER_OWNERSHIP',
+
+  // Member management
+  INVITE_MEMBER = 'INVITE_MEMBER',
   ACCEPT_INVITATION = 'ACCEPT_INVITATION',
+  REMOVE_MEMBER = 'REMOVE_MEMBER',
+
+  // Invoicing
   CREATE_INVOICE = 'CREATE_INVOICE',
   UPDATE_INVOICE = 'UPDATE_INVOICE',
   FINALIZE_INVOICE = 'FINALIZE_INVOICE',

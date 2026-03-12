@@ -193,9 +193,9 @@ function TeamMembers() {
 
 function PendingInvitations() {
   const { data: teamData } = useSWR<TeamDataWithMembers>('/api/team', fetcher);
-  const { data: user } = useSWR<User>('/api/user', fetcher);
 
-  if (!teamData?.invitations?.length || user?.role !== 'owner') {
+  // TODO: Replace with verifyCompanyRole() check after Step 2.3
+  if (!teamData?.invitations?.length) {
     return null;
   }
 
@@ -245,8 +245,8 @@ function InviteTeamMemberSkeleton() {
 }
 
 function InviteTeamMember() {
-  const { data: user } = useSWR<User>('/api/user', fetcher);
-  const isOwner = user?.role === 'owner';
+  // TODO: Replace with verifyCompanyRole() check after Step 2.3
+  const isOwner = true;
   const [inviteState, inviteAction, isInvitePending] = useActionState<
     ActionState,
     FormData
@@ -274,15 +274,16 @@ function InviteTeamMember() {
           </div>
           <div>
             <Label>Role</Label>
+            {/* TODO: Show role from company_members context */}
             <RadioGroup
-              defaultValue="member"
+              defaultValue="accountant"
               name="role"
               className="flex space-x-4"
               disabled={!isOwner}
             >
               <div className="flex items-center space-x-2 mt-2">
-                <RadioGroupItem value="member" id="member" />
-                <Label htmlFor="member">Member</Label>
+                <RadioGroupItem value="accountant" id="accountant" />
+                <Label htmlFor="accountant">Accountant</Label>
               </div>
               <div className="flex items-center space-x-2 mt-2">
                 <RadioGroupItem value="owner" id="owner" />

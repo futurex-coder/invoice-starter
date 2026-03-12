@@ -53,6 +53,8 @@ export const createPartnerSchema = z.object({
   postCode: z.string().max(20).optional().nullable(),
 
   mol: z.string().max(255).optional().nullable(),
+
+  linkedCompanyId: z.number().int().nullable().optional(),
 });
 
 export const updatePartnerSchema = createPartnerSchema.partial();

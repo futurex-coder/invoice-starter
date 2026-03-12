@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,9 +21,11 @@ import {
   createPartner,
   updatePartner,
   deletePartner,
+  lookupCompanyByEik,
 } from '@/src/features/invoicing/actions';
 import type { CreatePartnerInput } from '@/src/features/invoicing/schemas';
-import type { Partner } from '@/lib/db/schema';
+import type { Partner, Company } from '@/lib/db/schema';
+import { useCompany } from '@/lib/context/company-context';
 import {
   Plus,
   MoreHorizontal,
@@ -32,6 +34,7 @@ import {
   X,
   Loader2,
   Search,
+  Link2,
 } from 'lucide-react';
 
 interface PartnerForm {
@@ -44,6 +47,7 @@ interface PartnerForm {
   street: string;
   postCode: string;
   mol: string;
+  linkedCompanyId: number | null;
 }
 
 const emptyForm: PartnerForm = {
@@ -56,6 +60,7 @@ const emptyForm: PartnerForm = {
   street: '',
   postCode: '',
   mol: '',
+  linkedCompanyId: null,
 };
 
 function partnerToForm(p: Partner): PartnerForm {
@@ -69,6 +74,7 @@ function partnerToForm(p: Partner): PartnerForm {
     street: p.street,
     postCode: p.postCode ?? '',
     mol: p.mol ?? '',
+    linkedCompanyId: p.linkedCompanyId ?? null,
   };
 }
 
@@ -83,10 +89,12 @@ function formToInput(f: PartnerForm): CreatePartnerInput {
     street: f.street,
     postCode: f.postCode || undefined,
     mol: f.mol || undefined,
+    linkedCompanyId: f.linkedCompanyId,
   };
 }
 
 export default function PartnersPage() {
+  const { company } = useCompany();
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
@@ -101,6 +109,11 @@ export default function PartnersPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<PartnerForm>(emptyForm);
   const [saving, setSaving] = useState(false);
+
+  const [eikLooking, setEikLooking] = useState(false);
+  const [linkedCompany, setLinkedCompany] = useState<Company | null>(null);
+  const [selfEikError, setSelfEikError] = useState(false);
+  const eikLookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -125,6 +138,55 @@ export default function PartnersPage() {
     fetchData();
   }, [fetchData]);
 
+  const doEikLookup = useCallback(
+    async (eik: string) => {
+      const trimmed = eik.trim();
+      if (trimmed.length < 9) {
+        setLinkedCompany(null);
+        setSelfEikError(false);
+        setForm((f) => ({ ...f, linkedCompanyId: null }));
+        return;
+      }
+
+      if (trimmed === company.eik) {
+        setSelfEikError(true);
+        setLinkedCompany(null);
+        setForm((f) => ({ ...f, linkedCompanyId: null }));
+        return;
+      }
+      setSelfEikError(false);
+
+      setEikLooking(true);
+      const res = await lookupCompanyByEik(trimmed);
+      setEikLooking(false);
+
+      if (res.data) {
+        setLinkedCompany(res.data);
+        setForm((f) => ({
+          ...f,
+          linkedCompanyId: res.data!.id,
+          name: res.data!.legalName,
+          vatNumber: res.data!.vatNumber ?? '',
+          country: res.data!.country ?? 'BG',
+          city: res.data!.city ?? '',
+          street: res.data!.street ?? '',
+          postCode: res.data!.postCode ?? '',
+          mol: res.data!.mol ?? '',
+        }));
+      } else {
+        setLinkedCompany(null);
+        setForm((f) => ({ ...f, linkedCompanyId: null }));
+      }
+    },
+    [company.eik]
+  );
+
+  const handleEikChange = (value: string) => {
+    setForm((f) => ({ ...f, eik: value }));
+    if (eikLookupTimer.current) clearTimeout(eikLookupTimer.current);
+    eikLookupTimer.current = setTimeout(() => doEikLookup(value), 500);
+  };
+
   const applySearch = () => {
     setSearch(searchInput);
     setPage(1);
@@ -133,6 +195,8 @@ export default function PartnersPage() {
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyForm);
+    setLinkedCompany(null);
+    setSelfEikError(false);
     setShowForm(true);
     setError(null);
   };
@@ -140,6 +204,8 @@ export default function PartnersPage() {
   const openEdit = (p: Partner) => {
     setEditingId(p.id);
     setForm(partnerToForm(p));
+    setLinkedCompany(null);
+    setSelfEikError(false);
     setShowForm(true);
     setError(null);
   };
@@ -148,9 +214,12 @@ export default function PartnersPage() {
     setShowForm(false);
     setEditingId(null);
     setForm(emptyForm);
+    setLinkedCompany(null);
+    setSelfEikError(false);
   };
 
   const handleSave = async () => {
+    if (selfEikError) return;
     setSaving(true);
     setError(null);
     const input = formToInput(form);
@@ -215,6 +284,17 @@ export default function PartnersPage() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
+            {linkedCompany && (
+              <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                <Link2 className="inline h-4 w-4 mr-1 -mt-0.5" />
+                This partner is a registered company in the system. Fields pre-filled from their profile.
+              </div>
+            )}
+            {selfEikError && (
+              <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                You cannot add yourself as a partner.
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="pName">Name *</Label>
@@ -229,14 +309,18 @@ export default function PartnersPage() {
               </div>
               <div>
                 <Label htmlFor="pEik">EIK *</Label>
-                <Input
-                  id="pEik"
-                  value={form.eik}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, eik: e.target.value }))
-                  }
-                  placeholder="9 or 10 digits"
-                />
+                <div className="relative">
+                  <Input
+                    id="pEik"
+                    value={form.eik}
+                    onChange={(e) => handleEikChange(e.target.value)}
+                    placeholder="9 or 10 digits"
+                    className={selfEikError ? 'border-red-400' : ''}
+                  />
+                  {eikLooking && (
+                    <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-gray-400" />
+                  )}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -329,7 +413,7 @@ export default function PartnersPage() {
               </div>
             </div>
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving || selfEikError}>
                 {saving && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
@@ -414,6 +498,15 @@ export default function PartnersPage() {
                       {p.isIndividual && (
                         <span className="ml-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
                           Individual
+                        </span>
+                      )}
+                      {p.linkedCompanyId && (
+                        <span
+                          className="ml-2 inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700"
+                          title="Linked to a registered company"
+                        >
+                          <Link2 className="h-3 w-3" />
+                          Linked
                         </span>
                       )}
                     </td>

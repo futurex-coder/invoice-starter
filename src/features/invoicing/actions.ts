@@ -14,7 +14,7 @@ import {
   type NewPartner,
   type NewArticle,
 } from '@/lib/db/schema';
-import { getUser, getActiveCompanyId, verifyCompanyAccess } from '@/lib/db/queries';
+import { getUser, getActiveCompanyId, verifyCompanyAccess, findCompanyByEik } from '@/lib/db/queries';
 import { canEditCompanySettings } from '@/lib/auth/permissions';
 import {
   upsertCompanyProfileSchema,
@@ -189,6 +189,7 @@ export async function createPartner(
         street: data.street,
         postCode: data.postCode ?? null,
         mol: data.mol ?? null,
+        linkedCompanyId: data.linkedCompanyId ?? null,
       } as NewPartner)
       .returning();
 
@@ -238,6 +239,7 @@ export async function updatePartner(
     if (data.street !== undefined) update.street = data.street;
     if (data.postCode !== undefined) update.postCode = data.postCode ?? null;
     if (data.mol !== undefined) update.mol = data.mol ?? null;
+    if (data.linkedCompanyId !== undefined) update.linkedCompanyId = data.linkedCompanyId ?? null;
 
     const [updated] = await db
       .update(partners)
@@ -548,5 +550,21 @@ export async function getOnboardingStatus(): Promise<
     return {
       error: e instanceof Error ? e.message : 'Failed to load onboarding status',
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// E) EIK Lookup — resolve a partner's EIK to a registered company
+// ---------------------------------------------------------------------------
+
+export async function lookupCompanyByEik(
+  eik: string
+): Promise<ActionResult<Company | null>> {
+  try {
+    await requireCompanyAccess();
+    const company = await findCompanyByEik(eik.trim());
+    return { data: company };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Lookup failed' };
   }
 }

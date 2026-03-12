@@ -4,10 +4,12 @@ import { and, eq, desc, sql, ilike, or } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import {
   companies,
+  companyMembers,
   partners,
   articles,
   activityLogs,
   invoices,
+  ActivityType,
   type Company,
   type CompanyWithMembers,
   type Partner,
@@ -675,5 +677,88 @@ export async function getDashboardActivityAction(
     return { data: logs };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to load activity' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// J) Create Company
+// ---------------------------------------------------------------------------
+
+export type CreateCompanyInput = {
+  legalName: string;
+  eik: string;
+  vatNumber?: string | null;
+  isVatRegistered: boolean;
+  country: string;
+  city: string;
+  street: string;
+  postCode?: string | null;
+  mol?: string | null;
+  bankName?: string | null;
+  iban?: string | null;
+  bicSwift?: string | null;
+  defaultCurrency: string;
+  defaultVatRate: number;
+  defaultPaymentMethod: string;
+};
+
+export async function createCompanyAction(
+  input: CreateCompanyInput
+): Promise<ActionResult<{ companyId: number }>> {
+  try {
+    const user = await getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const existing = await findCompanyByEik(input.eik.trim());
+    if (existing) {
+      return {
+        error:
+          'A company with this EIK already exists. Please ask the company owner to invite you instead.',
+      };
+    }
+
+    const [newCompany] = await db
+      .insert(companies)
+      .values({
+        legalName: input.legalName.trim(),
+        eik: input.eik.trim(),
+        vatNumber: input.vatNumber?.trim() || null,
+        isVatRegistered: input.isVatRegistered,
+        country: input.country.trim() || 'BG',
+        city: input.city.trim(),
+        street: input.street.trim(),
+        postCode: input.postCode?.trim() || null,
+        mol: input.mol?.trim() || null,
+        bankName: input.bankName?.trim() || null,
+        iban: input.iban?.trim() || null,
+        bicSwift: input.bicSwift?.trim() || null,
+        defaultCurrency: input.defaultCurrency,
+        defaultVatRate: input.defaultVatRate,
+        defaultPaymentMethod: input.defaultPaymentMethod,
+      })
+      .returning();
+
+    await db.insert(companyMembers).values({
+      userId: user.id,
+      companyId: newCompany.id,
+      role: 'owner',
+    });
+
+    await logActivity(newCompany.id, user.id, ActivityType.CREATE_COMPANY);
+
+    return { data: { companyId: newCompany.id } };
+  } catch (e) {
+    if (
+      (e instanceof Error && e.message.includes('unique')) ||
+      (e as { code?: string })?.code === '23505'
+    ) {
+      return {
+        error:
+          'A company with this EIK already exists. Please ask the company owner to invite you instead.',
+      };
+    }
+    return {
+      error: e instanceof Error ? e.message : 'Failed to create company',
+    };
   }
 }

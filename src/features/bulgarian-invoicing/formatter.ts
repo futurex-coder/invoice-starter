@@ -377,7 +377,7 @@ export function amountInWordsBg(amount: number, currency: string): string {
   const subUnit = isEur ? (decPart === 1 ? 'цент' : 'цента') : decPart === 1 ? 'стотинка' : 'стотинки';
 
   const intWords = numberToWordsBg(intPart);
-  const mainStr = intPart === 0 ? 'нула' : intWords + ' ' + mainUnit;
+  const mainStr = intPart === 0 ? 'нула ' + mainUnit : intWords + ' ' + mainUnit;
   if (decPart === 0) return mainStr;
   return mainStr + ' и ' + decPart + ' ' + subUnit;
 }

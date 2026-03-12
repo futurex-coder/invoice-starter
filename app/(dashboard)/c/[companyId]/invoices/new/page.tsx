@@ -233,7 +233,7 @@ export default function NewInvoicePage() {
 
       setVatMode((inv.vatMode as 'standard' | 'no_vat') ?? 'standard');
       setNoVatReason(inv.noVatReason ?? '');
-      setAmountInWordsOverride(inv.amountInWords ?? '');
+      setAmountInWordsOverride('');
       setPaymentMethod((inv.paymentMethod as 'bank' | 'cash' | 'barter') ?? 'bank');
       setPaymentStatus(inv.paymentStatus ?? 'unpaid');
       setCustomerNote(inv.customerNote ?? '');
@@ -790,12 +790,20 @@ export default function NewInvoicePage() {
           </div>
           <div>
             <Label>Словом (amount in words) *</Label>
-            <Input
-              className="mt-1"
-              value={amountInWordsOverride || amountInWordsBg(totals.grossAmount, currency)}
-              onChange={(e) => setAmountInWordsOverride(e.target.value)}
-              placeholder="Auto-generated"
-            />
+            <p className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+              {amountInWordsBg(totals.grossAmount, currency)}
+            </p>
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600">
+                Override manually
+              </summary>
+              <Input
+                className="mt-1"
+                value={amountInWordsOverride}
+                onChange={(e) => setAmountInWordsOverride(e.target.value)}
+                placeholder="Leave empty to use auto-generated text"
+              />
+            </details>
           </div>
         </CardContent>
       </Card>

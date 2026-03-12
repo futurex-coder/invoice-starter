@@ -349,9 +349,9 @@ async function saveInvoiceLines(
 function rowToDocument(row: Invoice): InvoiceDocument {
   const items = (row.items ?? []) as LineItem[];
   const totals = (row.totals ?? {
-    totalNet: 0,
-    totalVat: 0,
-    totalGross: 0,
+    netAmount: 0,
+    vatAmount: 0,
+    grossAmount: 0,
     vatBreakdown: [],
   }) as InvoiceTotals;
 
@@ -399,7 +399,7 @@ export async function createInvoiceDraft(
   const currency = input.currency ?? 'EUR';
   const words =
     input.amountInWords?.trim() ||
-    amountInWordsBg(calc.totals.totalGross, currency);
+    amountInWordsBg(calc.totals.grossAmount, currency);
 
   const doc: InvoiceDocument = {
     docType: input.docType,
@@ -664,11 +664,11 @@ export async function finalizeInvoice(
     return { error: 'Validation failed', validationErrors: vr.errors };
   }
 
-  const totals = (existing.totals ?? { totalGross: 0 }) as InvoiceTotals;
+  const totals = (existing.totals ?? { grossAmount: 0 }) as InvoiceTotals;
   const currency = existing.currency ?? 'EUR';
   const amountInWords =
     existing.amountInWords?.trim() ||
-    amountInWordsBg(totals.totalGross, currency);
+    amountInWordsBg(totals.grossAmount, currency);
 
   const [finalized] = await db
     .update(invoices)

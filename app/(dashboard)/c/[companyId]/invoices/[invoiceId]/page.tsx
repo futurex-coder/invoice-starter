@@ -101,7 +101,7 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  const totals = (invoice.totals ?? { totalGross: 0, totalNet: 0, totalVat: 0 }) as { totalGross: number; totalNet: number; totalVat: number };
+  const totals = (invoice.totals ?? { grossAmount: 0, netAmount: 0, vatAmount: 0 }) as { grossAmount: number; netAmount: number; vatAmount: number };
   const recipient = (invoice.recipientSnapshot ?? {}) as { legalName?: string };
   const isDraft = invoice.status === 'draft';
   const isCancelled = invoice.status === 'cancelled';
@@ -208,7 +208,7 @@ export default function InvoiceDetailPage() {
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Total</span>
-            <span className="font-medium">{formatMoney(totals.totalGross)} {invoice.currency}</span>
+            <span className="font-medium">{formatMoney(totals.grossAmount)} {invoice.currency}</span>
           </div>
         </CardContent>
       </Card>

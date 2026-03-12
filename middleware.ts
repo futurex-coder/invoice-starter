@@ -86,16 +86,18 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // ── /dashboard (exact) — redirect to active company if available ─
-  // Sub-routes like /dashboard/general and /dashboard/security are
-  // user-level pages and should NOT be redirected.
-  if (pathname === '/dashboard') {
+  // ── / (bare root) — smart redirect for logged-in users ───────────
+  // Sends to the last-used company's dashboard, or to /dashboard if
+  // no company cookie exists. /dashboard itself is never redirected —
+  // it always renders the cross-company overview.
+  if (pathname === '/' && sessionCookie) {
     const activeCompanyId = request.cookies.get('activeCompanyId')?.value;
     if (activeCompanyId && /^\d+$/.test(activeCompanyId)) {
       return NextResponse.redirect(
         new URL(`/c/${activeCompanyId}/dashboard`, request.url)
       );
     }
+    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return res;

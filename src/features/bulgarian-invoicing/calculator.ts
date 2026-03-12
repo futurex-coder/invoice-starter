@@ -89,21 +89,21 @@ export function computeVatBreakdown(items: LineItem[]): VatBreakdownEntry[] {
  * Compute invoice totals from computed line items.
  */
 export function computeTotals(items: LineItem[]): InvoiceTotals {
-  let totalNet = 0;
-  let totalVat = 0;
+  let netAmount = 0;
+  let vatAmount = 0;
 
   for (const item of items) {
-    totalNet += item.netAmount;
-    totalVat += item.vatAmount;
+    netAmount += item.netAmount;
+    vatAmount += item.vatAmount;
   }
 
-  totalNet = round2(totalNet);
-  totalVat = round2(totalVat);
+  netAmount = round2(netAmount);
+  vatAmount = round2(vatAmount);
 
   return {
-    totalNet,
-    totalVat,
-    totalGross: round2(totalNet + totalVat),
+    netAmount,
+    vatAmount,
+    grossAmount: round2(netAmount + vatAmount),
     vatBreakdown: computeVatBreakdown(items),
   };
 }

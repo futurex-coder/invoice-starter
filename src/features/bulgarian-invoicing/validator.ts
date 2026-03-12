@@ -271,31 +271,31 @@ export function validateInvoice(doc: InvoiceDocument): ValidationResult {
     const roundedNet = Number(expectedNet.toFixed(2));
     const roundedVat = Number(expectedVat.toFixed(2));
 
-    if (Math.abs(doc.totals.totalNet - roundedNet) > 0.01) {
+    if (Math.abs(doc.totals.netAmount - roundedNet) > 0.01) {
       errors.push(
         err(
           'TOTALS_MISMATCH',
-          'totals.totalNet',
-          `totalNet (${doc.totals.totalNet}) does not match sum of line netAmounts (${roundedNet})`
+          'totals.netAmount',
+          `netAmount (${doc.totals.netAmount}) does not match sum of line netAmounts (${roundedNet})`
         )
       );
     }
-    if (Math.abs(doc.totals.totalVat - roundedVat) > 0.01) {
+    if (Math.abs(doc.totals.vatAmount - roundedVat) > 0.01) {
       errors.push(
         err(
           'TOTALS_MISMATCH',
-          'totals.totalVat',
-          `totalVat (${doc.totals.totalVat}) does not match sum of line vatAmounts (${roundedVat})`
+          'totals.vatAmount',
+          `vatAmount (${doc.totals.vatAmount}) does not match sum of line vatAmounts (${roundedVat})`
         )
       );
     }
     const expectedGross = Number((roundedNet + roundedVat).toFixed(2));
-    if (Math.abs(doc.totals.totalGross - expectedGross) > 0.01) {
+    if (Math.abs(doc.totals.grossAmount - expectedGross) > 0.01) {
       errors.push(
         err(
           'TOTALS_MISMATCH',
-          'totals.totalGross',
-          `totalGross (${doc.totals.totalGross}) does not match totalNet + totalVat (${expectedGross})`
+          'totals.grossAmount',
+          `grossAmount (${doc.totals.grossAmount}) does not match netAmount + vatAmount (${expectedGross})`
         )
       );
     }

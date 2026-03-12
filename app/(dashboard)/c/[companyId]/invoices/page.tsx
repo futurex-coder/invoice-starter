@@ -72,15 +72,20 @@ function InvoiceTableRow({
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
 }) {
-  const totals = (invoice.totals ?? { totalGross: 0 }) as { totalGross: number };
+  const totals = (invoice.totals ?? { grossAmount: 0 }) as { grossAmount: number };
   const recipient = (invoice.recipientSnapshot ?? {}) as { legalName?: string };
   const isDraft = invoice.status === 'draft';
   const isIssued = invoice.status === 'issued';
   const isCancelled = invoice.status === 'cancelled';
   const isNote = invoice.docType === 'credit_note' || invoice.docType === 'debit_note';
+  const isOverdue =
+    invoice.status === 'finalized' &&
+    invoice.paymentStatus === 'unpaid' &&
+    invoice.dueDate != null &&
+    new Date(invoice.dueDate) < new Date(new Date().toISOString().split('T')[0]);
 
   return (
-    <tr className="border-b border-gray-200 hover:bg-gray-50/50">
+    <tr className={`border-b border-gray-200 ${isOverdue ? 'bg-red-50 hover:bg-red-100/70' : 'hover:bg-gray-50/50'}`}>
       <td className="px-4 py-3 text-sm">
         {invoice.number != null
           ? formatInvoiceNumber(invoice.number)
@@ -105,9 +110,14 @@ function InvoiceTableRow({
       </td>
       <td className="px-4 py-3 text-sm">
         {PAYMENT_STATUS_LABELS[invoice.paymentStatus ?? 'unpaid'] ?? invoice.paymentStatus}
+        {isOverdue && (
+          <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+            Overdue
+          </span>
+        )}
       </td>
       <td className="px-4 py-3 text-sm font-medium">
-        {formatMoney(totals.totalGross)} {invoice.currency}
+        {formatMoney(totals.grossAmount)} {invoice.currency}
       </td>
       <td className="px-4 py-3">
         <span

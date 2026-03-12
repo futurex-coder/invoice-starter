@@ -57,14 +57,12 @@ async function createTestDraft(companyId: number, userId: number) {
       paymentMethod: c.defaultPaymentMethod,
       supplierSnapshot: {
         legalName: c.legalName,
-        eik: c.eik,
+        address: [c.street, [c.postCode, c.city].filter(Boolean).join(' '), c.country].filter(Boolean).join(', '),
+        uic: c.eik,
         vatNumber: c.vatNumber,
-        city: c.city,
-        street: c.street,
-        country: c.country,
       },
       items: [],
-      totals: { netAmount: 0, vatAmount: 0, grossAmount: 0 },
+      totals: { netAmount: 0, vatAmount: 0, grossAmount: 0, vatBreakdown: [] },
     })
     .returning({ id: invoices.id, number: invoices.number });
 
@@ -93,7 +91,7 @@ async function createTestCreditNote(
       currency: 'EUR',
       paymentMethod: 'bank',
       items: [],
-      totals: { netAmount: 0, vatAmount: 0, grossAmount: 0 },
+      totals: { netAmount: 0, vatAmount: 0, grossAmount: 0, vatBreakdown: [] },
     })
     .returning({ id: invoices.id, number: invoices.number });
 

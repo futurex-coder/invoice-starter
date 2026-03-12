@@ -580,9 +580,10 @@ export async function lookupCompanyByEik(
   eik: string
 ): Promise<ActionResult<Company | null>> {
   try {
-    await requireCompanyAccess();
+    const user = await getUser();
+    if (!user) return { error: 'Not authenticated' };
     const company = await findCompanyByEik(eik.trim());
-    return { data: company };
+    return { data: company ?? null };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Lookup failed' };
   }

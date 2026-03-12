@@ -238,10 +238,10 @@ export function buildPrintModel(
   const supplier = partyToPrintParty(invoice.supplierSnapshot as PartySnapshot);
   const recipient = partyToPrintParty(invoice.recipientSnapshot as PartySnapshot);
   const items = (invoice.items ?? []) as LineItem[];
-  const totals = (invoice.totals ?? { totalNet: 0, totalVat: 0, totalGross: 0, vatBreakdown: [] }) as {
-    totalNet: number;
-    totalVat: number;
-    totalGross: number;
+  const totals = (invoice.totals ?? { netAmount: 0, vatAmount: 0, grossAmount: 0, vatBreakdown: [] }) as {
+    netAmount: number;
+    vatAmount: number;
+    grossAmount: number;
     vatBreakdown: Array<{ vatRate: number; vatAmount: number }>;
   };
   const fxRate = Number(invoice.fxRate ?? 1);
@@ -262,8 +262,8 @@ export function buildPrintModel(
   const vatPercent =
     totals.vatBreakdown?.length === 1
       ? totals.vatBreakdown[0].vatRate
-      : totals.totalNet > 0
-        ? Math.round((totals.totalVat / totals.totalNet) * 100)
+      : totals.netAmount > 0
+        ? Math.round((totals.vatAmount / totals.netAmount) * 100)
         : 0;
 
   const supplierSnap = invoice.supplierSnapshot as PartySnapshot & { bankName?: string; iban?: string; bic?: string };
@@ -290,10 +290,10 @@ export function buildPrintModel(
     recipient,
     items: formattedItems,
     totals: {
-      danuchnaOsnova: formatMoney(totals.totalNet),
+      danuchnaOsnova: formatMoney(totals.netAmount),
       ddsPercent: `${vatPercent}%`,
-      ddsAmount: formatMoney(totals.totalVat),
-      sumaZaPlashtane: formatMoney(totals.totalGross),
+      ddsAmount: formatMoney(totals.vatAmount),
+      sumaZaPlashtane: formatMoney(totals.grossAmount),
       currency,
     },
     amountInWords: invoice.amountInWords?.trim() || null,
@@ -301,9 +301,9 @@ export function buildPrintModel(
     createdBy,
     currencyConversion: isEur && fxRate !== 1
       ? {
-          amountEur: formatMoney(totals.totalGross),
+          amountEur: formatMoney(totals.grossAmount),
           rate: fxRate,
-          amountBgn: formatMoney(totals.totalGross * fxRate),
+          amountBgn: formatMoney(totals.grossAmount * fxRate),
         }
       : null,
     bankDetails,

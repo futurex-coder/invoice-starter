@@ -132,16 +132,16 @@ describe('computeTotals', () => {
   it('sums all line items', () => {
     const items = computeAllLineItems([item(), item({ vatRate: 9 })]);
     const totals = computeTotals(items);
-    expect(totals.totalNet).toBe(2000);
-    expect(totals.totalVat).toBe(290); // 200 + 90
-    expect(totals.totalGross).toBe(2290);
+    expect(totals.netAmount).toBe(2000);
+    expect(totals.vatAmount).toBe(290); // 200 + 90
+    expect(totals.grossAmount).toBe(2290);
   });
 
   it('handles empty items', () => {
     const totals = computeTotals([]);
-    expect(totals.totalNet).toBe(0);
-    expect(totals.totalVat).toBe(0);
-    expect(totals.totalGross).toBe(0);
+    expect(totals.netAmount).toBe(0);
+    expect(totals.vatAmount).toBe(0);
+    expect(totals.grossAmount).toBe(0);
     expect(totals.vatBreakdown).toEqual([]);
   });
 });
@@ -162,8 +162,8 @@ describe('calculateInvoice', () => {
 
     // first line: net 1000, vat 200
     // second line: net 750 (1000 - 250), vat 67.5
-    expect(result.totals.totalNet).toBe(1750);
-    expect(result.totals.totalVat).toBe(267.5);
-    expect(result.totals.totalGross).toBe(2017.5);
+    expect(result.totals.netAmount).toBe(1750);
+    expect(result.totals.vatAmount).toBe(267.5);
+    expect(result.totals.grossAmount).toBe(2017.5);
   });
 });

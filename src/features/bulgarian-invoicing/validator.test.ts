@@ -204,7 +204,7 @@ describe('validateInvoice — items', () => {
   it('requires at least one item', () => {
     const doc = validDoc();
     doc.items = [];
-    doc.totals = { totalNet: 0, totalVat: 0, totalGross: 0, vatBreakdown: [] };
+    doc.totals = { netAmount: 0, vatAmount: 0, grossAmount: 0, vatBreakdown: [] };
     const result = validateInvoice(doc);
     expect(result.valid).toBe(false);
     if (!result.valid) {
@@ -301,12 +301,12 @@ describe('validateInvoice — reference', () => {
 // ---------------------------------------------------------------------------
 
 describe('validateInvoice — totals cross-check', () => {
-  it('rejects mismatched totalNet', () => {
+  it('rejects mismatched netAmount', () => {
     const calc = calculateInvoice([lineInput()]);
     const result = validateInvoice(
       validDoc({
         items: calc.items,
-        totals: { ...calc.totals, totalNet: 999 },
+        totals: { ...calc.totals, netAmount: 999 },
       })
     );
     expect(result.valid).toBe(false);

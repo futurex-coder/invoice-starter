@@ -68,9 +68,9 @@ export interface LineItem extends LineItemInput {
 // ---------------------------------------------------------------------------
 
 export interface InvoiceTotals {
-  totalNet: number;
-  totalVat: number;
-  totalGross: number;
+  netAmount: number;
+  vatAmount: number;
+  grossAmount: number;
   /** VAT breakdown by rate */
   vatBreakdown: VatBreakdownEntry[];
 }

@@ -33,7 +33,7 @@ const result = calculateInvoice([
   { description: 'Travel', quantity: 1, unit: 'trip', unitPrice: 200, vatRate: 20, discountPercent: 10 },
 ]);
 // result.items — computed LineItem[]
-// result.totals — { totalNet, totalVat, totalGross, vatBreakdown }
+// result.totals — { netAmount, vatAmount, grossAmount, vatBreakdown }
 ```
 
 ### Validate

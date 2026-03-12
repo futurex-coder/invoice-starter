@@ -41,10 +41,10 @@ This project is being refactored from a single-team SaaS starter to a multi-comp
 
 ## Key Files
 
-### DO NOT MODIFY — these are pre-built and final:
+### MODIFY WITH GREAT ATTENTION
 - `lib/db/schema.ts` — new Drizzle schema (source of truth for all types and table definitions)
 - `lib/db/queries.ts` — all query functions (already written, just import and use them)
-- `lib/db/seed.ts` — seed script (run manually, don't rewrite)
+- `lib/db/seed.ts` — seed script (run manually)
 - DB triggers are already installed in Supabase (enforce invoice numbering)
 
 **Your job is to use these files, not rewrite them.** Import types from `schema.ts`, call functions from `queries.ts`. Never modify their contents, rename their exports, or create alternative query functions.

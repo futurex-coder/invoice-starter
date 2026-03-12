@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Building2, Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { Building2, Check, ChevronsUpDown, Plus, LayoutGrid } from 'lucide-react';
 
 function RoleBadge({ role }: { role: string }) {
   const isOwner = role === 'owner';
@@ -50,7 +50,15 @@ export function CompanySwitcher() {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Companies</DropdownMenuLabel>
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 font-medium"
+          >
+            <LayoutGrid className="h-3.5 w-3.5 text-orange-500" />
+            <span className="text-sm">All Companies</span>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>

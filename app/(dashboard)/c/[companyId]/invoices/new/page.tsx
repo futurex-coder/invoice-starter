@@ -134,7 +134,7 @@ export default function NewInvoicePage() {
   const { totals } = recalc();
   const amountInWords =
     amountInWordsOverride.trim() ||
-    amountInWordsBg(totals.totalGross, currency);
+    amountInWordsBg(totals.grossAmount, currency);
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
@@ -309,7 +309,7 @@ export default function NewInvoicePage() {
       paymentStatus,
       vatMode,
       noVatReason: vatMode === 'no_vat' ? noVatReason : null,
-      amountInWords: amountInWordsOverride.trim() || amountInWordsBg(totals.totalGross, currency),
+      amountInWords: amountInWordsOverride.trim() || amountInWordsBg(totals.grossAmount, currency),
       customerNote: customerNote.trim() || null,
       internalComment: internalComment.trim() || null,
     };
@@ -778,21 +778,21 @@ export default function NewInvoicePage() {
         <CardContent className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Tax base (net)</span>
-            <span>{totals.totalNet.toFixed(2)} {currency}</span>
+            <span>{totals.netAmount.toFixed(2)} {currency}</span>
           </div>
           <div className="flex justify-between text-sm">
             <span>VAT</span>
-            <span>{totals.totalVat.toFixed(2)} {currency}</span>
+            <span>{totals.vatAmount.toFixed(2)} {currency}</span>
           </div>
           <div className="flex justify-between font-medium">
             <span>Total payable</span>
-            <span>{totals.totalGross.toFixed(2)} {currency}</span>
+            <span>{totals.grossAmount.toFixed(2)} {currency}</span>
           </div>
           <div>
             <Label>Словом (amount in words) *</Label>
             <Input
               className="mt-1"
-              value={amountInWordsOverride || amountInWordsBg(totals.totalGross, currency)}
+              value={amountInWordsOverride || amountInWordsBg(totals.grossAmount, currency)}
               onChange={(e) => setAmountInWordsOverride(e.target.value)}
               placeholder="Auto-generated"
             />

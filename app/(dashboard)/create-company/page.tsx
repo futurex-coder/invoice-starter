@@ -65,11 +65,11 @@ export default function CreateCompanyPage() {
     }
     setEikStatus('checking');
     const res = await lookupCompanyByEik(trimmed);
-    if (res.data) {
-      setEikStatus('taken');
-    } else {
-      setEikStatus('available');
+    if (res.error) {
+      setEikStatus('idle');
+      return;
     }
+    setEikStatus(res.data ? 'taken' : 'available');
   };
 
   const canSubmit =

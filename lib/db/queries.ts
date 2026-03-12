@@ -413,6 +413,8 @@ export async function getDashboardMetrics(userId: number) {
     ...m,
     revenue: parseFloat(m.revenue),
     outstanding: parseFloat(m.outstanding),
+    invoiceCountThisMonth: Number(m.invoiceCountThisMonth),
+    overdueCount: Number(m.overdueCount),
     role:
       memberships.find((mem) => mem.companyId === m.companyId)?.role ??
       'unknown',

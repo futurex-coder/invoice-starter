@@ -23,6 +23,8 @@ import {
   getCompanyWithMembers,
   transferCompanyOwnership,
   softDeleteCompany,
+  getDashboardMetrics,
+  getActivityLogsForDashboard,
 } from '@/lib/db/queries';
 import {
   canEditCompanySettings,
@@ -635,5 +637,43 @@ export async function deleteCompanyAction(): Promise<ActionResult<void>> {
     return {};
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to delete company' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// I) Dashboard — cross-company metrics and activity
+// ---------------------------------------------------------------------------
+
+type DashboardMetrics = Awaited<ReturnType<typeof getDashboardMetrics>>;
+type DashboardActivityLog = Awaited<
+  ReturnType<typeof getActivityLogsForDashboard>
+>[number];
+
+export async function getDashboardData(): Promise<
+  ActionResult<DashboardMetrics>
+> {
+  try {
+    const user = await getUser();
+    if (!user) return { error: 'Not authenticated' };
+    const data = await getDashboardMetrics(user.id);
+    return { data };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to load dashboard' };
+  }
+}
+
+export async function getDashboardActivityAction(
+  onlyOwnActions: boolean
+): Promise<ActionResult<DashboardActivityLog[]>> {
+  try {
+    const user = await getUser();
+    if (!user) return { error: 'Not authenticated' };
+    const logs = await getActivityLogsForDashboard(user.id, {
+      onlyOwnActions,
+      limit: 10,
+    });
+    return { data: logs };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to load activity' };
   }
 }

@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 import { Manrope } from 'next/font/google';
 import { getUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata: Metadata = {
   title: 'Invoice Manager',
@@ -25,6 +26,7 @@ export default function RootLayout({
       lang="en"
       className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}
     >
+      <Analytics />
       <body className="min-h-[100dvh] bg-gray-50">
         <SWRConfig
           value={{

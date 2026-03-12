@@ -40,6 +40,7 @@ export default async function CompanyLayout({
       role={currentCompany.role}
       memberships={memberships}
     >
+      
       <CompanyLayoutShell>{children}</CompanyLayoutShell>
     </CompanyProvider>
   );

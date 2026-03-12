@@ -9,13 +9,26 @@ import {
   activityLogs,
   invoices,
   type Company,
+  type CompanyWithMembers,
   type Partner,
   type Article,
   type NewPartner,
   type NewArticle,
 } from '@/lib/db/schema';
-import { getUser, getActiveCompanyId, verifyCompanyAccess, findCompanyByEik } from '@/lib/db/queries';
-import { canEditCompanySettings } from '@/lib/auth/permissions';
+import {
+  getUser,
+  getActiveCompanyId,
+  verifyCompanyAccess,
+  findCompanyByEik,
+  getCompanyWithMembers,
+  transferCompanyOwnership,
+  softDeleteCompany,
+} from '@/lib/db/queries';
+import {
+  canEditCompanySettings,
+  canTransferOwnership,
+  canDeleteCompany,
+} from '@/lib/auth/permissions';
 import {
   upsertCompanyProfileSchema,
   createPartnerSchema,
@@ -566,5 +579,61 @@ export async function lookupCompanyByEik(
     return { data: company };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Lookup failed' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// F) Company Members — load company with members and pending invitations
+// ---------------------------------------------------------------------------
+
+export async function getCompanyMembersAction(): Promise<
+  ActionResult<CompanyWithMembers>
+> {
+  try {
+    const { companyId } = await requireCompanyAccess();
+    const data = await getCompanyWithMembers(companyId);
+    if (!data) return { error: 'Company not found' };
+    return { data };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to load members' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// G) Transfer Ownership
+// ---------------------------------------------------------------------------
+
+export async function transferOwnershipAction(
+  newOwnerId: number
+): Promise<ActionResult<void>> {
+  try {
+    const { user, companyId, role } = await requireCompanyAccess();
+    if (!canTransferOwnership(role)) {
+      return { error: 'Only the company owner can transfer ownership' };
+    }
+    if (newOwnerId === user.id) {
+      return { error: 'You are already the owner' };
+    }
+    await transferCompanyOwnership(companyId, user.id, newOwnerId);
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to transfer ownership' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// H) Delete Company (soft delete)
+// ---------------------------------------------------------------------------
+
+export async function deleteCompanyAction(): Promise<ActionResult<void>> {
+  try {
+    const { companyId, role } = await requireCompanyAccess();
+    if (!canDeleteCompany(role)) {
+      return { error: 'Only the company owner can delete the company' };
+    }
+    await softDeleteCompany(companyId);
+    return {};
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Failed to delete company' };
   }
 }

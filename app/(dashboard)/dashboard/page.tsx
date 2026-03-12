@@ -16,6 +16,8 @@ import useSWR from 'swr';
 import {
   getDashboardData,
   getDashboardActivityAction,
+  getDeletedCompaniesAction,
+  restoreCompanyAction,
 } from '@/src/features/invoicing/actions';
 import {
   Loader2,
@@ -30,6 +32,8 @@ import {
   Activity,
   Eye,
   EyeOff,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -61,6 +65,16 @@ type ActivityLog = {
   userId: number | null;
   companyId: number;
   companyName: string;
+};
+
+type DeletedCompanyRow = {
+  company: {
+    id: number;
+    legalName: string;
+    eik: string;
+    deletedAt: Date | null;
+  };
+  role: string;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -161,6 +175,15 @@ export default function DashboardPage() {
   const [activity, setActivity] = useState<ActivityLog[]>([]);
   const [onlyOwn, setOnlyOwn] = useState(true);
   const [activityLoading, setActivityLoading] = useState(false);
+  const [deletedCompanies, setDeletedCompanies] = useState<DeletedCompanyRow[]>(
+    []
+  );
+  const [restoringId, setRestoringId] = useState<number | null>(null);
+
+  const loadDeletedCompanies = useCallback(async () => {
+    const res = await getDeletedCompaniesAction();
+    if (res.data) setDeletedCompanies(res.data);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -168,6 +191,7 @@ export default function DashboardPage() {
       const [metricsRes, activityRes] = await Promise.all([
         getDashboardData(),
         getDashboardActivityAction(true),
+        loadDeletedCompanies(),
       ]);
       setLoading(false);
       if (metricsRes.data) {
@@ -178,7 +202,7 @@ export default function DashboardPage() {
         setActivity(activityRes.data);
       }
     })();
-  }, []);
+  }, [loadDeletedCompanies]);
 
   const toggleActivity = useCallback(async () => {
     const next = !onlyOwn;
@@ -188,6 +212,24 @@ export default function DashboardPage() {
     setActivityLoading(false);
     if (res.data) setActivity(res.data);
   }, [onlyOwn]);
+
+  const handleRestore = useCallback(
+    async (companyId: number) => {
+      setRestoringId(companyId);
+      const res = await restoreCompanyAction(companyId);
+      setRestoringId(null);
+      if (res.error) return;
+      setDeletedCompanies((prev) =>
+        prev.filter((d) => d.company.id !== companyId)
+      );
+      const metricsRes = await getDashboardData();
+      if (metricsRes.data) {
+        setCompanies(metricsRes.data.companies);
+        setTotals(metricsRes.data.totals);
+      }
+    },
+    []
+  );
 
   if (loading) {
     return (
@@ -225,6 +267,58 @@ export default function DashboardPage() {
             </Button>
           </CardContent>
         </Card>
+        {deletedCompanies.length > 0 && (
+          <Card className="mt-6 border-amber-200">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-4 w-4 text-amber-600" />
+                <CardTitle className="text-amber-800">
+                  Deleted companies
+                </CardTitle>
+              </div>
+              <CardDescription>
+                You have {deletedCompanies.length} deleted{' '}
+                {deletedCompanies.length === 1 ? 'company' : 'companies'}{' '}
+                that can be restored.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {deletedCompanies.map((d) => (
+                  <li
+                    key={d.company.id}
+                    className="flex items-center justify-between rounded-md border border-gray-200 p-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">
+                        {d.company.legalName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        EIK: {d.company.eik}
+                        {d.company.deletedAt &&
+                          ` · Deleted ${new Date(d.company.deletedAt).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                      disabled={restoringId === d.company.id}
+                      onClick={() => handleRestore(d.company.id)}
+                    >
+                      {restoringId === d.company.id ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Restore
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
         <div className="mt-6">
           <ManageSubscription />
         </div>
@@ -410,6 +504,81 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Deleted companies */}
+      {deletedCompanies.length > 0 && (
+        <Card className="mb-8 border-amber-200">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-amber-600" />
+              <CardTitle className="text-amber-800">
+                Deleted companies
+              </CardTitle>
+            </div>
+            <CardDescription>
+              You have {deletedCompanies.length} deleted{' '}
+              {deletedCompanies.length === 1 ? 'company' : 'companies'} that
+              can be restored.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50/80">
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Company
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    EIK
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Deleted
+                  </th>
+                  <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {deletedCompanies.map((d) => (
+                  <tr
+                    key={d.company.id}
+                    className="border-b border-gray-200 last:border-0"
+                  >
+                    <td className="px-4 py-3 text-sm font-medium">
+                      {d.company.legalName}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground font-mono">
+                      {d.company.eik}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {d.company.deletedAt
+                        ? new Date(d.company.deletedAt).toLocaleDateString()
+                        : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-amber-700 border-amber-300 hover:bg-amber-50"
+                        disabled={restoringId === d.company.id}
+                        onClick={() => handleRestore(d.company.id)}
+                      >
+                        {restoringId === d.company.id ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        Restore
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Subscription */}
       <ManageSubscription />

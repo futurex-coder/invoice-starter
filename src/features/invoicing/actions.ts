@@ -27,6 +27,8 @@ import {
   softDeleteCompany,
   getDashboardMetrics,
   getActivityLogsForDashboard,
+  getDeletedCompaniesForUser,
+  restoreCompany,
 } from '@/lib/db/queries';
 import {
   canEditCompanySettings,
@@ -759,6 +761,52 @@ export async function createCompanyAction(
     }
     return {
       error: e instanceof Error ? e.message : 'Failed to create company',
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// K) Deleted Companies — list and restore
+// ---------------------------------------------------------------------------
+
+type DeletedCompanyRow = Awaited<
+  ReturnType<typeof getDeletedCompaniesForUser>
+>[number];
+
+export async function getDeletedCompaniesAction(): Promise<
+  ActionResult<DeletedCompanyRow[]>
+> {
+  try {
+    const user = await getUser();
+    if (!user) return { error: 'Not authenticated' };
+    const rows = await getDeletedCompaniesForUser(user.id);
+    return { data: rows };
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : 'Failed to load deleted companies',
+    };
+  }
+}
+
+export async function restoreCompanyAction(
+  companyId: number
+): Promise<ActionResult<void>> {
+  try {
+    const user = await getUser();
+    if (!user) return { error: 'Not authenticated' };
+
+    const deleted: DeletedCompanyRow[] = await getDeletedCompaniesForUser(user.id);
+    const match = deleted.find((d) => d.company.id === companyId);
+    if (!match) {
+      return { error: 'Company not found or you are not the owner' };
+    }
+
+    await restoreCompany(companyId);
+    await logActivity(companyId, user.id, ActivityType.RESTORE_COMPANY);
+    return {};
+  } catch (e) {
+    return {
+      error: e instanceof Error ? e.message : 'Failed to restore company',
     };
   }
 }

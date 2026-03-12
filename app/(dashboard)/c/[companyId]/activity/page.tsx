@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Settings,
@@ -18,7 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ActivityType } from '@/lib/db/schema';
-import { getActivityLogs } from '@/lib/db/queries';
+import { getUser, verifyCompanyAccess, getActivityLogs } from '@/lib/db/queries';
 
 const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.SIGN_UP]: UserPlus,
@@ -60,53 +61,65 @@ function getRelativeTime(date: Date) {
 function formatAction(action: ActivityType): string {
   switch (action) {
     case ActivityType.SIGN_UP:
-      return 'You signed up';
+      return 'Signed up';
     case ActivityType.SIGN_IN:
-      return 'You signed in';
+      return 'Signed in';
     case ActivityType.SIGN_OUT:
-      return 'You signed out';
+      return 'Signed out';
     case ActivityType.UPDATE_PASSWORD:
-      return 'You changed your password';
+      return 'Changed password';
     case ActivityType.DELETE_ACCOUNT:
-      return 'You deleted your account';
+      return 'Deleted account';
     case ActivityType.UPDATE_ACCOUNT:
-      return 'You updated your account';
+      return 'Updated account';
     case ActivityType.CREATE_COMPANY:
-      return 'You created a new company';
+      return 'Created company';
     case ActivityType.UPDATE_COMPANY:
-      return 'You updated company settings';
+      return 'Updated company settings';
     case ActivityType.DELETE_COMPANY:
-      return 'You deleted a company';
+      return 'Deleted company';
     case ActivityType.RESTORE_COMPANY:
-      return 'You restored a company';
+      return 'Restored company';
     case ActivityType.TRANSFER_OWNERSHIP:
-      return 'You transferred ownership';
+      return 'Transferred ownership';
     case ActivityType.REMOVE_MEMBER:
-      return 'You removed a member';
+      return 'Removed a member';
     case ActivityType.INVITE_MEMBER:
-      return 'You invited a member';
+      return 'Invited a member';
     case ActivityType.ACCEPT_INVITATION:
-      return 'You accepted an invitation';
+      return 'Accepted an invitation';
     case ActivityType.CREATE_INVOICE:
-      return 'You created an invoice';
+      return 'Created an invoice';
     case ActivityType.UPDATE_INVOICE:
-      return 'You updated an invoice';
+      return 'Updated an invoice';
     case ActivityType.FINALIZE_INVOICE:
-      return 'You finalized an invoice';
+      return 'Finalized an invoice';
     case ActivityType.CANCEL_INVOICE:
-      return 'You cancelled an invoice';
+      return 'Cancelled an invoice';
     case ActivityType.CREATE_CREDIT_NOTE:
-      return 'You created a credit note';
+      return 'Created a credit note';
     case ActivityType.CREATE_DEBIT_NOTE:
-      return 'You created a debit note';
+      return 'Created a debit note';
     default:
-      return 'Unknown action occurred';
+      return 'Unknown action';
   }
 }
 
-// TODO: Wire up companyId from route params to getActivityLogs query
-export default async function ActivityPage() {
-  const logs: Awaited<ReturnType<typeof getActivityLogs>> = [];
+export default async function ActivityPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId: companyIdStr } = await params;
+  const companyId = Number(companyIdStr);
+
+  const user = await getUser();
+  if (!user) redirect('/sign-in');
+
+  const membership = await verifyCompanyAccess(user.id, companyId);
+  if (!membership) redirect('/dashboard');
+
+  const logs = await getActivityLogs(companyId, { limit: 50 });
 
   return (
     <section className="flex-1 p-4 lg:p-8">
@@ -133,8 +146,16 @@ export default async function ActivityPage() {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">
+                        <span className="text-gray-600">
+                          {log.userName || 'Unknown'}
+                        </span>{' '}
                         {formattedAction}
-                        {log.ipAddress && ` from IP ${log.ipAddress}`}
+                        {log.ipAddress && (
+                          <span className="text-gray-400">
+                            {' '}
+                            from {log.ipAddress}
+                          </span>
+                        )}
                       </p>
                       <p className="text-xs text-gray-500">
                         {getRelativeTime(new Date(log.timestamp))}
@@ -151,8 +172,8 @@ export default async function ActivityPage() {
                 No activity yet
               </h3>
               <p className="text-sm text-gray-500 max-w-sm">
-                When you perform actions like signing in or updating your
-                account, they&apos;ll appear here.
+                When actions are performed in this company, they&apos;ll
+                appear here.
               </p>
             </div>
           )}

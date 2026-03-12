@@ -21,6 +21,18 @@ import {
   DashboardProvider,
   type OnboardingStatus,
 } from './dashboard-context';
+import { useCompanyOptional } from '@/lib/context/company-context';
+import { CompanySwitcher } from '@/components/company-switcher';
+
+function SidebarCompanySwitcher() {
+  const companyCtx = useCompanyOptional();
+  if (!companyCtx) return null;
+  return (
+    <div className="mb-3 pb-3 border-b border-gray-200">
+      <CompanySwitcher />
+    </div>
+  );
+}
 
 export default function DashboardLayout({
   children,
@@ -117,6 +129,7 @@ export default function DashboardLayout({
             }`}
           >
             <nav className="h-full overflow-y-auto p-4">
+              <SidebarCompanySwitcher />
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href} passHref>
                   <Button

@@ -4,13 +4,10 @@ import { z } from 'zod';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import {
-  User,
   users,
-  companies,
   companyMembers,
   activityLogs,
   type NewUser,
-  type NewCompany,
   type NewCompanyMember,
   ActivityType,
   invitations
@@ -92,10 +89,13 @@ export const signIn = validatedAction(signInSchema, async (data, formData) => {
     logActivity(companyId, foundUser.id, ActivityType.SIGN_IN)
   ]);
 
-  const redirectTo = formData.get('redirect') as string | null;
+  const rawRedirect = formData.get('redirect');
+  const redirectTo = typeof rawRedirect === 'string' ? rawRedirect : null;
   if (redirectTo === 'checkout') {
-    const priceId = formData.get('priceId') as string;
-    return createCheckoutSession({ user: foundUser, priceId });
+    const rawPriceId = formData.get('priceId');
+    if (typeof rawPriceId !== 'string') return { error: 'Missing price ID.' };
+    await createCheckoutSession({ user: foundUser, priceId: rawPriceId });
+    return {};
   }
 
   redirect('/dashboard');
@@ -192,17 +192,24 @@ export const signUp = validatedAction(signUpSchema, async (data, formData) => {
     setSession(createdUser)
   ]);
 
-  const redirectTo = formData.get('redirect') as string | null;
+  const rawRedirect = formData.get('redirect');
+  const redirectTo = typeof rawRedirect === 'string' ? rawRedirect : null;
   if (redirectTo === 'checkout') {
-    const priceId = formData.get('priceId') as string;
-    return createCheckoutSession({ user: createdUser, priceId });
+    const rawPriceId = formData.get('priceId');
+    if (typeof rawPriceId !== 'string') return { error: 'Missing price ID.' };
+    await createCheckoutSession({ user: createdUser, priceId: rawPriceId });
+    return {};
   }
 
   redirect('/dashboard');
 });
 
 export async function signOut() {
-  const user = (await getUser()) as User;
+  const user = await getUser();
+  if (!user) {
+    (await cookies()).delete('session');
+    return;
+  }
   const companyId = await getFirstCompanyId(user.id);
   await logActivity(companyId, user.id, ActivityType.SIGN_OUT);
   (await cookies()).delete('session');

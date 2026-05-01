@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { compare, hash } from 'bcryptjs';
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
@@ -17,10 +18,11 @@ export async function comparePasswords(
   return compare(plainTextPassword, hashedPassword);
 }
 
-type SessionData = {
-  user: { id: number };
-  expires: string;
-};
+const SessionDataSchema = z.object({
+  user: z.object({ id: z.number() }),
+  expires: z.string(),
+});
+type SessionData = z.infer<typeof SessionDataSchema>;
 
 export async function signToken(payload: SessionData) {
   return await new SignJWT(payload)
@@ -34,7 +36,7 @@ export async function verifyToken(input: string) {
   const { payload } = await jwtVerify(input, key, {
     algorithms: ['HS256'],
   });
-  return payload as SessionData;
+  return SessionDataSchema.parse(payload);
 }
 
 export async function getSession() {

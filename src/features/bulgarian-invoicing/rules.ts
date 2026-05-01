@@ -89,8 +89,8 @@ export function requiresReference(docType: DocType): boolean {
 // ---------------------------------------------------------------------------
 
 const VALID_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
-  draft: ['issued', 'cancelled'],
-  issued: ['cancelled'],
+  draft: ['finalized', 'cancelled'],
+  finalized: ['cancelled'],
   cancelled: [],
 };
 

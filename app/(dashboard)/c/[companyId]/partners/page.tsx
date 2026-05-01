@@ -135,7 +135,8 @@ export default function PartnersPage() {
   }, [search, page]);
 
   useEffect(() => {
-    fetchData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData(); // async data fetch — setState calls are intentional side effects
   }, [fetchData]);
 
   const doEikLookup = useCallback(

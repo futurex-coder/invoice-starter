@@ -42,7 +42,7 @@ import {
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
-  issued: 'Issued',
+  finalized: 'Finalized',
   cancelled: 'Cancelled',
 };
 const PAYMENT_STATUS_LABELS: Record<string, string> = {
@@ -75,7 +75,7 @@ function InvoiceTableRow({
   const totals = (invoice.totals ?? { grossAmount: 0 }) as { grossAmount: number };
   const recipient = (invoice.recipientSnapshot ?? {}) as { legalName?: string };
   const isDraft = invoice.status === 'draft';
-  const isIssued = invoice.status === 'issued';
+  const isIssued = invoice.status === 'finalized';
   const isCancelled = invoice.status === 'cancelled';
   const isNote = invoice.docType === 'credit_note' || invoice.docType === 'debit_note';
   const isOverdue =
@@ -213,7 +213,8 @@ export default function InvoicesPage() {
   }, [filters]);
 
   useEffect(() => {
-    fetchInvoices();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchInvoices(); // async data fetch — setState calls are intentional side effects
   }, [fetchInvoices]);
 
   const applySearch = () => {
@@ -272,7 +273,7 @@ export default function InvoicesPage() {
             >
               <option value="">All</option>
               <option value="draft">Draft</option>
-              <option value="issued">Issued</option>
+              <option value="finalized">Finalized</option>
               <option value="cancelled">Cancelled</option>
             </select>
           </div>

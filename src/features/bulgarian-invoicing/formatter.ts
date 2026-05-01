@@ -30,7 +30,7 @@ export function formatMoney(
   const sep = options?.thousandsSeparator ?? ' ';
   const dec = options?.decimalSeparator ?? '.';
   const fixed = Math.abs(amount).toFixed(MONEY_PRECISION);
-  const [intPart, decPart] = fixed.split('.');
+  const [intPart = '', decPart = ''] = fixed.split('.');
   const withSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
   const sign = amount < 0 ? '-' : '';
   return `${sign}${withSep}${dec}${decPart}`;
@@ -261,7 +261,7 @@ export function buildPrintModel(
 
   const vatPercent =
     totals.vatBreakdown?.length === 1
-      ? totals.vatBreakdown[0].vatRate
+      ? (totals.vatBreakdown[0]?.vatRate ?? 0)
       : totals.netAmount > 0
         ? Math.round((totals.vatAmount / totals.netAmount) * 100)
         : 0;
@@ -317,7 +317,6 @@ export function buildPrintModel(
 const BG_ONES = ['', 'един', 'два', 'три', 'четири', 'пет', 'шест', 'седем', 'осем', 'девет'];
 const BG_TEENS = ['десет', 'единадесет', 'дванадесет', 'тринадесет', 'четиринадесет', 'петнадесет', 'шестнадесет', 'седемнадесет', 'осемнадесет', 'деветнадесет'];
 const BG_TENS = ['', '', 'двадесет', 'тридесет', 'четиридесет', 'петдесет', 'шестдесет', 'седемдесет', 'осемдесет', 'деветдесет'];
-const BG_HUNDRED = 'сто';
 const BG_HUNDREDS = ['', 'сто', 'двеста', 'триста', 'четиристотин', 'петстотин', 'шестстотин', 'седемстотин', 'осемстотин', 'деветстотин'];
 
 function numberToWordsBg(n: number): string {
@@ -344,19 +343,19 @@ function numberToWordsBg(n: number): string {
   if (rest >= 100) {
     const h = Math.floor(rest / 100);
     rest %= 100;
-    parts.push(BG_HUNDREDS[h]);
+    parts.push(BG_HUNDREDS[h] ?? '');
   }
   if (rest >= 20) {
     const t = Math.floor(rest / 10);
     rest %= 10;
-    parts.push(BG_TENS[t]);
+    parts.push(BG_TENS[t] ?? '');
   }
   if (rest >= 10) {
-    parts.push(BG_TEENS[rest - 10]);
+    parts.push(BG_TEENS[rest - 10] ?? '');
     rest = 0;
   }
   if (rest > 0) {
-    parts.push(BG_ONES[rest]);
+    parts.push(BG_ONES[rest] ?? '');
   }
 
   return parts.filter(Boolean).join(' и ');

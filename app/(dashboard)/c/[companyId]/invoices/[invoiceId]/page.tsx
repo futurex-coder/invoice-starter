@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { getInvoice, finalizeInvoice, cancelInvoice } from '@/src/features/bulgarian-invoicing/actions';
+import { getInvoice, finalizeInvoice, cancelInvoice, updateInvoicePaymentInfo } from '@/src/features/bulgarian-invoicing/actions';
 import { formatDocTypeLabel, formatInvoiceNumber, formatDateBg, formatMoney } from '@/src/features/bulgarian-invoicing/formatter';
 import type { Invoice } from '@/lib/db/schema';
 import type { User } from '@/lib/db/schema';
@@ -202,9 +202,54 @@ export default function InvoiceDetailPage() {
             <span className="text-gray-600">Client</span>
             <span>{recipient.legalName ?? '—'}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Payment</span>
-            <span>{invoice.paymentMethod} · {invoice.paymentStatus}</span>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Payment method</span>
+            <span>{invoice.paymentMethod}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Payment status</span>
+            {!isCancelled ? (
+              <select
+                className="h-8 rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                value={invoice.paymentStatus ?? 'unpaid'}
+                disabled={actionLoading}
+                onChange={async (e) => {
+                  setActionLoading(true);
+                  setError(null);
+                  const res = await updateInvoicePaymentInfo(id, { paymentStatus: e.target.value });
+                  setActionLoading(false);
+                  if (res.error) setError(res.error);
+                  else if (res.data) setInvoice(res.data);
+                }}
+              >
+                <option value="unpaid">Unpaid</option>
+                <option value="partial">Partial</option>
+                <option value="paid">Paid</option>
+              </select>
+            ) : (
+              <span>{invoice.paymentStatus}</span>
+            )}
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-gray-600">Due date</span>
+            {!isCancelled ? (
+              <input
+                type="date"
+                className="h-8 rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                value={invoice.dueDate ?? ''}
+                disabled={actionLoading}
+                onChange={async (e) => {
+                  setActionLoading(true);
+                  setError(null);
+                  const res = await updateInvoicePaymentInfo(id, { dueDate: e.target.value || null });
+                  setActionLoading(false);
+                  if (res.error) setError(res.error);
+                  else if (res.data) setInvoice(res.data);
+                }}
+              />
+            ) : (
+              <span>{invoice.dueDate ? formatDateBg(invoice.dueDate) : '—'}</span>
+            )}
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Total</span>

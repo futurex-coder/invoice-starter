@@ -24,6 +24,6 @@ export function canTransferOwnership(role: string): boolean {
   return role === CompanyRole.OWNER;
 }
 
-export function canManageInvoices(role: string): boolean {
+export function canManageInvoices(_role: string): boolean {
   return true;
 }

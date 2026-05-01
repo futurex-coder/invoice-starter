@@ -18,7 +18,7 @@ export const DOC_TYPES = [
 ] as const;
 export type DocType = (typeof DOC_TYPES)[number];
 
-export const STATUSES = ['draft', 'issued', 'cancelled'] as const;
+export const STATUSES = ['draft', 'finalized', 'cancelled'] as const;
 export type InvoiceStatus = (typeof STATUSES)[number];
 
 export const BG_VAT_RATES = [20, 9, 0] as const;

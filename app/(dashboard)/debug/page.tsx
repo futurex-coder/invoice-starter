@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db/drizzle';
-import { invoices, companies, ActivityType } from '@/lib/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { invoices, companies } from '@/lib/db/schema';
+import { eq, sql } from 'drizzle-orm';
 import {
   getUser,
   getCompaniesForUser,

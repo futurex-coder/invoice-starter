@@ -6,7 +6,6 @@
  */
 
 import type {
-  DocType,
   InvoiceDocument,
   LineItem,
   PartySnapshot,
@@ -145,7 +144,7 @@ function validateDates(doc: InvoiceDocument): ValidationError[] {
     );
   }
 
-  if (doc.status === 'issued') {
+  if (doc.status === 'finalized') {
     if (!isIssueDateWithinLimit(doc.issueDate, doc.supplyDate)) {
       errors.push(
         err(
@@ -192,8 +191,8 @@ export function validateInvoice(doc: InvoiceDocument): ValidationResult {
     );
   }
 
-  // number (required when issued)
-  if (doc.status === 'issued') {
+  // number (required when finalized)
+  if (doc.status === 'finalized') {
     if (doc.number === null || doc.number === undefined) {
       errors.push(
         err(
@@ -233,7 +232,7 @@ export function validateInvoice(doc: InvoiceDocument): ValidationResult {
   }
 
   // referenced invoice (required for credit/debit notes)
-  if (requiresReference(doc.docType as DocType) && !doc.referencedInvoiceNumber) {
+  if (requiresReference(doc.docType) && !doc.referencedInvoiceNumber) {
     errors.push(
       err(
         'REFERENCE_REQUIRED',
@@ -257,7 +256,8 @@ export function validateInvoice(doc: InvoiceDocument): ValidationResult {
     );
   } else {
     for (let i = 0; i < doc.items.length; i++) {
-      errors.push(...validateLineItem(doc.items[i], i));
+      const item = doc.items[i];
+      if (item !== undefined) errors.push(...validateLineItem(item, i));
     }
   }
 

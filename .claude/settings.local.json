@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node *)",
+      "Bash(Get-ChildItem -Path \"D:\\\\Work\\\\invoice-starter\" -Recurse -Filter \"*schema*\")",
+      "Bash(Select-Object FullName)",
+      "Bash(Get-Content \"C:\\\\Users\\\\yoans\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--Work-invoice-starter\\\\c3a087cd-27ae-4a9b-a9bb-e24aa48e0efd\\\\tasks\\\\b0sdamnqy.output\" -Wait)",
+      "PowerShell(pnpm run *)",
+      "PowerShell(pnpm exec *)",
+      "Bash(npm run *)",
+      "Bash(pnpm run *)",
+      "PowerShell(psql *)"
+    ]
+  }
+}

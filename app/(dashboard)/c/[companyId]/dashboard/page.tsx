@@ -8,7 +8,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { ActivityType } from '@/lib/db/schema';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import { invoices, companies } from '@/lib/db/schema';
 import {

@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/sign-in', request.url));
   }
 
-  let res = NextResponse.next();
+  const res = NextResponse.next();
 
   // ── Refresh session cookie on every GET ────────────────────────
   if (sessionCookie && request.method === 'GET') {

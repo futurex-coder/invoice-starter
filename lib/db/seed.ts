@@ -236,7 +236,6 @@ async function seed() {
   const today = daysAgo(0);
   const lastMonth = daysAgo(30);
   const twoMonthsAgo = daysAgo(60);
-  const twoWeeksAgo = daysAgo(14);
 
   // --- Alpha Invoice #1: finalized, paid (20h consulting) -------------------
   const alphaInv1Lines: LineItemInput[] = [
@@ -269,7 +268,7 @@ async function seed() {
     .returning();
 
   await db.insert(invoiceLines).values(
-    alphaInv1Calc.items.map((item, i) => ({
+    alphaInv1Calc.items.map((item) => ({
       invoiceId: alphaInv1.id,
       articleId: artConsulting.id,
       sortOrder: item.sortOrder,
@@ -398,7 +397,7 @@ async function seed() {
       referencedInvoiceId: alphaInv1.id,
       docType: DocType.CREDIT_NOTE,
       status: InvoiceStatus.FINALIZED,
-      series: 'INV',
+      series: 'CN',
       number: 1,
       issueDate: lastMonth,
       currency: 'BGN',

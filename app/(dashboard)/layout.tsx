@@ -25,7 +25,8 @@ function UserMenu() {
   const router = useRouter();
 
   useEffect(() => {
-    setMounted(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true); // intentional: one-time hydration guard, runs once on mount
   }, []);
 
   async function handleSignOut() {

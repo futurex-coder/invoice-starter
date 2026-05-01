@@ -60,7 +60,7 @@ describe('validateInvoice — valid cases', () => {
 
   it('accepts a valid issued invoice with a number', () => {
     const result = validateInvoice(
-      validDoc({ status: 'issued', number: 1 })
+      validDoc({ status: 'finalized', number: 1 })
     );
     expect(result.valid).toBe(true);
   });
@@ -117,7 +117,7 @@ describe('validateInvoice — docType and status', () => {
 
 describe('validateInvoice — number', () => {
   it('requires number when status is issued', () => {
-    const result = validateInvoice(validDoc({ status: 'issued', number: null }));
+    const result = validateInvoice(validDoc({ status: 'finalized', number: null }));
     expect(result.valid).toBe(false);
     if (!result.valid) {
       expect(result.errors.some((e) => e.field === 'number' && e.code === 'REQUIRED')).toBe(true);
@@ -125,7 +125,7 @@ describe('validateInvoice — number', () => {
   });
 
   it('rejects invalid number (0)', () => {
-    const result = validateInvoice(validDoc({ status: 'issued', number: 0 }));
+    const result = validateInvoice(validDoc({ status: 'finalized', number: 0 }));
     expect(result.valid).toBe(false);
     if (!result.valid) {
       expect(result.errors.some((e) => e.code === 'INVALID_NUMBER')).toBe(true);
@@ -238,7 +238,7 @@ describe('validateInvoice — dates', () => {
   it('rejects issue date > 5 days after supply date when issued', () => {
     const result = validateInvoice(
       validDoc({
-        status: 'issued',
+        status: 'finalized',
         number: 1,
         issueDate: '2026-03-10',
         supplyDate: '2026-02-28',
@@ -253,7 +253,7 @@ describe('validateInvoice — dates', () => {
   it('allows issue date within 5 days of supply date', () => {
     const result = validateInvoice(
       validDoc({
-        status: 'issued',
+        status: 'finalized',
         number: 1,
         issueDate: '2026-03-03',
         supplyDate: '2026-02-28',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -30,9 +30,11 @@ import type { PartySnapshot, LineItemInput, BgVatRate } from '@/src/features/bul
 import type { Company } from '@/lib/db/schema';
 import type { Partner } from '@/lib/db/schema';
 import type { Article } from '@/lib/db/schema';
-import { DOC_TYPES, BG_VAT_RATES } from '@/src/features/bulgarian-invoicing/types';
+import { DOC_TYPES } from '@/src/features/bulgarian-invoicing/types';
 import { formatDocTypeLabel } from '@/src/features/bulgarian-invoicing/formatter';
 import { ArrowLeft, Loader2, Save, FileText, CheckCircle } from 'lucide-react';
+import { InvoiceDropzone } from '@/components/invoices/InvoiceDropzone';
+import type { ExtractedInvoice } from '@/app/api/invoices/extract/schema';
 
 const PAYMENT_METHODS = ['bank', 'cash', 'barter'] as const;
 const LANGUAGES = [{ value: 'bg', label: 'Български' }, { value: 'en', label: 'English' }];
@@ -115,9 +117,12 @@ export default function NewInvoicePage() {
   const [amountInWordsOverride, setAmountInWordsOverride] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'bank' | 'cash' | 'barter'>('bank');
   const [paymentStatus, setPaymentStatus] = useState('unpaid');
+  const [dueDate, setDueDate] = useState('');
   const [customerNote, setCustomerNote] = useState('');
   const [internalComment, setInternalComment] = useState('');
   const [draftId, setDraftId] = useState<number | null>(editId);
+
+  const formRef = useRef<HTMLDivElement>(null);
 
   const isVatRegistered = companyProfile?.isVatRegistered ?? true;
   const defaultVatRate = (companyProfile?.defaultVatRate ?? 20) as BgVatRate;
@@ -126,16 +131,12 @@ export default function NewInvoicePage() {
   const recalc = useCallback(() => {
     const itemsWithVat = lineItems.map((item) => ({
       ...item,
-      vatRate: effectiveVatRate as BgVatRate,
+      vatRate: effectiveVatRate,
     }));
     return calculateInvoice(itemsWithVat);
   }, [lineItems, effectiveVatRate]);
 
   const { totals } = recalc();
-  const amountInWords =
-    amountInWordsOverride.trim() ||
-    amountInWordsBg(totals.grossAmount, currency);
-
   const loadInitial = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -194,8 +195,8 @@ export default function NewInvoicePage() {
       }
 
       setDocType(inv.docType ?? 'invoice');
-      setIssueDate(inv.issueDate ?? issueDate);
-      setSupplyDate(inv.supplyDate ?? inv.issueDate ?? supplyDate);
+      setIssueDate(inv.issueDate);
+      setSupplyDate(inv.supplyDate ?? inv.issueDate);
       setLanguage(inv.language ?? 'bg');
       setCurrency(inv.currency ?? 'EUR');
       setFxRate(Number(inv.fxRate ?? 1));
@@ -223,7 +224,7 @@ export default function NewInvoicePage() {
                 quantity: i.quantity,
                 unit: i.unit,
                 unitPrice: i.unitPrice,
-                vatRate: (i.vatRate ?? 20) as BgVatRate,
+                vatRate: (i.vatRate ?? 20),
                 discountPercent: i.discountPercent ?? 0,
                 articleId: null,
               }))
@@ -236,6 +237,7 @@ export default function NewInvoicePage() {
       setAmountInWordsOverride('');
       setPaymentMethod((inv.paymentMethod as 'bank' | 'cash' | 'barter') ?? 'bank');
       setPaymentStatus(inv.paymentStatus ?? 'unpaid');
+      setDueDate(inv.dueDate ?? '');
       setCustomerNote(inv.customerNote ?? '');
       setInternalComment(inv.internalComment ?? '');
     }
@@ -243,7 +245,8 @@ export default function NewInvoicePage() {
   }, [editId]);
 
   useEffect(() => {
-    loadInitial();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadInitial(); // async data fetch — setState calls are intentional side effects
   }, [loadInitial]);
 
   const handlePartnerSelect = (id: number | '') => {
@@ -267,6 +270,27 @@ export default function NewInvoicePage() {
     }
   };
 
+  const onExtracted = (data: ExtractedInvoice) => {
+    if (data.issue_date) setIssueDate(data.issue_date);
+    if (data.due_date) setDueDate(data.due_date);
+    if (data.currency) setCurrency(data.currency);
+    if (data.payment_method) setPaymentMethod(data.payment_method);
+    if (data.customer_note) setCustomerNote(data.customer_note);
+    setLineItems(
+      data.line_items.map((item) => ({
+        ...defaultLineItem,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPrice: item.unit_price,
+        vatRate: item.vat_rate,
+        discountPercent: item.discount_percent,
+        articleId: null,
+      }))
+    );
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const handleSaveDraft = async () => {
     if (!companyProfile) {
       setError('Company profile (Supplier) is required. Complete it in Settings.');
@@ -281,7 +305,7 @@ export default function NewInvoicePage() {
       quantity: item.quantity,
       unit: item.unit,
       unitPrice: item.unitPrice,
-      vatRate: effectiveVatRate as BgVatRate,
+      vatRate: effectiveVatRate,
       discountPercent: item.discountPercent,
       articleId: item.articleId,
     }));
@@ -307,6 +331,7 @@ export default function NewInvoicePage() {
       language,
       paymentMethod,
       paymentStatus,
+      dueDate: dueDate || null,
       vatMode,
       noVatReason: vatMode === 'no_vat' ? noVatReason : null,
       amountInWords: amountInWordsOverride.trim() || amountInWordsBg(totals.grossAmount, currency),
@@ -359,7 +384,7 @@ export default function NewInvoicePage() {
   };
 
   const addLine = () => {
-    setLineItems((prev) => [...prev, { ...defaultLineItem, vatRate: effectiveVatRate as BgVatRate }]);
+    setLineItems((prev) => [...prev, { ...defaultLineItem, vatRate: effectiveVatRate }]);
   };
 
   const updateLine = (index: number, patch: Partial<LineItemForm>) => {
@@ -408,6 +433,10 @@ export default function NewInvoicePage() {
           ))}
         </ul>
       )}
+
+      <InvoiceDropzone className="mb-6" onExtracted={onExtracted} />
+
+      <div ref={formRef} aria-hidden="true" />
 
       {/* Section A — Recipient */}
       <Card className="mb-6">
@@ -667,7 +696,7 @@ export default function NewInvoicePage() {
                 {lineItems.map((line, i) => {
                   const itemsWithVat = lineItems.map((item) => ({
                     ...item,
-                    vatRate: effectiveVatRate as BgVatRate,
+                    vatRate: effectiveVatRate,
                   }));
                   const calc = calculateInvoice(itemsWithVat);
                   const lineTotal = calc.items[i]?.grossAmount ?? 0;
@@ -837,17 +866,28 @@ export default function NewInvoicePage() {
               {companyProfile.bicSwift && <p>BIC/SWIFT: {companyProfile.bicSwift}</p>}
             </div>
           )}
-          <div>
-            <Label>Payment status</Label>
-            <select
-              className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-              value={paymentStatus}
-              onChange={(e) => setPaymentStatus(e.target.value)}
-            >
-              <option value="unpaid">Unpaid</option>
-              <option value="partial">Partial</option>
-              <option value="paid">Paid</option>
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="dueDate">Due date (optional)</Label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Payment status</Label>
+              <select
+                className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                value={paymentStatus}
+                onChange={(e) => setPaymentStatus(e.target.value)}
+              >
+                <option value="unpaid">Unpaid</option>
+                <option value="partial">Partial</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { User } from '@/lib/db/schema';
 import {
   getUserByStripeCustomerId,
-  getUser,
   updateUserSubscription
 } from '@/lib/db/queries';
 

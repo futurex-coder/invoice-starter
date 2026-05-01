@@ -199,7 +199,7 @@ describe('formatDocumentTitle', () => {
     ]);
     const doc: InvoiceDocument = {
       docType: 'invoice',
-      status: 'issued',
+      status: 'finalized',
       series: 'INV',
       number: 42,
       issueDate: '2026-02-28',

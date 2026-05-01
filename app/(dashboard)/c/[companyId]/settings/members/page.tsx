@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 export default function MembersPage() {
-  const { company, role } = useCompany();
+  const { role } = useCompany();
   const [data, setData] = useState<CompanyWithMembers | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +62,8 @@ export default function MembersPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData(); // async data fetch — setState calls are intentional side effects
   }, [loadData]);
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -80,7 +81,7 @@ export default function MembersPage() {
 
     setInviting(false);
     if (res && 'error' in res && res.error) {
-      setError(res.error as string);
+      setError(res.error);
       return;
     }
     setSuccess('Invitation sent successfully');
@@ -102,7 +103,7 @@ export default function MembersPage() {
 
     setRemoving(null);
     if (res && 'error' in res && res.error) {
-      setError(res.error as string);
+      setError(res.error);
       return;
     }
     setSuccess('Member removed');

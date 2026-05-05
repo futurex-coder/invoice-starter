@@ -9,7 +9,13 @@
       "PowerShell(pnpm exec *)",
       "Bash(npm run *)",
       "Bash(pnpm run *)",
-      "PowerShell(psql *)"
+      "PowerShell(psql *)",
+      "Bash(gh api *)",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(d['name'], d.get\\('type',''\\)\\) for d in data]\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__list_projects",
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__list_tables"
     ]
   }
 }

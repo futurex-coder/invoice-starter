@@ -74,9 +74,13 @@ function digitsOnly(value: string | null): string | null {
 
 function supplierFromExtraction(extraction: ExtractedInvoice): SupplierSnapshot {
   return {
-    legalName: extraction.supplier_name,
-    eik: digitsOnly(extraction.supplier_eik),
-    vatNumber: null,
+    legalName: extraction.supplier_name?.value ?? null,
+    eik: digitsOnly(extraction.supplier_eik?.value ?? null),
+    vatNumber: extraction.supplier_vat_number?.value ?? null,
+    country: extraction.supplier_address_country?.value ?? null,
+    city: extraction.supplier_address_city?.value ?? null,
+    street: extraction.supplier_address_street?.value ?? null,
+    postCode: extraction.supplier_address_post_code?.value ?? null,
   };
 }
 
@@ -225,6 +229,18 @@ export async function createDraftFromUpload(input: {
       { net: 0, vat: 0, gross: 0 }
     );
 
+    const extractedInvoiceNumber =
+      input.rawExtraction.invoice_number?.value ?? null;
+    const extractedIssueDate = input.rawExtraction.issue_date?.value ?? null;
+    const extractedSupplyDate =
+      input.rawExtraction.supply_date?.value ?? null;
+    const extractedDueDate = input.rawExtraction.due_date?.value ?? null;
+    const extractedCurrency = input.rawExtraction.currency?.value ?? null;
+    const extractedPaymentMethod =
+      input.rawExtraction.payment_method?.value ?? null;
+    const extractedCustomerNote =
+      input.rawExtraction.customer_note?.value ?? null;
+
     const created = await db.transaction(async (tx) => {
       const [row] = await tx
         .insert(receivedInvoices)
@@ -239,23 +255,23 @@ export async function createDraftFromUpload(input: {
           fileOriginalName: input.fileOriginalName,
           fileChecksumSha256: input.fileChecksumSha256,
           rawExtraction: input.rawExtraction,
-          extractionConfidence: input.rawExtraction.confidence,
+          extractionConfidence: input.rawExtraction.overall_confidence,
           extractionModelId: input.extractionModelId,
           partnerId: partnerMatch?.id ?? null,
           supplierSnapshot: supplier,
-          invoiceNumber: null,
-          issueDate: input.rawExtraction.issue_date,
-          supplyDate: null,
-          dueDate: input.rawExtraction.due_date,
-          currency: input.rawExtraction.currency ?? 'EUR',
+          invoiceNumber: extractedInvoiceNumber,
+          issueDate: extractedIssueDate,
+          supplyDate: extractedSupplyDate,
+          dueDate: extractedDueDate,
+          currency: extractedCurrency ?? 'EUR',
           fxRate: '1',
           netAmount: String(Math.round(totals.net * 100) / 100),
           vatAmount: String(Math.round(totals.vat * 100) / 100),
           grossAmount: String(Math.round(totals.gross * 100) / 100),
-          paymentMethod: input.rawExtraction.payment_method ?? 'bank',
+          paymentMethod: extractedPaymentMethod ?? 'bank',
           paymentStatus: 'unpaid',
           accountingStatus: 'pending',
-          notes: input.rawExtraction.customer_note,
+          notes: extractedCustomerNote,
         })
         .returning();
 
@@ -281,8 +297,8 @@ export async function createDraftFromUpload(input: {
       excludeId: created.id,
       checksum: input.fileChecksumSha256,
       partnerId: partnerMatch?.id ?? null,
-      invoiceNumber: null,
-      issueDate: input.rawExtraction.issue_date,
+      invoiceNumber: extractedInvoiceNumber,
+      issueDate: extractedIssueDate,
     });
 
     return { data: { id: created.id, duplicates } };
@@ -1180,5 +1196,3 @@ export async function getPaymentsOverview(filters?: {
   }
 }
 
-// Re-export utility used by the API routes.
-export { RECEIVED_INVOICES_BUCKET };

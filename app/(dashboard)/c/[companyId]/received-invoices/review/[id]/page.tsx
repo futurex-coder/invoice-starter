@@ -16,6 +16,10 @@ import type {
   ReceivedInvoiceReviewInput,
   SupplierSnapshot,
 } from '@/src/features/received-invoices/types';
+import {
+  ExtractedInvoiceSchema,
+  type ExtractedInvoice,
+} from '@/app/api/invoices/extract/schema';
 import { ReviewForm } from '@/components/received-invoices/ReviewForm';
 import { PreviewPane } from '@/components/received-invoices/PreviewPane';
 import { StatusBadge } from '@/components/received-invoices/StatusBadge';
@@ -181,6 +185,12 @@ export default function ReviewReceivedInvoicePage() {
   if (!state) return null;
 
   const initial = rowToReviewInput(state.row, state.lines);
+  const rawExtractionParsed = ExtractedInvoiceSchema.safeParse(
+    state.row.rawExtraction
+  );
+  const rawExtraction: ExtractedInvoice | null = rawExtractionParsed.success
+    ? rawExtractionParsed.data
+    : null;
 
   return (
     <section className="flex-1 p-4 lg:p-6">
@@ -278,6 +288,7 @@ export default function ReviewReceivedInvoicePage() {
           <ReviewForm
             initial={initial}
             extractionConfidence={state.row.extractionConfidence}
+            rawExtraction={rawExtraction}
             partnerSuggestion={state.partnerSuggestion}
             onSaveDraft={handleSaveDraft}
             onConfirm={handleConfirm}

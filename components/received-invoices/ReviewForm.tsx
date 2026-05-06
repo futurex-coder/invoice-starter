@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Trash2, Plus, AlertCircle } from 'lucide-react';
+import { Trash2, Plus, AlertCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +22,10 @@ import type {
   ReceivedInvoiceReviewInput,
   SupplierSnapshot,
 } from '@/src/features/received-invoices/types';
+import type {
+  ExtractedInvoice,
+  FieldConfidence,
+} from '@/app/api/invoices/extract/schema';
 
 const PAYMENT_METHODS: PaymentMethod[] = ['bank', 'cash', 'barter'];
 const PAYMENT_STATUSES: PaymentStatus[] = ['unpaid', 'partial', 'paid'];
@@ -38,42 +42,119 @@ const blankLine: ReceivedInvoiceLineInput = {
   discountPercent: 0,
 };
 
-interface FieldHighlight {
-  fields: Set<string>;
-}
+// Map of UI field key → { confidence, reason } sourced from the raw extraction.
+type FieldMeta = { confidence: FieldConfidence; reason?: string | null };
+type FieldMetaMap = Map<string, FieldMeta>;
 
-function lowConfidenceFields(confidence: string | null | undefined): FieldHighlight {
-  // For "low" confidence, highlight nearly everything that's likely shaky.
-  // For "medium", highlight key numeric fields. For "high", no highlights.
-  if (confidence === 'low') {
-    return {
-      fields: new Set([
+function buildFieldMeta(
+  raw: ExtractedInvoice | null,
+  overall: string | null | undefined
+): FieldMetaMap {
+  const m: FieldMetaMap = new Map();
+  if (!raw) {
+    // Without per-field data, fall back to overall confidence — the UI keys
+    // most likely to be shaky on a low-confidence document.
+    if (overall === 'low') {
+      const fallback: FieldConfidence = 'low';
+      [
         'supplier.legalName',
         'supplier.eik',
+        'supplier.street',
+        'supplier.city',
         'invoiceNumber',
         'issueDate',
         'dueDate',
         'currency',
         'lineItems',
-      ]),
-    };
+      ].forEach((k) => m.set(k, { confidence: fallback }));
+    } else if (overall === 'medium') {
+      const fallback: FieldConfidence = 'medium';
+      ['invoiceNumber', 'lineItems'].forEach((k) =>
+        m.set(k, { confidence: fallback })
+      );
+    }
+    return m;
   }
-  if (confidence === 'medium') {
-    return {
-      fields: new Set(['invoiceNumber', 'lineItems']),
-    };
+
+  // Direct mappings from extraction key → form key.
+  const set = (
+    formKey: string,
+    field:
+      | { confidence: FieldConfidence; reason?: string | null }
+      | undefined
+  ) => {
+    if (!field) return;
+    m.set(formKey, { confidence: field.confidence, reason: field.reason });
+  };
+
+  set('invoiceNumber', raw.invoice_number);
+  set('issueDate', raw.issue_date);
+  set('dueDate', raw.due_date);
+  set('supplyDate', raw.supply_date);
+  set('currency', raw.currency);
+  set('supplier.legalName', raw.supplier_name);
+  set('supplier.eik', raw.supplier_eik);
+  set('supplier.vatNumber', raw.supplier_vat_number);
+  set('supplier.street', raw.supplier_address_street);
+  set('supplier.city', raw.supplier_address_city);
+  set('supplier.country', raw.supplier_address_country);
+  set('supplier.postCode', raw.supplier_address_post_code);
+
+  if (raw.line_items_confidence) {
+    m.set('lineItems', { confidence: raw.line_items_confidence });
   }
-  return { fields: new Set() };
+  return m;
 }
 
-function fieldRing(highlight: FieldHighlight, key: string, touched: boolean) {
-  if (touched || !highlight.fields.has(key)) return '';
+function isShaky(c: FieldConfidence | undefined): boolean {
+  return c === 'low' || c === 'medium' || c === 'missing';
+}
+
+function fieldRing(
+  meta: FieldMetaMap,
+  key: string,
+  touched: boolean
+): string {
+  if (touched) return '';
+  const m = meta.get(key);
+  if (!m || !isShaky(m.confidence)) return '';
+  if (m.confidence === 'missing') {
+    return 'ring-1 ring-rose-300 bg-rose-50/30';
+  }
   return 'ring-1 ring-amber-300 bg-amber-50/40';
+}
+
+function FieldHint({
+  meta,
+  formKey,
+  touched,
+}: {
+  meta: FieldMetaMap;
+  formKey: string;
+  touched: boolean;
+}) {
+  if (touched) return null;
+  const m = meta.get(formKey);
+  if (!m || !isShaky(m.confidence)) return null;
+  const text =
+    m.reason ??
+    (m.confidence === 'missing'
+      ? 'Not found on the document — please fill in.'
+      : `Low-confidence extraction (${m.confidence}). Please verify.`);
+  const tone =
+    m.confidence === 'missing' ? 'text-rose-700' : 'text-amber-700';
+  return (
+    <p className={`mt-1 inline-flex items-start gap-1 text-xs ${tone}`}>
+      <Info className="mt-0.5 h-3 w-3 shrink-0" />
+      <span>{text}</span>
+    </p>
+  );
 }
 
 interface Props {
   initial: ReceivedInvoiceReviewInput;
   extractionConfidence?: string | null;
+  rawExtraction?: ExtractedInvoice | null;
   partnerSuggestion?: { matchedPartnerId: number; matchedPartnerName: string } | null;
   onSaveDraft: (patch: ReceivedInvoiceReviewInput) => Promise<void>;
   onConfirm: (patch: ReceivedInvoiceReviewInput) => Promise<void>;
@@ -84,6 +165,7 @@ interface Props {
 export function ReviewForm({
   initial,
   extractionConfidence,
+  rawExtraction,
   partnerSuggestion,
   onSaveDraft,
   onConfirm,
@@ -118,9 +200,9 @@ export function ReviewForm({
   const [notes, setNotes] = useState(initial.notes ?? '');
   const [touched, setTouched] = useState<Set<string>>(new Set());
 
-  const highlight = useMemo(
-    () => lowConfidenceFields(extractionConfidence),
-    [extractionConfidence]
+  const fieldMeta = useMemo(
+    () => buildFieldMeta(rawExtraction ?? null, extractionConfidence),
+    [rawExtraction, extractionConfidence]
   );
 
   const markTouched = (key: string) => {
@@ -241,7 +323,7 @@ export function ReviewForm({
                   <Input
                     id="supplierName"
                     className={cn(
-                      fieldRing(highlight, 'supplier.legalName', touched.has('supplier.legalName'))
+                      fieldRing(fieldMeta, 'supplier.legalName', touched.has('supplier.legalName'))
                     )}
                     value={supplier.legalName ?? ''}
                     onChange={(e) => {
@@ -252,19 +334,29 @@ export function ReviewForm({
                       }));
                     }}
                   />
+                  <FieldHint
+                    meta={fieldMeta}
+                    formKey="supplier.legalName"
+                    touched={touched.has('supplier.legalName')}
+                  />
                 </div>
                 <div>
                   <Label htmlFor="supplierEik">EIK</Label>
                   <Input
                     id="supplierEik"
                     className={cn(
-                      fieldRing(highlight, 'supplier.eik', touched.has('supplier.eik'))
+                      fieldRing(fieldMeta, 'supplier.eik', touched.has('supplier.eik'))
                     )}
                     value={supplier.eik ?? ''}
                     onChange={(e) => {
                       markTouched('supplier.eik');
                       setSupplier((s) => ({ ...s, eik: e.target.value }));
                     }}
+                  />
+                  <FieldHint
+                    meta={fieldMeta}
+                    formKey="supplier.eik"
+                    touched={touched.has('supplier.eik')}
                   />
                 </div>
               </div>
@@ -273,43 +365,100 @@ export function ReviewForm({
                   <Label htmlFor="supplierVat">VAT number</Label>
                   <Input
                     id="supplierVat"
+                    className={cn(
+                      fieldRing(fieldMeta, 'supplier.vatNumber', touched.has('supplier.vatNumber'))
+                    )}
                     value={supplier.vatNumber ?? ''}
-                    onChange={(e) =>
-                      setSupplier((s) => ({ ...s, vatNumber: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      markTouched('supplier.vatNumber');
+                      setSupplier((s) => ({ ...s, vatNumber: e.target.value }));
+                    }}
+                  />
+                  <FieldHint
+                    meta={fieldMeta}
+                    formKey="supplier.vatNumber"
+                    touched={touched.has('supplier.vatNumber')}
                   />
                 </div>
                 <div>
                   <Label htmlFor="supplierCity">City</Label>
                   <Input
                     id="supplierCity"
+                    className={cn(
+                      fieldRing(fieldMeta, 'supplier.city', touched.has('supplier.city'))
+                    )}
                     value={supplier.city ?? ''}
-                    onChange={(e) =>
-                      setSupplier((s) => ({ ...s, city: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      markTouched('supplier.city');
+                      setSupplier((s) => ({ ...s, city: e.target.value }));
+                    }}
+                  />
+                  <FieldHint
+                    meta={fieldMeta}
+                    formKey="supplier.city"
+                    touched={touched.has('supplier.city')}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="sm:col-span-2">
+                  <Label htmlFor="supplierStreet">Street</Label>
+                  <Input
+                    id="supplierStreet"
+                    className={cn(
+                      fieldRing(fieldMeta, 'supplier.street', touched.has('supplier.street'))
+                    )}
+                    value={supplier.street ?? ''}
+                    onChange={(e) => {
+                      markTouched('supplier.street');
+                      setSupplier((s) => ({ ...s, street: e.target.value }));
+                    }}
+                  />
+                  <FieldHint
+                    meta={fieldMeta}
+                    formKey="supplier.street"
+                    touched={touched.has('supplier.street')}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="supplierPostCode">Post code</Label>
+                  <Input
+                    id="supplierPostCode"
+                    className={cn(
+                      fieldRing(fieldMeta, 'supplier.postCode', touched.has('supplier.postCode'))
+                    )}
+                    value={supplier.postCode ?? ''}
+                    onChange={(e) => {
+                      markTouched('supplier.postCode');
+                      setSupplier((s) => ({ ...s, postCode: e.target.value }));
+                    }}
+                  />
+                  <FieldHint
+                    meta={fieldMeta}
+                    formKey="supplier.postCode"
+                    touched={touched.has('supplier.postCode')}
                   />
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="supplierStreet">Street</Label>
-                  <Input
-                    id="supplierStreet"
-                    value={supplier.street ?? ''}
-                    onChange={(e) =>
-                      setSupplier((s) => ({ ...s, street: e.target.value }))
-                    }
-                  />
-                </div>
-                <div>
                   <Label htmlFor="supplierCountry">Country</Label>
                   <Input
                     id="supplierCountry"
                     maxLength={2}
+                    className={cn(
+                      fieldRing(fieldMeta, 'supplier.country', touched.has('supplier.country'))
+                    )}
                     value={supplier.country ?? ''}
-                    onChange={(e) =>
-                      setSupplier((s) => ({ ...s, country: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      markTouched('supplier.country');
+                      setSupplier((s) => ({ ...s, country: e.target.value }));
+                    }}
+                  />
+                  <FieldHint
+                    meta={fieldMeta}
+                    formKey="supplier.country"
+                    touched={touched.has('supplier.country')}
                   />
                 </div>
               </div>
@@ -337,7 +486,7 @@ export function ReviewForm({
               <Input
                 id="invoiceNumber"
                 className={cn(
-                  fieldRing(highlight, 'invoiceNumber', touched.has('invoiceNumber'))
+                  fieldRing(fieldMeta, 'invoiceNumber', touched.has('invoiceNumber'))
                 )}
                 value={invoiceNumber}
                 onChange={(e) => {
@@ -346,6 +495,11 @@ export function ReviewForm({
                 }}
                 placeholder="Supplier's number"
               />
+              <FieldHint
+                meta={fieldMeta}
+                formKey="invoiceNumber"
+                touched={touched.has('invoiceNumber')}
+              />
             </div>
             <div>
               <Label htmlFor="currency">Currency</Label>
@@ -353,7 +507,7 @@ export function ReviewForm({
                 id="currency"
                 className={cn(
                   'mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm',
-                  fieldRing(highlight, 'currency', touched.has('currency'))
+                  fieldRing(fieldMeta, 'currency', touched.has('currency'))
                 )}
                 value={currency}
                 onChange={(e) => {
@@ -367,6 +521,11 @@ export function ReviewForm({
                   </option>
                 ))}
               </select>
+              <FieldHint
+                meta={fieldMeta}
+                formKey="currency"
+                touched={touched.has('currency')}
+              />
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -376,13 +535,18 @@ export function ReviewForm({
                 id="issueDate"
                 type="date"
                 className={cn(
-                  fieldRing(highlight, 'issueDate', touched.has('issueDate'))
+                  fieldRing(fieldMeta, 'issueDate', touched.has('issueDate'))
                 )}
                 value={issueDate}
                 onChange={(e) => {
                   markTouched('issueDate');
                   setIssueDate(e.target.value);
                 }}
+              />
+              <FieldHint
+                meta={fieldMeta}
+                formKey="issueDate"
+                touched={touched.has('issueDate')}
               />
             </div>
             <div>
@@ -400,13 +564,18 @@ export function ReviewForm({
                 id="dueDate"
                 type="date"
                 className={cn(
-                  fieldRing(highlight, 'dueDate', touched.has('dueDate'))
+                  fieldRing(fieldMeta, 'dueDate', touched.has('dueDate'))
                 )}
                 value={dueDate}
                 onChange={(e) => {
                   markTouched('dueDate');
                   setDueDate(e.target.value);
                 }}
+              />
+              <FieldHint
+                meta={fieldMeta}
+                formKey="dueDate"
+                touched={touched.has('dueDate')}
               />
             </div>
           </div>

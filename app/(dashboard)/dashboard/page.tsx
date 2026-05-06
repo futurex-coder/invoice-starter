@@ -34,6 +34,8 @@ import {
   EyeOff,
   RotateCcw,
   Trash2,
+  Inbox,
+  TrendingDown,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -46,6 +48,10 @@ type CompanyMetric = {
   outstanding: number;
   invoiceCountThisMonth: number;
   overdueCount: number;
+  expensesPaid: number;
+  expensesOutstanding: number;
+  receivedThisMonth: number;
+  pendingReviewCount: number;
   role: string;
 };
 
@@ -54,6 +60,10 @@ type Totals = {
   outstanding: number;
   invoiceCount: number;
   overdueCount: number;
+  expensesPaid: number;
+  expensesOutstanding: number;
+  receivedCount: number;
+  pendingReviewCount: number;
 };
 
 type ActivityLog = {
@@ -100,6 +110,12 @@ const ACTIVITY_LABELS: Record<string, string> = {
   [ActivityType.CANCEL_INVOICE]: 'Cancelled an invoice',
   [ActivityType.CREATE_CREDIT_NOTE]: 'Created a credit note',
   [ActivityType.CREATE_DEBIT_NOTE]: 'Created a debit note',
+  [ActivityType.UPLOAD_RECEIVED_INVOICE]: 'Uploaded a received invoice',
+  [ActivityType.UPDATE_RECEIVED_INVOICE]: 'Updated a received invoice',
+  [ActivityType.CONFIRM_RECEIVED_INVOICE]: 'Confirmed a received invoice',
+  [ActivityType.DISCARD_RECEIVED_INVOICE]: 'Discarded a received invoice',
+  [ActivityType.ARCHIVE_RECEIVED_INVOICE]: 'Archived a received invoice',
+  [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: 'Unarchived a received invoice',
 };
 
 function formatCurrency(amount: number) {
@@ -171,6 +187,10 @@ export default function DashboardPage() {
     outstanding: 0,
     invoiceCount: 0,
     overdueCount: 0,
+    expensesPaid: 0,
+    expensesOutstanding: 0,
+    receivedCount: 0,
+    pendingReviewCount: 0,
   });
   const [activity, setActivity] = useState<ActivityLog[]>([]);
   const [onlyOwn, setOnlyOwn] = useState(true);
@@ -239,8 +259,6 @@ export default function DashboardPage() {
     );
   }
 
-  const hasMultipleCurrencies =
-    new Set(companies.map((c) => c.currency)).size > 1;
   const hasOwnerRole = companies.some((c) => c.role === 'owner');
 
   // ─── Empty state ────────────────────────────────────────────────────────
@@ -343,21 +361,55 @@ export default function DashboardPage() {
         </Button>
       </div>
 
+      {totals.pendingReviewCount > 0 && (
+        <div className="mb-6 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+          <div className="flex items-center gap-2 text-amber-900">
+            <Inbox className="h-4 w-4" />
+            <span>
+              <strong>{totals.pendingReviewCount}</strong> received{' '}
+              {totals.pendingReviewCount === 1 ? 'invoice' : 'invoices'}{' '}
+              awaiting review across your companies
+            </span>
+          </div>
+          {(() => {
+            const target = companies.find((c) => c.pendingReviewCount > 0);
+            if (!target) return null;
+            return (
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/c/${target.companyId}/received-invoices`}>
+                  Review
+                </Link>
+              </Button>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         <SummaryCard
           icon={<DollarSign className="h-5 w-5 text-green-600" />}
-          label="Total Revenue"
-          value={formatCurrency(totals.revenue)}
-          sub={hasMultipleCurrencies ? 'mixed currencies' : undefined}
+          label="Revenue"
+          value={`${formatCurrency(totals.revenue)} EUR`}
           color="green"
         />
         <SummaryCard
           icon={<Clock className="h-5 w-5 text-amber-600" />}
           label="Outstanding"
-          value={formatCurrency(totals.outstanding)}
-          sub={hasMultipleCurrencies ? 'mixed currencies' : undefined}
+          value={`${formatCurrency(totals.outstanding)} EUR`}
           color="amber"
+        />
+        <SummaryCard
+          icon={<TrendingDown className="h-5 w-5 text-purple-600" />}
+          label="Expenses Paid"
+          value={`${formatCurrency(totals.expensesPaid)} EUR`}
+          color="purple"
+        />
+        <SummaryCard
+          icon={<TrendingDown className="h-5 w-5 text-rose-600" />}
+          label="Expenses Outstanding"
+          value={`${formatCurrency(totals.expensesOutstanding)} EUR`}
+          color="rose"
         />
         <SummaryCard
           icon={<FileText className="h-5 w-5 text-blue-600" />}
@@ -428,6 +480,32 @@ export default function DashboardPage() {
                       }`}
                     >
                       {c.overdueCount}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-2 text-center">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Expenses</p>
+                    <p className="text-sm font-semibold text-purple-700">
+                      {formatCurrency(c.expensesPaid + c.expensesOutstanding)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Unpaid</p>
+                    <p className="text-sm font-semibold text-rose-700">
+                      {formatCurrency(c.expensesOutstanding)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">To review</p>
+                    <p
+                      className={`text-sm font-semibold ${
+                        c.pendingReviewCount > 0
+                          ? 'text-amber-700'
+                          : 'text-gray-500'
+                      }`}
+                    >
+                      {c.pendingReviewCount}
                     </p>
                   </div>
                 </div>
@@ -609,6 +687,8 @@ function SummaryCard({
     blue: 'bg-blue-50',
     red: 'bg-red-50',
     gray: 'bg-gray-50',
+    purple: 'bg-purple-50',
+    rose: 'bg-rose-50',
   };
   return (
     <Card

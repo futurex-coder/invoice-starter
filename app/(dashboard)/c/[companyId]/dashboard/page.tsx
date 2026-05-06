@@ -8,9 +8,9 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { ActivityType } from '@/lib/db/schema';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
-import { invoices, companies } from '@/lib/db/schema';
+import { invoices, companies, receivedInvoices } from '@/lib/db/schema';
 import {
   getUser,
   verifyCompanyAccess,
@@ -31,6 +31,8 @@ import {
   Building2,
   Crown,
   Settings,
+  Inbox,
+  TrendingDown,
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -50,6 +52,12 @@ const ACTIVITY_LABELS: Record<string, string> = {
   [ActivityType.CANCEL_INVOICE]: 'Cancelled an invoice',
   [ActivityType.CREATE_CREDIT_NOTE]: 'Created a credit note',
   [ActivityType.CREATE_DEBIT_NOTE]: 'Created a debit note',
+  [ActivityType.UPLOAD_RECEIVED_INVOICE]: 'Uploaded a received invoice',
+  [ActivityType.UPDATE_RECEIVED_INVOICE]: 'Updated a received invoice',
+  [ActivityType.CONFIRM_RECEIVED_INVOICE]: 'Confirmed a received invoice',
+  [ActivityType.DISCARD_RECEIVED_INVOICE]: 'Discarded a received invoice',
+  [ActivityType.ARCHIVE_RECEIVED_INVOICE]: 'Archived a received invoice',
+  [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: 'Unarchived a received invoice',
 };
 
 function relativeTime(date: Date): string {
@@ -124,6 +132,54 @@ async function getCompanyMetrics(companyId: number) {
   };
 }
 
+async function getCompanyExpenseMetrics(companyId: number) {
+  const [row] = await db
+    .select({
+      expensesPaid: sql<string>`coalesce(sum(
+        case when ${receivedInvoices.status} = 'confirmed'
+             and ${receivedInvoices.paymentStatus} = 'paid'
+        then ${receivedInvoices.grossAmount}::numeric else 0 end
+      ), 0)`,
+      expensesOutstanding: sql<string>`coalesce(sum(
+        case when ${receivedInvoices.status} = 'confirmed'
+             and ${receivedInvoices.paymentStatus} <> 'paid'
+        then ${receivedInvoices.grossAmount}::numeric else 0 end
+      ), 0)`,
+      receivedThisMonth: sql<number>`count(*) filter (
+        where ${receivedInvoices.status} = 'confirmed'
+          and date_trunc('month', ${receivedInvoices.issueDate}::timestamp)
+            = date_trunc('month', now())
+      )`,
+      pendingReviewCount: sql<number>`count(*) filter (
+        where ${receivedInvoices.status} = 'draft'
+      )`,
+      accountedCount: sql<number>`count(*) filter (
+        where ${receivedInvoices.status} = 'confirmed'
+          and ${receivedInvoices.accountingStatus} = 'accounted'
+      )`,
+      pendingAccountingCount: sql<number>`count(*) filter (
+        where ${receivedInvoices.status} = 'confirmed'
+          and ${receivedInvoices.accountingStatus} = 'pending'
+      )`,
+    })
+    .from(receivedInvoices)
+    .where(
+      and(
+        eq(receivedInvoices.companyId, companyId),
+        isNull(receivedInvoices.archivedAt)
+      )
+    );
+
+  return {
+    expensesPaid: parseFloat(row.expensesPaid),
+    expensesOutstanding: parseFloat(row.expensesOutstanding),
+    receivedThisMonth: Number(row.receivedThisMonth),
+    pendingReviewCount: Number(row.pendingReviewCount),
+    accountedCount: Number(row.accountedCount),
+    pendingAccountingCount: Number(row.pendingAccountingCount),
+  };
+}
+
 export default async function CompanyDashboardPage({
   params,
 }: {
@@ -144,14 +200,21 @@ export default async function CompanyDashboardPage({
   const company = companyRows[0];
   if (!company) redirect('/dashboard');
 
-  const [metrics, partners, articlesList, activity, nextNumber] =
-    await Promise.all([
-      getCompanyMetrics(companyId),
-      getPartnersForCompany(companyId),
-      getArticlesForCompany(companyId),
-      getActivityLogs(companyId, { limit: 5 }),
-      getNextInvoiceNumber(companyId, 'INV'),
-    ]);
+  const [
+    metrics,
+    expenseMetrics,
+    partners,
+    articlesList,
+    activity,
+    nextNumber,
+  ] = await Promise.all([
+    getCompanyMetrics(companyId),
+    getCompanyExpenseMetrics(companyId),
+    getPartnersForCompany(companyId),
+    getArticlesForCompany(companyId),
+    getActivityLogs(companyId, { limit: 5 }),
+    getNextInvoiceNumber(companyId, 'INV'),
+  ]);
 
   const base = `/c/${companyId}`;
 
@@ -167,6 +230,21 @@ export default async function CompanyDashboardPage({
       icon: FileText,
       label: 'New Invoice',
       sub: `Next #${String(nextNumber).padStart(10, '0')}`,
+    },
+    {
+      href: `${base}/received-invoices`,
+      icon: Inbox,
+      label: 'Received invoices',
+      count: expenseMetrics.receivedThisMonth + expenseMetrics.accountedCount,
+      sub:
+        expenseMetrics.pendingReviewCount > 0
+          ? `${expenseMetrics.pendingReviewCount} pending`
+          : undefined,
+    },
+    {
+      href: `${base}/received-invoices/upload`,
+      icon: Inbox,
+      label: 'Upload invoice',
     },
     {
       href: `${base}/partners`,
@@ -214,8 +292,29 @@ export default async function CompanyDashboardPage({
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {expenseMetrics.pendingReviewCount > 0 && (
+        <div className="mb-6 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+          <div className="flex items-center gap-2 text-amber-900">
+            <Inbox className="h-4 w-4" />
+            <span>
+              <strong>{expenseMetrics.pendingReviewCount}</strong> received{' '}
+              {expenseMetrics.pendingReviewCount === 1
+                ? 'invoice'
+                : 'invoices'}{' '}
+              awaiting review
+            </span>
+          </div>
+          <Link
+            href={`${base}/received-invoices`}
+            className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50"
+          >
+            Review →
+          </Link>
+        </div>
+      )}
+
+      {/* Summary cards — income */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <MetricCard
           icon={<DollarSign className="h-5 w-5 text-green-600" />}
           label="Revenue"
@@ -243,8 +342,37 @@ export default async function CompanyDashboardPage({
         />
       </div>
 
+      {/* Summary cards — expenses */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <MetricCard
+          icon={<TrendingDown className="h-5 w-5 text-purple-600" />}
+          label="Expenses Paid"
+          value={`${formatCurrency(expenseMetrics.expensesPaid)} ${company.defaultCurrency}`}
+          color="purple"
+        />
+        <MetricCard
+          icon={<TrendingDown className="h-5 w-5 text-rose-600" />}
+          label="Expenses Outstanding"
+          value={`${formatCurrency(expenseMetrics.expensesOutstanding)} ${company.defaultCurrency}`}
+          color="rose"
+        />
+        <MetricCard
+          icon={<Inbox className="h-5 w-5 text-blue-600" />}
+          label="Received This Month"
+          value={String(expenseMetrics.receivedThisMonth)}
+          color="blue"
+        />
+        <MetricCard
+          icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
+          label="Pending Review"
+          value={String(expenseMetrics.pendingReviewCount)}
+          color={expenseMetrics.pendingReviewCount > 0 ? 'amber' : 'gray'}
+          highlight={expenseMetrics.pendingReviewCount > 0}
+        />
+      </div>
+
       {/* Breakdown + Quick links */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Invoice breakdown */}
         <Card>
           <CardHeader>
@@ -260,6 +388,41 @@ export default async function CompanyDashboardPage({
               <div className="border-t pt-2 mt-2">
                 <Row label="Partners" value={partners.length} />
                 <Row label="Articles" value={articlesList.length} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Received-invoice breakdown */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle>Received Invoices</CardTitle>
+            <Link
+              href={`${base}/received-invoices`}
+              className="text-xs text-orange-600 hover:underline"
+            >
+              View all →
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2 text-sm">
+              <Row
+                label="Pending review"
+                value={expenseMetrics.pendingReviewCount}
+              />
+              <Row
+                label="Confirmed — accounted"
+                value={expenseMetrics.accountedCount}
+              />
+              <Row
+                label="Confirmed — to account"
+                value={expenseMetrics.pendingAccountingCount}
+              />
+              <div className="border-t pt-2 mt-2">
+                <Row
+                  label="This month"
+                  value={expenseMetrics.receivedThisMonth}
+                />
               </div>
             </div>
           </CardContent>
@@ -361,6 +524,8 @@ function MetricCard({
     blue: 'bg-blue-50',
     red: 'bg-red-50',
     gray: 'bg-gray-50',
+    purple: 'bg-purple-50',
+    rose: 'bg-rose-50',
   };
   return (
     <Card className={highlight ? 'border-red-300 bg-red-50/30' : ''}>

@@ -16,6 +16,9 @@ import {
   FileX,
   FileMinus2,
   FilePlus2,
+  Inbox,
+  Archive,
+  ArchiveRestore,
   type LucideIcon,
 } from 'lucide-react';
 import { ActivityType } from '@/lib/db/schema';
@@ -42,6 +45,12 @@ const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.CANCEL_INVOICE]: FileX,
   [ActivityType.CREATE_CREDIT_NOTE]: FileMinus2,
   [ActivityType.CREATE_DEBIT_NOTE]: FilePlus2,
+  [ActivityType.UPLOAD_RECEIVED_INVOICE]: Inbox,
+  [ActivityType.UPDATE_RECEIVED_INVOICE]: FilePen,
+  [ActivityType.CONFIRM_RECEIVED_INVOICE]: FileCheck,
+  [ActivityType.DISCARD_RECEIVED_INVOICE]: FileX,
+  [ActivityType.ARCHIVE_RECEIVED_INVOICE]: Archive,
+  [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: ArchiveRestore,
 };
 
 function getRelativeTime(date: Date) {
@@ -100,6 +109,18 @@ function formatAction(action: ActivityType): string {
       return 'Created a credit note';
     case ActivityType.CREATE_DEBIT_NOTE:
       return 'Created a debit note';
+    case ActivityType.UPLOAD_RECEIVED_INVOICE:
+      return 'Uploaded a received invoice';
+    case ActivityType.UPDATE_RECEIVED_INVOICE:
+      return 'Updated a received invoice';
+    case ActivityType.CONFIRM_RECEIVED_INVOICE:
+      return 'Confirmed a received invoice';
+    case ActivityType.DISCARD_RECEIVED_INVOICE:
+      return 'Discarded a received invoice';
+    case ActivityType.ARCHIVE_RECEIVED_INVOICE:
+      return 'Archived a received invoice';
+    case ActivityType.UNARCHIVE_RECEIVED_INVOICE:
+      return 'Unarchived a received invoice';
     default:
       return 'Unknown action';
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -33,8 +33,6 @@ import type { Article } from '@/lib/db/schema';
 import { DOC_TYPES } from '@/src/features/bulgarian-invoicing/types';
 import { formatDocTypeLabel } from '@/src/features/bulgarian-invoicing/formatter';
 import { ArrowLeft, Loader2, Save, FileText, CheckCircle } from 'lucide-react';
-import { InvoiceDropzone } from '@/components/invoices/InvoiceDropzone';
-import type { ExtractedInvoice } from '@/app/api/invoices/extract/schema';
 
 const PAYMENT_METHODS = ['bank', 'cash', 'barter'] as const;
 const LANGUAGES = [{ value: 'bg', label: 'Български' }, { value: 'en', label: 'English' }];
@@ -121,8 +119,6 @@ export default function NewInvoicePage() {
   const [customerNote, setCustomerNote] = useState('');
   const [internalComment, setInternalComment] = useState('');
   const [draftId, setDraftId] = useState<number | null>(editId);
-
-  const formRef = useRef<HTMLDivElement>(null);
 
   const isVatRegistered = companyProfile?.isVatRegistered ?? true;
   const defaultVatRate = (companyProfile?.defaultVatRate ?? 20) as BgVatRate;
@@ -270,27 +266,6 @@ export default function NewInvoicePage() {
     }
   };
 
-  const onExtracted = (data: ExtractedInvoice) => {
-    if (data.issue_date) setIssueDate(data.issue_date);
-    if (data.due_date) setDueDate(data.due_date);
-    if (data.currency) setCurrency(data.currency);
-    if (data.payment_method) setPaymentMethod(data.payment_method);
-    if (data.customer_note) setCustomerNote(data.customer_note);
-    setLineItems(
-      data.line_items.map((item) => ({
-        ...defaultLineItem,
-        description: item.description,
-        quantity: item.quantity,
-        unit: item.unit,
-        unitPrice: item.unit_price,
-        vatRate: item.vat_rate,
-        discountPercent: item.discount_percent,
-        articleId: null,
-      }))
-    );
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   const handleSaveDraft = async () => {
     if (!companyProfile) {
       setError('Company profile (Supplier) is required. Complete it in Settings.');
@@ -433,10 +408,6 @@ export default function NewInvoicePage() {
           ))}
         </ul>
       )}
-
-      <InvoiceDropzone className="mb-6" onExtracted={onExtracted} />
-
-      <div ref={formRef} aria-hidden="true" />
 
       {/* Section A — Recipient */}
       <Card className="mb-6">

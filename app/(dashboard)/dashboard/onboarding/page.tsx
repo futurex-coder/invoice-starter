@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getCompanyProfile,
@@ -9,7 +9,6 @@ import {
   listArticles,
 } from '@/src/features/invoicing/actions';
 import type { UpsertCompanyProfileInput } from '@/src/features/invoicing/schemas';
-import { parsePaymentMethod } from '@/src/features/bulgarian-invoicing/parsers';
 import { Loader2 } from 'lucide-react';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
@@ -17,7 +16,13 @@ import { Stepper } from './_components/Stepper';
 import { CompanyStep } from './_components/CompanyStep';
 import { BankStep } from './_components/BankStep';
 import { ArticlesStep } from './_components/ArticlesStep';
-import type { ArticleRow, PaymentMethod } from './_components/types';
+import type { ArticleRow } from './_components/types';
+import {
+  initialOnboardingForm,
+  onboardingFormReducer,
+  profileToOnboardingForm,
+  type OnboardingFormState,
+} from './_components/form-state';
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -37,26 +42,12 @@ export default function OnboardingPage() {
   const loading = profileLoading || articlesLoading;
   const hydratedRef = useRef(false);
 
-  // Step 1 — Company
-  const [legalName, setLegalName] = useState('');
-  const [eik, setEik] = useState('');
-  const [isVatRegistered, setIsVatRegistered] = useState(true);
-  const [vatNumber, setVatNumber] = useState('');
-  const [mol, setMol] = useState('');
-  const [street, setStreet] = useState('');
-  const [city, setCity] = useState('');
-  const [postCode, setPostCode] = useState('1000');
-  const [country, setCountry] = useState('BG');
+  const [form, dispatch] = useReducer(onboardingFormReducer, initialOnboardingForm);
+  const updateForm = useCallback(
+    (patch: Partial<OnboardingFormState>) => dispatch({ type: 'SET', patch }),
+    []
+  );
 
-  // Step 2 — Bank
-  const [bankName, setBankName] = useState('');
-  const [iban, setIban] = useState('');
-  const [bicSwift, setBicSwift] = useState('');
-  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<PaymentMethod>('bank');
-  const [defaultCurrency, setDefaultCurrency] = useState('EUR');
-  const [defaultVatRate, setDefaultVatRate] = useState(20);
-
-  // Step 3 — Articles
   const [articleRows, setArticleRows] = useState<ArticleRow[]>([
     { name: '', unit: 'бр.', defaultUnitPrice: '0' },
   ]);
@@ -66,26 +57,7 @@ export default function OnboardingPage() {
     hydratedRef.current = true;
     if (!profile?.legalName) return;
 
-    // One-shot hydration of the 15-field form from SWR data. Each setX
-    // call here is intentional — see issues #32-34 for the useReducer
-    // pattern that supersedes this in invoices/new and settings.
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setLegalName(profile.legalName);
-    setEik(profile.eik);
-    setIsVatRegistered(profile.isVatRegistered);
-    setVatNumber(profile.vatNumber ?? '');
-    setMol(profile.mol ?? '');
-    setStreet(profile.street);
-    setCity(profile.city);
-    setPostCode(profile.postCode ?? '1000');
-    setCountry(profile.country);
-    setBankName(profile.bankName ?? '');
-    setIban(profile.iban ?? '');
-    setBicSwift(profile.bicSwift ?? '');
-    setDefaultPaymentMethod(parsePaymentMethod(profile.defaultPaymentMethod));
-    setDefaultCurrency(profile.defaultCurrency);
-    setDefaultVatRate(profile.defaultVatRate);
-    /* eslint-enable react-hooks/set-state-in-effect */
+    dispatch({ type: 'HYDRATE', state: profileToOnboardingForm(profile) });
 
     if (profile.iban) {
       if (articlesData && articlesData.total > 0) {
@@ -98,35 +70,34 @@ export default function OnboardingPage() {
     }
   }, [loading, profile, articlesData, router]);
 
+  const buildProfileInput = (): UpsertCompanyProfileInput => ({
+    legalName: form.legalName.trim() || form.legalName,
+    eik: form.eik.trim() || form.eik,
+    vatNumber: form.isVatRegistered && form.vatNumber.trim() ? form.vatNumber.trim() : null,
+    isVatRegistered: form.isVatRegistered,
+    country: form.country.trim() || 'BG',
+    city: form.city.trim() || form.city,
+    street: form.street.trim() || form.street,
+    postCode: form.postCode.trim() || null,
+    mol: form.mol.trim() || null,
+    bankName: form.bankName.trim() || null,
+    iban: form.iban.trim() || null,
+    bicSwift: form.bicSwift.trim() || null,
+    defaultCurrency: form.defaultCurrency,
+    defaultVatRate: form.defaultVatRate,
+    defaultPaymentMethod: form.defaultPaymentMethod,
+  });
+
   const handleSaveCompany = async () => {
     setError(null);
-    if (!legalName.trim()) return setError('Legal name is required');
-    if (!eik.trim() || !/^\d{9,10}$/.test(eik.trim()))
+    if (!form.legalName.trim()) return setError('Legal name is required');
+    if (!form.eik.trim() || !/^\d{9,10}$/.test(form.eik.trim()))
       return setError('EIK must be 9 or 10 digits');
-    if (!street.trim()) return setError('Street is required');
-    if (!city.trim()) return setError('City is required');
+    if (!form.street.trim()) return setError('Street is required');
+    if (!form.city.trim()) return setError('City is required');
 
     setSaving(true);
-
-    const input: UpsertCompanyProfileInput = {
-      legalName: legalName.trim(),
-      eik: eik.trim(),
-      vatNumber: isVatRegistered && vatNumber.trim() ? vatNumber.trim() : null,
-      isVatRegistered,
-      country: country.trim() || 'BG',
-      city: city.trim(),
-      street: street.trim(),
-      postCode: postCode.trim() || null,
-      mol: mol.trim() || null,
-      bankName: bankName.trim() || null,
-      iban: iban.trim() || null,
-      bicSwift: bicSwift.trim() || null,
-      defaultCurrency,
-      defaultVatRate,
-      defaultPaymentMethod,
-    };
-
-    const res = await upsertCompanyProfile(input);
+    const res = await upsertCompanyProfile(buildProfileInput());
     setSaving(false);
     if (res.error) return setError(res.error);
     setStep(1);
@@ -135,26 +106,7 @@ export default function OnboardingPage() {
   const handleSaveBank = async () => {
     setSaving(true);
     setError(null);
-
-    const input: UpsertCompanyProfileInput = {
-      legalName,
-      eik,
-      vatNumber: isVatRegistered && vatNumber.trim() ? vatNumber.trim() : null,
-      isVatRegistered,
-      country,
-      city,
-      street,
-      postCode: postCode || null,
-      mol: mol || null,
-      bankName: bankName.trim() || null,
-      iban: iban.trim() || null,
-      bicSwift: bicSwift.trim() || null,
-      defaultCurrency,
-      defaultVatRate,
-      defaultPaymentMethod,
-    };
-
-    const res = await upsertCompanyProfile(input);
+    const res = await upsertCompanyProfile(buildProfileInput());
     setSaving(false);
     if (res.error) return setError(res.error);
     setStep(2);
@@ -175,7 +127,7 @@ export default function OnboardingPage() {
         name: article.name.trim(),
         unit: article.unit || 'бр.',
         defaultUnitPrice: Number(article.defaultUnitPrice) || 0,
-        currency: defaultCurrency || 'EUR',
+        currency: form.defaultCurrency || 'EUR',
       });
       if (res.error) {
         setSaving(false);
@@ -231,27 +183,29 @@ export default function OnboardingPage() {
 
       {step === 0 && (
         <CompanyStep
-          legalName={legalName}
-          onLegalNameChange={setLegalName}
-          eik={eik}
-          onEikChange={setEik}
-          isVatRegistered={isVatRegistered}
-          onIsVatRegisteredChange={(reg) => {
-            setIsVatRegistered(reg);
-            if (!reg) setVatNumber('');
-          }}
-          vatNumber={vatNumber}
-          onVatNumberChange={setVatNumber}
-          mol={mol}
-          onMolChange={setMol}
-          street={street}
-          onStreetChange={setStreet}
-          city={city}
-          onCityChange={setCity}
-          postCode={postCode}
-          onPostCodeChange={setPostCode}
-          country={country}
-          onCountryChange={setCountry}
+          legalName={form.legalName}
+          onLegalNameChange={(v) => updateForm({ legalName: v })}
+          eik={form.eik}
+          onEikChange={(v) => updateForm({ eik: v })}
+          isVatRegistered={form.isVatRegistered}
+          onIsVatRegisteredChange={(reg) =>
+            updateForm({
+              isVatRegistered: reg,
+              ...(!reg && { vatNumber: '' }),
+            })
+          }
+          vatNumber={form.vatNumber}
+          onVatNumberChange={(v) => updateForm({ vatNumber: v })}
+          mol={form.mol}
+          onMolChange={(v) => updateForm({ mol: v })}
+          street={form.street}
+          onStreetChange={(v) => updateForm({ street: v })}
+          city={form.city}
+          onCityChange={(v) => updateForm({ city: v })}
+          postCode={form.postCode}
+          onPostCodeChange={(v) => updateForm({ postCode: v })}
+          country={form.country}
+          onCountryChange={(v) => updateForm({ country: v })}
           saving={saving}
           onSave={handleSaveCompany}
         />
@@ -259,18 +213,18 @@ export default function OnboardingPage() {
 
       {step === 1 && (
         <BankStep
-          bankName={bankName}
-          onBankNameChange={setBankName}
-          iban={iban}
-          onIbanChange={setIban}
-          bicSwift={bicSwift}
-          onBicSwiftChange={setBicSwift}
-          defaultPaymentMethod={defaultPaymentMethod}
-          onDefaultPaymentMethodChange={setDefaultPaymentMethod}
-          defaultCurrency={defaultCurrency}
-          onDefaultCurrencyChange={setDefaultCurrency}
-          defaultVatRate={defaultVatRate}
-          onDefaultVatRateChange={setDefaultVatRate}
+          bankName={form.bankName}
+          onBankNameChange={(v) => updateForm({ bankName: v })}
+          iban={form.iban}
+          onIbanChange={(v) => updateForm({ iban: v })}
+          bicSwift={form.bicSwift}
+          onBicSwiftChange={(v) => updateForm({ bicSwift: v })}
+          defaultPaymentMethod={form.defaultPaymentMethod}
+          onDefaultPaymentMethodChange={(v) => updateForm({ defaultPaymentMethod: v })}
+          defaultCurrency={form.defaultCurrency}
+          onDefaultCurrencyChange={(v) => updateForm({ defaultCurrency: v })}
+          defaultVatRate={form.defaultVatRate}
+          onDefaultVatRateChange={(v) => updateForm({ defaultVatRate: v })}
           saving={saving}
           onSave={handleSaveBank}
           onSkip={() => setStep(2)}

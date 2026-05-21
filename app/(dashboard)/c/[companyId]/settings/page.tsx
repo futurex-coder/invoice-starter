@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useReducer, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import {
 import { canEditCompanySettings } from '@/lib/auth/permissions';
 import { useCompany } from '@/lib/context/company-context';
 import type { UpsertCompanyProfileInput } from '@/src/features/invoicing/schemas';
-import type { Company } from '@/lib/db/schema';
+import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { Loader2, Save, Building2, CheckCircle, ShieldAlert } from 'lucide-react';
 import { IdentityCard } from './_components/IdentityCard';
 import { AddressCard } from './_components/AddressCard';
@@ -23,36 +23,33 @@ import { InvoiceDefaultsCard } from './_components/InvoiceDefaultsCard';
 import { DangerZoneCard } from './_components/DangerZoneCard';
 import { TransferOwnershipModal } from './_components/TransferOwnershipModal';
 import { DeleteCompanyModal } from './_components/DeleteCompanyModal';
-import type { MemberSummary, PaymentMethod } from './_components/types';
+import type { MemberSummary } from './_components/types';
+import {
+  initialSettingsForm,
+  profileToFormState,
+  settingsFormReducer,
+} from './_components/form-state';
 
 export default function CompanySettingsPage() {
   const router = useRouter();
   const { company, role } = useCompany();
 
-  const [loading, setLoading] = useState(true);
+  const {
+    data: profile,
+    isLoading: loading,
+    mutate: mutateProfile,
+  } = useActionSWR('companyProfile', getCompanyProfile);
+
+  const [form, dispatch] = useReducer(settingsFormReducer, initialSettingsForm);
+  const updateForm = useCallback(
+    (patch: Partial<typeof form>) => dispatch({ type: 'SET', patch }),
+    []
+  );
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [profile, setProfile] = useState<Company | null>(null);
 
-  // Form fields
-  const [legalName, setLegalName] = useState('');
-  const [eik, setEik] = useState('');
-  const [vatNumber, setVatNumber] = useState('');
-  const [isVatRegistered, setIsVatRegistered] = useState(true);
-  const [country, setCountry] = useState('BG');
-  const [city, setCity] = useState('');
-  const [street, setStreet] = useState('');
-  const [postCode, setPostCode] = useState('');
-  const [mol, setMol] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [iban, setIban] = useState('');
-  const [bicSwift, setBicSwift] = useState('');
-  const [defaultCurrency, setDefaultCurrency] = useState('EUR');
-  const [defaultVatRate, setDefaultVatRate] = useState(20);
-  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<PaymentMethod>('bank');
-
-  // Danger zone state
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState<number | null>(null);
@@ -61,33 +58,9 @@ export default function CompanySettingsPage() {
   const [dangerLoading, setDangerLoading] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const res = await getCompanyProfile();
-      setLoading(false);
-      if (res.data) {
-        const p = res.data;
-        setProfile(p);
-        setLegalName(p.legalName);
-        setEik(p.eik);
-        setVatNumber(p.vatNumber ?? '');
-        setIsVatRegistered(p.isVatRegistered);
-        setCountry(p.country);
-        setCity(p.city);
-        setStreet(p.street);
-        setPostCode(p.postCode ?? '');
-        setMol(p.mol ?? '');
-        setBankName(p.bankName ?? '');
-        setIban(p.iban ?? '');
-        setBicSwift(p.bicSwift ?? '');
-        setDefaultCurrency(p.defaultCurrency);
-        setDefaultVatRate(p.defaultVatRate);
-        setDefaultPaymentMethod(
-          (p.defaultPaymentMethod as PaymentMethod) ?? 'bank'
-        );
-      }
-    })();
-  }, []);
+    if (!profile) return;
+    dispatch({ type: 'HYDRATE', state: profileToFormState(profile) });
+  }, [profile]);
 
   const loadMembers = useCallback(async () => {
     const res = await getCompanyMembersAction();
@@ -109,21 +82,21 @@ export default function CompanySettingsPage() {
     setSuccess(null);
 
     const input: UpsertCompanyProfileInput = {
-      legalName,
-      eik,
-      vatNumber: vatNumber.trim() || null,
-      isVatRegistered,
-      country,
-      city,
-      street,
-      postCode: postCode.trim() || null,
-      mol: mol.trim() || null,
-      bankName: bankName.trim() || null,
-      iban: iban.trim() || null,
-      bicSwift: bicSwift.trim() || null,
-      defaultCurrency,
-      defaultVatRate,
-      defaultPaymentMethod,
+      legalName: form.legalName,
+      eik: form.eik,
+      vatNumber: form.vatNumber.trim() || null,
+      isVatRegistered: form.isVatRegistered,
+      country: form.country,
+      city: form.city,
+      street: form.street,
+      postCode: form.postCode.trim() || null,
+      mol: form.mol.trim() || null,
+      bankName: form.bankName.trim() || null,
+      iban: form.iban.trim() || null,
+      bicSwift: form.bicSwift.trim() || null,
+      defaultCurrency: form.defaultCurrency,
+      defaultVatRate: form.defaultVatRate,
+      defaultPaymentMethod: form.defaultPaymentMethod,
     };
 
     const res = await upsertCompanyProfile(input);
@@ -135,7 +108,7 @@ export default function CompanySettingsPage() {
     }
 
     if (res.data) {
-      setProfile(res.data);
+      mutateProfile(res.data, { revalidate: false });
       setSuccess('Company profile saved successfully.');
     }
   };
@@ -226,49 +199,48 @@ export default function CompanySettingsPage() {
       )}
 
       <IdentityCard
-        legalName={legalName}
-        onLegalNameChange={setLegalName}
-        eik={eik}
-        onEikChange={setEik}
+        legalName={form.legalName}
+        onLegalNameChange={(v) => updateForm({ legalName: v })}
+        eik={form.eik}
+        onEikChange={(v) => updateForm({ eik: v })}
         eikLocked={!!profile}
-        isVatRegistered={isVatRegistered}
-        onIsVatRegisteredChange={(reg) => {
-          setIsVatRegistered(reg);
-          if (!reg) setVatNumber('');
-        }}
-        vatNumber={vatNumber}
-        onVatNumberChange={setVatNumber}
-        mol={mol}
-        onMolChange={setMol}
+        isVatRegistered={form.isVatRegistered}
+        onIsVatRegisteredChange={(reg) =>
+          updateForm({ isVatRegistered: reg, ...(!reg && { vatNumber: '' }) })
+        }
+        vatNumber={form.vatNumber}
+        onVatNumberChange={(v) => updateForm({ vatNumber: v })}
+        mol={form.mol}
+        onMolChange={(v) => updateForm({ mol: v })}
       />
 
       <AddressCard
-        street={street}
-        onStreetChange={setStreet}
-        city={city}
-        onCityChange={setCity}
-        postCode={postCode}
-        onPostCodeChange={setPostCode}
-        country={country}
-        onCountryChange={setCountry}
+        street={form.street}
+        onStreetChange={(v) => updateForm({ street: v })}
+        city={form.city}
+        onCityChange={(v) => updateForm({ city: v })}
+        postCode={form.postCode}
+        onPostCodeChange={(v) => updateForm({ postCode: v })}
+        country={form.country}
+        onCountryChange={(v) => updateForm({ country: v })}
       />
 
       <BankDetailsCard
-        bankName={bankName}
-        onBankNameChange={setBankName}
-        iban={iban}
-        onIbanChange={setIban}
-        bicSwift={bicSwift}
-        onBicSwiftChange={setBicSwift}
+        bankName={form.bankName}
+        onBankNameChange={(v) => updateForm({ bankName: v })}
+        iban={form.iban}
+        onIbanChange={(v) => updateForm({ iban: v })}
+        bicSwift={form.bicSwift}
+        onBicSwiftChange={(v) => updateForm({ bicSwift: v })}
       />
 
       <InvoiceDefaultsCard
-        defaultCurrency={defaultCurrency}
-        onDefaultCurrencyChange={setDefaultCurrency}
-        defaultVatRate={defaultVatRate}
-        onDefaultVatRateChange={setDefaultVatRate}
-        defaultPaymentMethod={defaultPaymentMethod}
-        onDefaultPaymentMethodChange={setDefaultPaymentMethod}
+        defaultCurrency={form.defaultCurrency}
+        onDefaultCurrencyChange={(v) => updateForm({ defaultCurrency: v })}
+        defaultVatRate={form.defaultVatRate}
+        onDefaultVatRateChange={(v) => updateForm({ defaultVatRate: v })}
+        defaultPaymentMethod={form.defaultPaymentMethod}
+        onDefaultPaymentMethodChange={(v) => updateForm({ defaultPaymentMethod: v })}
       />
 
       {/* Save button */}

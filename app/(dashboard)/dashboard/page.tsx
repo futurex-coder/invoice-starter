@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,83 +10,64 @@ import {
   restoreCompanyAction,
 } from '@/src/features/invoicing/actions';
 import { Loader2, Plus, Inbox } from 'lucide-react';
+import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { SummaryGrid } from './_components/SummaryGrid';
 import { CompaniesGrid } from './_components/CompaniesGrid';
 import { ActivityFeed } from './_components/ActivityFeed';
 import { DeletedCompaniesCard } from './_components/DeletedCompaniesCard';
 import { ManageSubscription } from './_components/ManageSubscription';
 import { EmptyDashboard } from './_components/EmptyDashboard';
-import type {
-  CompanyMetric,
-  Totals,
-  ActivityLog,
-  DeletedCompanyRow,
-} from './_components/types';
+
+const EMPTY_TOTALS = {
+  revenue: 0,
+  outstanding: 0,
+  invoiceCount: 0,
+  overdueCount: 0,
+  expensesPaid: 0,
+  expensesOutstanding: 0,
+  receivedCount: 0,
+  pendingReviewCount: 0,
+};
 
 export default function DashboardPage() {
-  const [loading, setLoading] = useState(true);
-  const [companies, setCompanies] = useState<CompanyMetric[]>([]);
-  const [totals, setTotals] = useState<Totals>({
-    revenue: 0,
-    outstanding: 0,
-    invoiceCount: 0,
-    overdueCount: 0,
-    expensesPaid: 0,
-    expensesOutstanding: 0,
-    receivedCount: 0,
-    pendingReviewCount: 0,
-  });
-  const [activity, setActivity] = useState<ActivityLog[]>([]);
   const [onlyOwn, setOnlyOwn] = useState(true);
-  const [activityLoading, setActivityLoading] = useState(false);
-  const [deletedCompanies, setDeletedCompanies] = useState<DeletedCompanyRow[]>([]);
   const [restoringId, setRestoringId] = useState<number | null>(null);
 
-  const loadDeletedCompanies = useCallback(async () => {
-    const res = await getDeletedCompaniesAction();
-    if (res.data) setDeletedCompanies(res.data);
+  const { data: metrics, isLoading: metricsLoading, mutate: refetchMetrics } =
+    useActionSWR('dashboardMetrics', getDashboardData);
+
+  const {
+    data: activity,
+    isValidating: activityLoading,
+    mutate: refetchActivity,
+  } = useActionSWR(
+    ['dashboardActivity', onlyOwn],
+    () => getDashboardActivityAction(onlyOwn)
+  );
+
+  const { data: deletedCompanies, mutate: refetchDeleted } = useActionSWR(
+    'deletedCompanies',
+    getDeletedCompaniesAction
+  );
+
+  const loading = metricsLoading;
+  const companies = metrics?.companies ?? [];
+  const totals = metrics?.totals ?? EMPTY_TOTALS;
+
+  const toggleActivity = useCallback(() => {
+    setOnlyOwn((v) => !v);
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      const [metricsRes, activityRes] = await Promise.all([
-        getDashboardData(),
-        getDashboardActivityAction(true),
-        loadDeletedCompanies(),
-      ]);
-      setLoading(false);
-      if (metricsRes.data) {
-        setCompanies(metricsRes.data.companies);
-        setTotals(metricsRes.data.totals);
-      }
-      if (activityRes.data) {
-        setActivity(activityRes.data);
-      }
-    })();
-  }, [loadDeletedCompanies]);
-
-  const toggleActivity = useCallback(async () => {
-    const next = !onlyOwn;
-    setOnlyOwn(next);
-    setActivityLoading(true);
-    const res = await getDashboardActivityAction(next);
-    setActivityLoading(false);
-    if (res.data) setActivity(res.data);
-  }, [onlyOwn]);
-
-  const handleRestore = useCallback(async (companyId: number) => {
-    setRestoringId(companyId);
-    const res = await restoreCompanyAction(companyId);
-    setRestoringId(null);
-    if (res.error) return;
-    setDeletedCompanies((prev) => prev.filter((d) => d.company.id !== companyId));
-    const metricsRes = await getDashboardData();
-    if (metricsRes.data) {
-      setCompanies(metricsRes.data.companies);
-      setTotals(metricsRes.data.totals);
-    }
-  }, []);
+  const handleRestore = useCallback(
+    async (companyId: number) => {
+      setRestoringId(companyId);
+      const res = await restoreCompanyAction(companyId);
+      setRestoringId(null);
+      if (res.error) return;
+      await Promise.all([refetchMetrics(), refetchDeleted(), refetchActivity()]);
+    },
+    [refetchMetrics, refetchDeleted, refetchActivity]
+  );
 
   if (loading) {
     return (
@@ -105,7 +86,7 @@ export default function DashboardPage() {
         <h1 className="text-lg lg:text-2xl font-medium mb-6">Dashboard</h1>
         <EmptyDashboard />
         <DeletedCompaniesCard
-          rows={deletedCompanies}
+          rows={deletedCompanies ?? []}
           restoringId={restoringId}
           onRestore={handleRestore}
           className="mt-6"
@@ -158,7 +139,7 @@ export default function DashboardPage() {
       <CompaniesGrid companies={companies} />
 
       <ActivityFeed
-        activity={activity}
+        activity={activity ?? []}
         onlyOwn={onlyOwn}
         loading={activityLoading}
         showToggle={hasOwnerRole}
@@ -166,7 +147,7 @@ export default function DashboardPage() {
       />
 
       <DeletedCompaniesCard
-        rows={deletedCompanies}
+        rows={deletedCompanies ?? []}
         restoringId={restoringId}
         onRestore={handleRestore}
         className="mb-8"

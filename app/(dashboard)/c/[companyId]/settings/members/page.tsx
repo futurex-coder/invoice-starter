@@ -45,6 +45,9 @@ export default function MembersPage() {
   const [inviteRole, setInviteRole] = useState<'owner' | 'accountant'>(
     'accountant'
   );
+
+  const isInviteRole = (value: string): value is 'owner' | 'accountant' =>
+    value === 'owner' || value === 'accountant';
   const [inviting, setInviting] = useState(false);
 
   const [removing, setRemoving] = useState<number | null>(null);
@@ -177,11 +180,9 @@ export default function MembersPage() {
                     id="invRole"
                     className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                     value={inviteRole}
-                    onChange={(e) =>
-                      setInviteRole(
-                        e.target.value as 'owner' | 'accountant'
-                      )
-                    }
+                    onChange={(e) => {
+                      if (isInviteRole(e.target.value)) setInviteRole(e.target.value);
+                    }}
                   >
                     <option value="accountant">Accountant</option>
                     {isOwner && <option value="owner">Owner</option>}

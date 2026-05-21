@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { Company } from '@/lib/db/schema';
+import { isPaymentMethod } from '@/src/features/bulgarian-invoicing/parsers';
 import { PAYMENT_METHODS, type PaymentMethod } from './types';
 
 interface Props {
@@ -15,10 +16,6 @@ interface Props {
   onDueDateChange: (value: string) => void;
   paymentStatus: string;
   onPaymentStatusChange: (value: string) => void;
-}
-
-function isPaymentMethod(value: string): value is PaymentMethod {
-  return (PAYMENT_METHODS as readonly string[]).includes(value);
 }
 
 export function PaymentCard({

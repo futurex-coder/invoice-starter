@@ -26,8 +26,12 @@ import {
 import type {
   AccountingStatus,
   PaymentStatus,
-  SupplierSnapshot,
 } from '@/src/features/received-invoices/types';
+import {
+  isAccountingStatus,
+  isPaymentStatus,
+  parseSupplierSnapshot,
+} from '@/src/features/received-invoices/parsers';
 import { StatusBadge } from '@/components/received-invoices/StatusBadge';
 import { PreviewPane } from '@/components/received-invoices/PreviewPane';
 import type {
@@ -108,7 +112,7 @@ export default function ReceivedInvoiceDetailPage() {
     return null;
   }
 
-  const supplier = (row.supplierSnapshot ?? {}) as SupplierSnapshot;
+  const supplier = parseSupplierSnapshot(row.supplierSnapshot);
   const archived = row.archivedAt != null;
 
   const handleAccounting = async (value: AccountingStatus) => {
@@ -314,9 +318,10 @@ export default function ReceivedInvoiceDetailPage() {
                   <select
                     className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                     value={row.accountingStatus}
-                    onChange={(e) =>
-                      handleAccounting(e.target.value as AccountingStatus)
-                    }
+                    onChange={(e) => {
+                      if (isAccountingStatus(e.target.value))
+                        handleAccounting(e.target.value);
+                    }}
                   >
                     <option value="pending">Pending</option>
                     <option value="accounted">Accounted</option>
@@ -327,9 +332,10 @@ export default function ReceivedInvoiceDetailPage() {
                   <select
                     className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                     value={row.paymentStatus}
-                    onChange={(e) =>
-                      handlePayment(e.target.value as PaymentStatus)
-                    }
+                    onChange={(e) => {
+                      if (isPaymentStatus(e.target.value))
+                        handlePayment(e.target.value);
+                    }}
                   >
                     <option value="unpaid">Unpaid</option>
                     <option value="partial">Partial</option>

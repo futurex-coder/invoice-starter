@@ -11,13 +11,15 @@ import {
 } from '@/components/ui/card';
 import { X, Loader2 } from 'lucide-react';
 
+export type ArticleType = 'service' | 'goods';
+
 export interface ArticleForm {
   name: string;
   unit: string;
   tags: string;
   defaultUnitPrice: string;
   currency: string;
-  type: string;
+  type: ArticleType;
 }
 
 export const emptyArticleForm: ArticleForm = {
@@ -28,6 +30,10 @@ export const emptyArticleForm: ArticleForm = {
   currency: 'EUR',
   type: 'service',
 };
+
+export function isArticleType(value: string): value is ArticleType {
+  return value === 'service' || value === 'goods';
+}
 
 interface Props {
   isEditing: boolean;
@@ -106,7 +112,9 @@ export function ArticleFormCard({
               id="aType"
               className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
               value={form.type}
-              onChange={(e) => onFormChange({ type: e.target.value })}
+              onChange={(e) => {
+                if (isArticleType(e.target.value)) onFormChange({ type: e.target.value });
+              }}
             >
               <option value="service">Service</option>
               <option value="goods">Goods</option>

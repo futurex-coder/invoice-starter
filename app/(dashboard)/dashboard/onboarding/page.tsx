@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getCompanyProfile,
@@ -9,8 +9,10 @@ import {
   listArticles,
 } from '@/src/features/invoicing/actions';
 import type { UpsertCompanyProfileInput } from '@/src/features/invoicing/schemas';
+import { parsePaymentMethod } from '@/src/features/bulgarian-invoicing/parsers';
 import { Loader2 } from 'lucide-react';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { Stepper } from './_components/Stepper';
 import { CompanyStep } from './_components/CompanyStep';
 import { BankStep } from './_components/BankStep';
@@ -19,10 +21,21 @@ import type { ArticleRow, PaymentMethod } from './_components/types';
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { data: profile, isLoading: profileLoading } = useActionSWR(
+    'companyProfile',
+    getCompanyProfile
+  );
+  const { data: articlesData, isLoading: articlesLoading } = useActionSWR(
+    ['articles', 'onboarding-count'],
+    () => listArticles({ page: 1, pageSize: 1 })
+  );
+
+  const loading = profileLoading || articlesLoading;
+  const hydratedRef = useRef(false);
 
   // Step 1 — Company
   const [legalName, setLegalName] = useState('');
@@ -49,46 +62,36 @@ export default function OnboardingPage() {
   ]);
 
   useEffect(() => {
-    (async () => {
-      const [profileRes, articlesRes] = await Promise.all([
-        getCompanyProfile(),
-        listArticles({ page: 1, pageSize: 1 }),
-      ]);
+    if (loading || hydratedRef.current) return;
+    hydratedRef.current = true;
+    if (!profile?.legalName) return;
 
-      const profile = profileRes.data;
-      if (profile?.legalName) {
-        setLegalName(profile.legalName);
-        setEik(profile.eik);
-        setIsVatRegistered(profile.isVatRegistered);
-        setVatNumber(profile.vatNumber ?? '');
-        setMol(profile.mol ?? '');
-        setStreet(profile.street);
-        setCity(profile.city);
-        setPostCode(profile.postCode ?? '1000');
-        setCountry(profile.country);
-        setBankName(profile.bankName ?? '');
-        setIban(profile.iban ?? '');
-        setBicSwift(profile.bicSwift ?? '');
-        setDefaultPaymentMethod(
-          (profile.defaultPaymentMethod as PaymentMethod) ?? 'bank'
-        );
-        setDefaultCurrency(profile.defaultCurrency);
-        setDefaultVatRate(profile.defaultVatRate);
+    setLegalName(profile.legalName);
+    setEik(profile.eik);
+    setIsVatRegistered(profile.isVatRegistered);
+    setVatNumber(profile.vatNumber ?? '');
+    setMol(profile.mol ?? '');
+    setStreet(profile.street);
+    setCity(profile.city);
+    setPostCode(profile.postCode ?? '1000');
+    setCountry(profile.country);
+    setBankName(profile.bankName ?? '');
+    setIban(profile.iban ?? '');
+    setBicSwift(profile.bicSwift ?? '');
+    setDefaultPaymentMethod(parsePaymentMethod(profile.defaultPaymentMethod));
+    setDefaultCurrency(profile.defaultCurrency);
+    setDefaultVatRate(profile.defaultVatRate);
 
-        if (profile.iban) {
-          if (articlesRes.data && articlesRes.data.total > 0) {
-            router.replace('/dashboard');
-            return;
-          }
-          setStep(2);
-        } else {
-          setStep(1);
-        }
+    if (profile.iban) {
+      if (articlesData && articlesData.total > 0) {
+        router.replace('/dashboard');
+        return;
       }
-
-      setLoading(false);
-    })();
-  }, [router]);
+      setStep(2);
+    } else {
+      setStep(1);
+    }
+  }, [loading, profile, articlesData, router]);
 
   const handleSaveCompany = async () => {
     setError(null);

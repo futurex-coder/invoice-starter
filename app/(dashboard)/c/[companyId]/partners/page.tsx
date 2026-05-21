@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { Button } from '@/components/ui/button';
 import {
   listPartners,
@@ -62,10 +63,21 @@ export default function PartnersPage() {
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
-  const [items, setItems] = useState<Partner[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: result,
+    isLoading: loading,
+    error: fetchError,
+    mutate: refetch,
+  } = useActionSWR(
+    ['partners', search, page],
+    () => listPartners({ search: search || undefined, page, pageSize })
+  );
+
+  const items = result?.items ?? [];
+  const total = result?.total ?? 0;
+
+  const [actionError, setActionError] = useState<string | null>(null);
+  const error = actionError ?? (fetchError ? fetchError.message : null);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -76,30 +88,6 @@ export default function PartnersPage() {
   const [linkedCompany, setLinkedCompany] = useState<Company | null>(null);
   const [selfEikError, setSelfEikError] = useState(false);
   const eikLookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const res = await listPartners({
-      search: search || undefined,
-      page,
-      pageSize,
-    });
-    setLoading(false);
-    if (res.error) {
-      setError(res.error);
-      return;
-    }
-    if (res.data) {
-      setItems(res.data.items);
-      setTotal(res.data.total);
-    }
-  }, [search, page]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchData(); // async data fetch — setState calls are intentional side effects
-  }, [fetchData]);
 
   const doEikLookup = useCallback(
     async (eik: string) => {
@@ -166,7 +154,7 @@ export default function PartnersPage() {
     setLinkedCompany(null);
     setSelfEikError(false);
     setShowForm(true);
-    setError(null);
+    setActionError(null);
   };
 
   const openEdit = (p: Partner) => {
@@ -175,7 +163,7 @@ export default function PartnersPage() {
     setLinkedCompany(null);
     setSelfEikError(false);
     setShowForm(true);
-    setError(null);
+    setActionError(null);
   };
 
   const closeForm = () => {
@@ -189,35 +177,35 @@ export default function PartnersPage() {
   const handleSave = async () => {
     if (selfEikError) return;
     setSaving(true);
-    setError(null);
+    setActionError(null);
     const input = formToInput(form);
 
     if (editingId) {
       const res = await updatePartner(editingId, input);
       setSaving(false);
       if (res.error) {
-        setError(res.error);
+        setActionError(res.error);
         return;
       }
     } else {
       const res = await createPartner(input);
       setSaving(false);
       if (res.error) {
-        setError(res.error);
+        setActionError(res.error);
         return;
       }
     }
 
     closeForm();
-    fetchData();
+    refetch();
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this partner? This cannot be undone.')) return;
-    setError(null);
+    setActionError(null);
     const res = await deletePartner(id);
-    if (res.error) setError(res.error);
-    else fetchData();
+    if (res.error) setActionError(res.error);
+    else refetch();
   };
 
   return (

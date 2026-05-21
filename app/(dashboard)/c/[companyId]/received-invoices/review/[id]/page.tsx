@@ -14,8 +14,14 @@ import {
 import type {
   DuplicateMatch,
   ReceivedInvoiceReviewInput,
-  SupplierSnapshot,
 } from '@/src/features/received-invoices/types';
+import {
+  parseAccountingStatus,
+  parsePaymentMethod,
+  parsePaymentStatus,
+  parseSupplierSnapshot,
+} from '@/src/features/received-invoices/parsers';
+import { parseBgVatRate } from '@/src/features/bulgarian-invoicing/parsers';
 import {
   ExtractedInvoiceSchema,
   type ExtractedInvoice,
@@ -43,15 +49,9 @@ function rowToReviewInput(
   row: ReceivedInvoice,
   lines: ReceivedInvoiceLine[]
 ): ReceivedInvoiceReviewInput {
-  const supplier = (row.supplierSnapshot ?? {
-    legalName: null,
-    eik: null,
-    vatNumber: null,
-  }) as SupplierSnapshot;
-
   return {
     partnerId: row.partnerId,
-    supplier,
+    supplier: parseSupplierSnapshot(row.supplierSnapshot),
     createPartnerOnConfirm: !row.partnerId,
     invoiceNumber: row.invoiceNumber,
     issueDate: row.issueDate,
@@ -59,20 +59,15 @@ function rowToReviewInput(
     dueDate: row.dueDate,
     currency: row.currency,
     fxRate: Number(row.fxRate),
-    paymentMethod: (row.paymentMethod ?? 'bank') as 'bank' | 'cash' | 'barter',
-    paymentStatus: (row.paymentStatus ?? 'unpaid') as
-      | 'unpaid'
-      | 'partial'
-      | 'paid',
-    accountingStatus: (row.accountingStatus ?? 'pending') as
-      | 'pending'
-      | 'accounted',
+    paymentMethod: parsePaymentMethod(row.paymentMethod),
+    paymentStatus: parsePaymentStatus(row.paymentStatus),
+    accountingStatus: parseAccountingStatus(row.accountingStatus),
     lineItems: lines.map((l) => ({
       description: l.description,
       quantity: Number(l.quantity),
       unit: l.unit,
       unitPrice: Number(l.unitPrice),
-      vatRate: l.vatRate as 0 | 9 | 20,
+      vatRate: parseBgVatRate(l.vatRate),
       discountPercent: Number(l.discountPercent),
     })),
     notes: row.notes,

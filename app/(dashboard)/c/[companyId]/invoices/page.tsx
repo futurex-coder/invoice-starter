@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -11,11 +11,12 @@ import {
   createDebitNoteFromInvoice,
   type ListInvoicesFilters,
 } from '@/src/features/bulgarian-invoicing/actions';
-import type { Invoice } from '@/lib/db/schema';
+import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { Plus } from 'lucide-react';
 import { ListPageHeader } from '@/components/list-page/ListPageHeader';
 import { ListCard } from '@/components/list-page/ListCard';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
 import { InvoiceFilters } from './_components/InvoiceFilters';
 import { InvoicesTable } from './_components/InvoicesTable';
 
@@ -28,31 +29,16 @@ export default function InvoicesPage() {
     pageSize: 20,
   });
   const [searchInput, setSearchInput] = useState('');
-  const [result, setResult] = useState<{
-    invoices: Invoice[];
-    total: number;
-    page: number;
-    pageSize: number;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  const {
+    data: result,
+    isLoading: loading,
+    error: fetchError,
+    mutate: refetch,
+  } = useActionSWR(['invoices', filters], () => listInvoices(filters));
+
   const [actionError, setActionError] = useState<string | null>(null);
-
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
-    setActionError(null);
-    const res = await listInvoices(filters);
-    setLoading(false);
-    if (res.error) {
-      setActionError(res.error);
-      return;
-    }
-    if (res.data) setResult(res.data);
-  }, [filters]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchInvoices(); // async data fetch — setState calls are intentional side effects
-  }, [fetchInvoices]);
+  const error = actionError ?? (fetchError ? fetchError.message : null);
 
   const handleFiltersChange = (patch: Partial<ListInvoicesFilters>) => {
     setFilters((f) => ({ ...f, ...patch }));
@@ -66,7 +52,7 @@ export default function InvoicesPage() {
     if (!confirm('Cancel this invoice? This cannot be undone.')) return;
     const res = await cancelInvoice(id);
     if (res.error) setActionError(res.error);
-    else fetchInvoices();
+    else refetch();
   };
 
   const handleCreditNote = async (id: number) => {
@@ -95,6 +81,8 @@ export default function InvoicesPage() {
         }
       />
 
+      <InvoicesTabsNav companyId={companyId} active="outgoing" />
+
       <InvoiceFilters
         filters={filters}
         onFiltersChange={handleFiltersChange}
@@ -103,7 +91,7 @@ export default function InvoicesPage() {
         onSearchSubmit={applySearch}
       />
 
-      <ErrorAlert message={actionError} className="mb-4" />
+      <ErrorAlert message={error} className="mb-4" />
 
       <ListCard
         title="Invoice list"

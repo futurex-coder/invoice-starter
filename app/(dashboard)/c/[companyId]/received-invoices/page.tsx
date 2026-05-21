@@ -50,8 +50,9 @@ import {
 import type {
   AccountingStatus,
   PaymentStatus,
-  SupplierSnapshot,
 } from '@/src/features/received-invoices/types';
+import { parseSupplierSnapshot } from '@/src/features/received-invoices/parsers';
+import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
 
 interface ListData {
   items: ReceivedInvoiceListItem[];
@@ -80,7 +81,7 @@ function formatDate(value: string | null): string {
 
 function supplierName(item: ReceivedInvoiceListItem): string {
   if (item.partnerName) return item.partnerName;
-  const snap = (item.supplierSnapshot ?? {}) as SupplierSnapshot;
+  const snap = parseSupplierSnapshot(item.supplierSnapshot);
   return snap.legalName ?? '—';
 }
 
@@ -483,6 +484,12 @@ export default function ReceivedInvoicesPage() {
           Upload invoices
         </Button>
       </div>
+
+      <InvoicesTabsNav
+        companyId={companyId}
+        active="received"
+        pendingReceivedCount={data?.pendingCount}
+      />
 
       {data && data.pendingCount > 0 && (
         <div className="mb-4 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">

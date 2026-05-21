@@ -9,7 +9,14 @@
       "PowerShell(pnpm exec *)",
       "Bash(npm run *)",
       "Bash(pnpm run *)",
-      "PowerShell(psql *)"
+      "PowerShell(psql *)",
+      "Skill(anthropic-skills:senior-frontend)",
+      "Skill(anthropic-skills:senior-frontend:*)",
+      "Bash(mkdir -p \"/d/Work/invoice-starter/app/\\(dashboard\\)/c/[companyId]/invoices/new/_components\")",
+      "PowerShell(npm run type-check 2>&1)",
+      "Read(//d/Work/invoke-starter/**)",
+      "Bash(rm -rf /d/Work/invoke-starter)",
+      "Bash(ls -la /d/Work/invoke-starter 2>/dev/null; echo \"---\"; ls /d/Work/ 2>/dev/null)"
     ]
   }
 }

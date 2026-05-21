@@ -3,16 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   getCompanyProfile,
   upsertCompanyProfile,
@@ -24,22 +15,15 @@ import { canEditCompanySettings } from '@/lib/auth/permissions';
 import { useCompany } from '@/lib/context/company-context';
 import type { UpsertCompanyProfileInput } from '@/src/features/invoicing/schemas';
 import type { Company } from '@/lib/db/schema';
-import {
-  Loader2,
-  Save,
-  Building2,
-  CheckCircle,
-  ShieldAlert,
-  ArrowRightLeft,
-  Trash2,
-} from 'lucide-react';
-
-const CURRENCIES = ['EUR', 'BGN'];
-const PAYMENT_METHODS = [
-  { value: 'bank', label: 'Банков път (Bank)' },
-  { value: 'cash', label: 'В брой (Cash)' },
-  { value: 'barter', label: 'Бартер (Barter)' },
-] as const;
+import { Loader2, Save, Building2, CheckCircle, ShieldAlert } from 'lucide-react';
+import { IdentityCard } from './_components/IdentityCard';
+import { AddressCard } from './_components/AddressCard';
+import { BankDetailsCard } from './_components/BankDetailsCard';
+import { InvoiceDefaultsCard } from './_components/InvoiceDefaultsCard';
+import { DangerZoneCard } from './_components/DangerZoneCard';
+import { TransferOwnershipModal } from './_components/TransferOwnershipModal';
+import { DeleteCompanyModal } from './_components/DeleteCompanyModal';
+import type { MemberSummary, PaymentMethod } from './_components/types';
 
 export default function CompanySettingsPage() {
   const router = useRouter();
@@ -66,14 +50,10 @@ export default function CompanySettingsPage() {
   const [bicSwift, setBicSwift] = useState('');
   const [defaultCurrency, setDefaultCurrency] = useState('EUR');
   const [defaultVatRate, setDefaultVatRate] = useState(20);
-  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<
-    'bank' | 'cash' | 'barter'
-  >('bank');
+  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState<PaymentMethod>('bank');
 
   // Danger zone state
-  const [members, setMembers] = useState<
-    { userId: number; userName: string; userEmail: string; role: string }[]
-  >([]);
+  const [members, setMembers] = useState<MemberSummary[]>([]);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferTargetId, setTransferTargetId] = useState<number | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -103,7 +83,7 @@ export default function CompanySettingsPage() {
         setDefaultCurrency(p.defaultCurrency);
         setDefaultVatRate(p.defaultVatRate);
         setDefaultPaymentMethod(
-          (p.defaultPaymentMethod as 'bank' | 'cash' | 'barter') ?? 'bank'
+          (p.defaultPaymentMethod as PaymentMethod) ?? 'bank'
         );
       }
     })();
@@ -216,9 +196,7 @@ export default function CompanySettingsPage() {
     );
   }
 
-  const otherMembers = members.filter(
-    (m) => m.role !== 'owner'
-  );
+  const otherMembers = members.filter((m) => m.role !== 'owner');
 
   return (
     <section className="flex-1 p-4 lg:p-8">
@@ -247,240 +225,51 @@ export default function CompanySettingsPage() {
         </div>
       )}
 
-      {/* Identity */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Company identity</CardTitle>
-          <CardDescription>
-            Legal name and registration numbers
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="legalName">Legal name *</Label>
-              <Input
-                id="legalName"
-                value={legalName}
-                onChange={(e) => setLegalName(e.target.value)}
-                placeholder="ACME Ltd."
-              />
-            </div>
-            <div>
-              <Label htmlFor="eik">ЕИК (EIK / BULSTAT) *</Label>
-              <Input
-                id="eik"
-                value={eik}
-                onChange={(e) => setEik(e.target.value)}
-                placeholder="123456789"
-                maxLength={10}
-                disabled={!!profile}
-                className={profile ? 'bg-gray-50 text-gray-500' : ''}
-              />
-              {profile && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  EIK cannot be changed after company creation.
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label>VAT registered?</Label>
-              <RadioGroup
-                value={isVatRegistered ? 'yes' : 'no'}
-                onValueChange={(v) => {
-                  const reg = v === 'yes';
-                  setIsVatRegistered(reg);
-                  if (!reg) setVatNumber('');
-                }}
-                className="flex gap-4 pt-2"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="yes" id="vat-yes" />
-                  <Label htmlFor="vat-yes">Yes</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="no" id="vat-no" />
-                  <Label htmlFor="vat-no">No</Label>
-                </div>
-              </RadioGroup>
-            </div>
-            {isVatRegistered && (
-              <div>
-                <Label htmlFor="vatNumber">ДДС № (VAT number)</Label>
-                <Input
-                  id="vatNumber"
-                  value={vatNumber}
-                  onChange={(e) => setVatNumber(e.target.value)}
-                  placeholder="BG123456789"
-                  maxLength={14}
-                />
-              </div>
-            )}
-          </div>
-          <div>
-            <Label htmlFor="mol">МОЛ / Contact person</Label>
-            <Input
-              id="mol"
-              value={mol}
-              onChange={(e) => setMol(e.target.value)}
-              placeholder="Иван Иванов"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <IdentityCard
+        legalName={legalName}
+        onLegalNameChange={setLegalName}
+        eik={eik}
+        onEikChange={setEik}
+        eikLocked={!!profile}
+        isVatRegistered={isVatRegistered}
+        onIsVatRegisteredChange={(reg) => {
+          setIsVatRegistered(reg);
+          if (!reg) setVatNumber('');
+        }}
+        vatNumber={vatNumber}
+        onVatNumberChange={setVatNumber}
+        mol={mol}
+        onMolChange={setMol}
+      />
 
-      {/* Address */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Address</CardTitle>
-          <CardDescription>Registered business address</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="street">Street *</Label>
-            <Input
-              id="street"
-              value={street}
-              onChange={(e) => setStreet(e.target.value)}
-              placeholder="ул. Граф Игнатиев 1"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="city">City *</Label>
-              <Input
-                id="city"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                placeholder="София"
-              />
-            </div>
-            <div>
-              <Label htmlFor="postCode">Post code</Label>
-              <Input
-                id="postCode"
-                value={postCode}
-                onChange={(e) => setPostCode(e.target.value)}
-                placeholder="1000"
-              />
-            </div>
-            <div>
-              <Label htmlFor="country">Country code</Label>
-              <Input
-                id="country"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                placeholder="BG"
-                maxLength={2}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <AddressCard
+        street={street}
+        onStreetChange={setStreet}
+        city={city}
+        onCityChange={setCity}
+        postCode={postCode}
+        onPostCodeChange={setPostCode}
+        country={country}
+        onCountryChange={setCountry}
+      />
 
-      {/* Bank details */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Bank details</CardTitle>
-          <CardDescription>
-            Used when payment method is &quot;bank&quot;
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="bankName">Bank name</Label>
-            <Input
-              id="bankName"
-              value={bankName}
-              onChange={(e) => setBankName(e.target.value)}
-              placeholder="UniCredit Bulbank"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="iban">IBAN</Label>
-              <Input
-                id="iban"
-                value={iban}
-                onChange={(e) => setIban(e.target.value)}
-                placeholder="BG80BNBG96611020345678"
-                maxLength={34}
-              />
-            </div>
-            <div>
-              <Label htmlFor="bicSwift">BIC / SWIFT</Label>
-              <Input
-                id="bicSwift"
-                value={bicSwift}
-                onChange={(e) => setBicSwift(e.target.value)}
-                placeholder="UNCRBGSF"
-                maxLength={11}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <BankDetailsCard
+        bankName={bankName}
+        onBankNameChange={setBankName}
+        iban={iban}
+        onIbanChange={setIban}
+        bicSwift={bicSwift}
+        onBicSwiftChange={setBicSwift}
+      />
 
-      {/* Invoice defaults */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Invoice defaults</CardTitle>
-          <CardDescription>
-            Pre-filled values for new invoices
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <Label>Default currency</Label>
-              <select
-                className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                value={defaultCurrency}
-                onChange={(e) => setDefaultCurrency(e.target.value)}
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="defaultVatRate">Default VAT rate (%)</Label>
-              <Input
-                id="defaultVatRate"
-                type="number"
-                min={0}
-                max={100}
-                value={defaultVatRate}
-                onChange={(e) =>
-                  setDefaultVatRate(Number(e.target.value) || 0)
-                }
-              />
-            </div>
-            <div>
-              <Label>Default payment method</Label>
-              <select
-                className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-                value={defaultPaymentMethod}
-                onChange={(e) =>
-                  setDefaultPaymentMethod(
-                    e.target.value as 'bank' | 'cash' | 'barter'
-                  )
-                }
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <InvoiceDefaultsCard
+        defaultCurrency={defaultCurrency}
+        onDefaultCurrencyChange={setDefaultCurrency}
+        defaultVatRate={defaultVatRate}
+        onDefaultVatRateChange={setDefaultVatRate}
+        defaultPaymentMethod={defaultPaymentMethod}
+        onDefaultPaymentMethodChange={setDefaultPaymentMethod}
+      />
 
       {/* Save button */}
       <div className="flex gap-3 mb-10">
@@ -503,168 +292,34 @@ export default function CompanySettingsPage() {
         </Button>
       </div>
 
-      {/* Danger zone */}
-      <Card className="border-red-200">
-        <CardHeader>
-          <CardTitle className="text-red-700">Danger zone</CardTitle>
-          <CardDescription>
-            Irreversible actions. Proceed with caution.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-md border border-gray-200 p-4">
-            <div>
-              <p className="text-sm font-medium">Transfer ownership</p>
-              <p className="text-xs text-muted-foreground">
-                Transfer this company to another member. You will become an
-                accountant.
-              </p>
-            </div>
-            <Button variant="outline" onClick={openTransferModal}>
-              <ArrowRightLeft className="mr-2 h-4 w-4" />
-              Transfer
-            </Button>
-          </div>
-          <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50/50 p-4">
-            <div>
-              <p className="text-sm font-medium text-red-700">
-                Delete company
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Soft-deletes this company. All members lose access. You can
-                restore it later.
-              </p>
-            </div>
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <DangerZoneCard
+        onTransferClick={openTransferModal}
+        onDeleteClick={() => setShowDeleteConfirm(true)}
+      />
 
-      {/* Transfer ownership modal */}
       {showTransferModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle>Transfer ownership</CardTitle>
-              <CardDescription>
-                Select a member to become the new owner. You will be demoted to
-                accountant.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {otherMembers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No other members to transfer to. Invite someone first.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {otherMembers.map((m) => (
-                    <label
-                      key={m.userId}
-                      className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer ${
-                        transferTargetId === m.userId
-                          ? 'border-orange-400 bg-orange-50'
-                          : 'border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="transferTarget"
-                        checked={transferTargetId === m.userId}
-                        onChange={() => setTransferTargetId(m.userId)}
-                        className="h-4 w-4"
-                      />
-                      <div>
-                        <p className="text-sm font-medium">
-                          {m.userName || m.userEmail}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {m.userEmail} · {m.role}
-                        </p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowTransferModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="bg-orange-500 hover:bg-orange-600"
-                  disabled={!transferTargetId || dangerLoading}
-                  onClick={handleTransfer}
-                >
-                  {dangerLoading && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Confirm transfer
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <TransferOwnershipModal
+          otherMembers={otherMembers}
+          selectedMemberId={transferTargetId}
+          onSelectMember={setTransferTargetId}
+          loading={dangerLoading}
+          onCancel={() => setShowTransferModal(false)}
+          onConfirm={handleTransfer}
+        />
       )}
 
-      {/* Delete confirmation modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle className="text-red-700">Delete company</CardTitle>
-              <CardDescription>
-                This will remove access for all members. The company can be
-                restored later by contacting support.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm">
-                Type{' '}
-                <span className="font-mono font-medium">
-                  {company.legalName}
-                </span>{' '}
-                to confirm:
-              </p>
-              <Input
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder={company.legalName}
-              />
-              <div className="flex justify-end gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    setDeleteConfirmText('');
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  disabled={
-                    deleteConfirmText !== company.legalName || dangerLoading
-                  }
-                  onClick={handleDelete}
-                >
-                  {dangerLoading && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Permanently delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <DeleteCompanyModal
+          companyName={company.legalName}
+          confirmText={deleteConfirmText}
+          onConfirmTextChange={setDeleteConfirmText}
+          loading={dangerLoading}
+          onCancel={() => {
+            setShowDeleteConfirm(false);
+            setDeleteConfirmText('');
+          }}
+          onConfirm={handleDelete}
+        />
       )}
     </section>
   );

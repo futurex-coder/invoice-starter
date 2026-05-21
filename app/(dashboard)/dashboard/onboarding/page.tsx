@@ -66,6 +66,10 @@ export default function OnboardingPage() {
     hydratedRef.current = true;
     if (!profile?.legalName) return;
 
+    // One-shot hydration of the 15-field form from SWR data. Each setX
+    // call here is intentional — see issues #32-34 for the useReducer
+    // pattern that supersedes this in invoices/new and settings.
+    /* eslint-disable react-hooks/set-state-in-effect */
     setLegalName(profile.legalName);
     setEik(profile.eik);
     setIsVatRegistered(profile.isVatRegistered);
@@ -81,6 +85,7 @@ export default function OnboardingPage() {
     setDefaultPaymentMethod(parsePaymentMethod(profile.defaultPaymentMethod));
     setDefaultCurrency(profile.defaultCurrency);
     setDefaultVatRate(profile.defaultVatRate);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     if (profile.iban) {
       if (articlesData && articlesData.total > 0) {

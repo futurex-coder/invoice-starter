@@ -169,7 +169,7 @@ export async function upsertCompanyProfile(
       .returning();
 
     await logActivity(companyId, user.id, 'company_profile.update');
-    return { data: updated! };
+    return { data: updated };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to save company profile' };
   }

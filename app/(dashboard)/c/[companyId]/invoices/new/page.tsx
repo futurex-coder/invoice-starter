@@ -101,7 +101,8 @@ export default function NewInvoicePage() {
     if (!editingInvoice || !editingLines || !partnersList) return;
 
     if (editingInvoice.status !== 'draft') {
-      setError('Only drafts can be edited');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError('Only drafts can be edited'); // one-shot hydration from SWR
       hydratedRef.current = true;
       return;
     }

@@ -18,7 +18,6 @@ import {
 } from '@/lib/db/queries';
 import {
   createSignedUrl,
-  RECEIVED_INVOICES_BUCKET,
   deleteFromBucket,
 } from '@/lib/supabase/storage';
 import { ReceivedInvoiceReviewSchema } from './schema';

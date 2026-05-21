@@ -93,7 +93,7 @@ export function InvoiceDropzone({
         setError(parsed.data.error);
         return;
       }
-      setConfidence(parsed.data.data.confidence);
+      setConfidence(parsed.data.data.overall_confidence);
       onExtracted(parsed.data.data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');

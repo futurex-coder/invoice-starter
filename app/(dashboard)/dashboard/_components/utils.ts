@@ -21,6 +21,12 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   [ActivityType.CANCEL_INVOICE]: 'Cancelled an invoice',
   [ActivityType.CREATE_CREDIT_NOTE]: 'Created a credit note',
   [ActivityType.CREATE_DEBIT_NOTE]: 'Created a debit note',
+  [ActivityType.UPLOAD_RECEIVED_INVOICE]: 'Uploaded a received invoice',
+  [ActivityType.UPDATE_RECEIVED_INVOICE]: 'Updated a received invoice',
+  [ActivityType.CONFIRM_RECEIVED_INVOICE]: 'Confirmed a received invoice',
+  [ActivityType.DISCARD_RECEIVED_INVOICE]: 'Discarded a received invoice',
+  [ActivityType.ARCHIVE_RECEIVED_INVOICE]: 'Archived a received invoice',
+  [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: 'Unarchived a received invoice',
 };
 
 export function formatCurrency(amount: number): string {

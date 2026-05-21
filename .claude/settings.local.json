@@ -14,9 +14,21 @@
       "Skill(anthropic-skills:senior-frontend:*)",
       "Bash(mkdir -p \"/d/Work/invoice-starter/app/\\(dashboard\\)/c/[companyId]/invoices/new/_components\")",
       "PowerShell(npm run type-check 2>&1)",
-      "Read(//d/Work/invoke-starter/**)",
-      "Bash(rm -rf /d/Work/invoke-starter)",
-      "Bash(ls -la /d/Work/invoke-starter 2>/dev/null; echo \"---\"; ls /d/Work/ 2>/dev/null)"
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__list_projects",
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__list_tables",
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__get_project_url",
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__list_migrations",
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__get_publishable_keys",
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__apply_migration",
+      "Bash(pnpm install *)",
+      "PowerShell(pnpm install 2>&1)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh pr *)",
+      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue; \\(Get-ChildItem \"C:\\\\Program Files\\\\GitHub CLI\", \"$env:LOCALAPPDATA\\\\GitHubCLI\", \"$env:ProgramFiles\\(x86\\)\\\\GitHub CLI\" -ErrorAction SilentlyContinue -Filter \"gh.exe\" -Recurse | Select-Object -First 3 -ExpandProperty FullName\\) 2>&1)",
+      "PowerShell(Test-Path \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\"; Test-Path \"$env:LOCALAPPDATA\\\\GitHubCLI\\\\gh.exe\"; Test-Path \"${env:ProgramFiles\\(x86\\)}\\\\GitHub CLI\\\\gh.exe\"; where.exe gh 2>&1)",
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__execute_sql"
     ]
   }
 }

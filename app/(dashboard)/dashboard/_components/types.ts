@@ -6,6 +6,10 @@ export type CompanyMetric = {
   outstanding: number;
   invoiceCountThisMonth: number;
   overdueCount: number;
+  expensesPaid: number;
+  expensesOutstanding: number;
+  receivedThisMonth: number;
+  pendingReviewCount: number;
   role: string;
 };
 
@@ -14,6 +18,10 @@ export type Totals = {
   outstanding: number;
   invoiceCount: number;
   overdueCount: number;
+  expensesPaid: number;
+  expensesOutstanding: number;
+  receivedCount: number;
+  pendingReviewCount: number;
 };
 
 export type ActivityLog = {

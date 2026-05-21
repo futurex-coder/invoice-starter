@@ -9,7 +9,7 @@ import {
   getDeletedCompaniesAction,
   restoreCompanyAction,
 } from '@/src/features/invoicing/actions';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, Inbox } from 'lucide-react';
 import { SummaryGrid } from './_components/SummaryGrid';
 import { CompaniesGrid } from './_components/CompaniesGrid';
 import { ActivityFeed } from './_components/ActivityFeed';
@@ -31,6 +31,10 @@ export default function DashboardPage() {
     outstanding: 0,
     invoiceCount: 0,
     overdueCount: 0,
+    expensesPaid: 0,
+    expensesOutstanding: 0,
+    receivedCount: 0,
+    pendingReviewCount: 0,
   });
   const [activity, setActivity] = useState<ActivityLog[]>([]);
   const [onlyOwn, setOnlyOwn] = useState(true);
@@ -92,8 +96,8 @@ export default function DashboardPage() {
     );
   }
 
-  const hasMultipleCurrencies = new Set(companies.map((c) => c.currency)).size > 1;
   const hasOwnerRole = companies.some((c) => c.role === 'owner');
+  const pendingReviewTarget = companies.find((c) => c.pendingReviewCount > 0);
 
   if (companies.length === 0) {
     return (
@@ -129,7 +133,27 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      <SummaryGrid totals={totals} hasMultipleCurrencies={hasMultipleCurrencies} />
+      {totals.pendingReviewCount > 0 && (
+        <div className="mb-6 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+          <div className="flex items-center gap-2 text-amber-900">
+            <Inbox className="h-4 w-4" />
+            <span>
+              <strong>{totals.pendingReviewCount}</strong> received{' '}
+              {totals.pendingReviewCount === 1 ? 'invoice' : 'invoices'}{' '}
+              awaiting review across your companies
+            </span>
+          </div>
+          {pendingReviewTarget && (
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/c/${pendingReviewTarget.companyId}/received-invoices`}>
+                Review
+              </Link>
+            </Button>
+          )}
+        </div>
+      )}
+
+      <SummaryGrid totals={totals} />
 
       <CompaniesGrid companies={companies} />
 

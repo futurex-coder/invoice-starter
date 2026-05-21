@@ -390,6 +390,147 @@ export const invoiceLines = pgTable(
 );
 
 // ─────────────────────────────────────────────
+// RECEIVED INVOICES
+// ─────────────────────────────────────────────
+// Company-scoped table for invoices RECEIVED from suppliers
+// (i.e. expenses the company needs to record).
+//
+// LIFECYCLE: draft → confirmed | discarded
+//   draft     — uploaded + AI-extracted, awaiting human review.
+//   confirmed — reviewer signed off; counts toward dashboard aggregations.
+//   discarded — soft-rejected; never counts.
+//
+// Aggregation rule: status = 'confirmed' AND archived_at IS NULL.
+// Outgoing invoices live in `invoices`. Conceptually different — supplier
+// is external, our company is recipient, no per-company numbering applies.
+export const receivedInvoices = pgTable(
+  'received_invoices',
+  {
+    id: serial('id').primaryKey(),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    uploadedByUserId: integer('uploaded_by_user_id').references(
+      () => users.id,
+      { onDelete: 'set null' }
+    ),
+
+    // Lifecycle: 'draft' | 'confirmed' | 'discarded'
+    status: varchar('status', { length: 20 }).notNull().default('draft'),
+
+    // Original file (Supabase Storage)
+    fileBucket: varchar('file_bucket', { length: 64 }).notNull(),
+    fileObjectKey: text('file_object_key').notNull(),
+    fileMimeType: varchar('file_mime_type', { length: 64 }).notNull(),
+    fileSizeBytes: integer('file_size_bytes').notNull(),
+    fileOriginalName: varchar('file_original_name', { length: 255 }).notNull(),
+    // SHA-256 of the stored bytes — used for "exact same file already uploaded" dedup
+    fileChecksumSha256: varchar('file_checksum_sha256', { length: 64 }),
+
+    // Immutable record of the AI extraction (audit trail)
+    rawExtraction: jsonb('raw_extraction').notNull(),
+    extractionConfidence: varchar('extraction_confidence', { length: 10 }),
+    extractionModelId: varchar('extraction_model_id', { length: 64 }),
+    extractedAt: timestamp('extracted_at').notNull().defaultNow(),
+
+    // Reviewed/confirmed values — populated/edited during review
+    partnerId: integer('partner_id').references(() => partners.id, {
+      onDelete: 'set null',
+    }),
+    supplierSnapshot: jsonb('supplier_snapshot'),
+
+    invoiceNumber: varchar('invoice_number', { length: 100 }),
+    issueDate: date('issue_date'),
+    supplyDate: date('supply_date'),
+    dueDate: date('due_date'),
+
+    currency: char('currency', { length: 3 }).notNull().default('EUR'),
+    fxRate: numeric('fx_rate', { precision: 15, scale: 6 })
+      .notNull()
+      .default('1'),
+
+    netAmount: numeric('net_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    vatAmount: numeric('vat_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    grossAmount: numeric('gross_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+
+    paymentMethod: varchar('payment_method', { length: 20 })
+      .notNull()
+      .default('bank'),
+    // 'unpaid' | 'partial' | 'paid'
+    paymentStatus: varchar('payment_status', { length: 20 })
+      .notNull()
+      .default('unpaid'),
+    // 'pending' | 'accounted'
+    accountingStatus: varchar('accounting_status', { length: 20 })
+      .notNull()
+      .default('pending'),
+
+    notes: text('notes'),
+
+    archivedAt: timestamp('archived_at'),
+    confirmedAt: timestamp('confirmed_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    index('idx_received_inv_company_status').on(t.companyId, t.status),
+    index('idx_received_inv_company_acc').on(t.companyId, t.accountingStatus),
+    index('idx_received_inv_company_pay').on(t.companyId, t.paymentStatus),
+    index('idx_received_inv_company_issue').on(
+      t.companyId,
+      t.issueDate.desc()
+    ),
+    // Dedup helper for (supplier, supplier-issued number, date)
+    index('idx_received_inv_dedup').on(
+      t.companyId,
+      t.partnerId,
+      t.invoiceNumber,
+      t.issueDate
+    ),
+    index('idx_received_inv_checksum').on(
+      t.companyId,
+      t.fileChecksumSha256
+    ),
+  ]
+);
+
+export const receivedInvoiceLines = pgTable(
+  'received_invoice_lines',
+  {
+    id: serial('id').primaryKey(),
+    receivedInvoiceId: integer('received_invoice_id')
+      .notNull()
+      .references(() => receivedInvoices.id, { onDelete: 'cascade' }),
+    sortOrder: integer('sort_order').notNull().default(0),
+    description: varchar('description', { length: 500 }).notNull(),
+    quantity: numeric('quantity', { precision: 15, scale: 4 }).notNull(),
+    unit: varchar('unit', { length: 20 }).notNull().default('бр.'),
+    unitPrice: numeric('unit_price', { precision: 15, scale: 4 }).notNull(),
+    vatRate: integer('vat_rate').notNull().default(20),
+    discountPercent: numeric('discount_percent', { precision: 5, scale: 2 })
+      .notNull()
+      .default('0'),
+    netAmount: numeric('net_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    vatAmount: numeric('vat_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    grossAmount: numeric('gross_amount', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('idx_received_inv_lines_inv').on(t.receivedInvoiceId)]
+);
+
+// ─────────────────────────────────────────────
 // ACTIVITY LOGS
 // ─────────────────────────────────────────────
 // Company-scoped audit trail. Every action records both the user
@@ -458,6 +599,7 @@ export const companiesRelations = relations(companies, ({ many }) => ({
   articles: many(articles),
   invoiceSequences: many(invoiceSequences),
   invoices: many(invoices),
+  receivedInvoices: many(receivedInvoices),
   activityLogs: many(activityLogs),
   invitations: many(invitations),
 }));
@@ -487,6 +629,7 @@ export const partnersRelations = relations(partners, ({ one, many }) => ({
     relationName: 'linkedPartners',
   }),
   invoices: many(invoices),
+  receivedInvoices: many(receivedInvoices),
 }));
 
 export const articlesRelations = relations(articles, ({ one, many }) => ({
@@ -543,6 +686,35 @@ export const invoiceLinesRelations = relations(invoiceLines, ({ one }) => ({
   }),
 }));
 
+export const receivedInvoicesRelations = relations(
+  receivedInvoices,
+  ({ one, many }) => ({
+    company: one(companies, {
+      fields: [receivedInvoices.companyId],
+      references: [companies.id],
+    }),
+    uploadedByUser: one(users, {
+      fields: [receivedInvoices.uploadedByUserId],
+      references: [users.id],
+    }),
+    partner: one(partners, {
+      fields: [receivedInvoices.partnerId],
+      references: [partners.id],
+    }),
+    lines: many(receivedInvoiceLines),
+  })
+);
+
+export const receivedInvoiceLinesRelations = relations(
+  receivedInvoiceLines,
+  ({ one }) => ({
+    receivedInvoice: one(receivedInvoices, {
+      fields: [receivedInvoiceLines.receivedInvoiceId],
+      references: [receivedInvoices.id],
+    }),
+  })
+);
+
 export const activityLogsRelations = relations(activityLogs, ({ one }) => ({
   company: one(companies, {
     fields: [activityLogs.companyId],
@@ -585,6 +757,10 @@ export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
 export type InvoiceLine = typeof invoiceLines.$inferSelect;
 export type NewInvoiceLine = typeof invoiceLines.$inferInsert;
+export type ReceivedInvoice = typeof receivedInvoices.$inferSelect;
+export type NewReceivedInvoice = typeof receivedInvoices.$inferInsert;
+export type ReceivedInvoiceLine = typeof receivedInvoiceLines.$inferSelect;
+export type NewReceivedInvoiceLine = typeof receivedInvoiceLines.$inferInsert;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type NewActivityLog = typeof activityLogs.$inferInsert;
 export type Invitation = typeof invitations.$inferSelect;
@@ -624,6 +800,17 @@ export enum InvoiceStatus {
   CANCELLED = 'cancelled',
 }
 
+export enum ReceivedInvoiceStatus {
+  DRAFT = 'draft',
+  CONFIRMED = 'confirmed',
+  DISCARDED = 'discarded',
+}
+
+export enum ReceivedInvoiceAccountingStatus {
+  PENDING = 'pending',
+  ACCOUNTED = 'accounted',
+}
+
 export enum ActivityType {
   // Auth
   SIGN_UP = 'SIGN_UP',
@@ -645,11 +832,19 @@ export enum ActivityType {
   ACCEPT_INVITATION = 'ACCEPT_INVITATION',
   REMOVE_MEMBER = 'REMOVE_MEMBER',
 
-  // Invoicing
+  // Invoicing (outgoing)
   CREATE_INVOICE = 'CREATE_INVOICE',
   UPDATE_INVOICE = 'UPDATE_INVOICE',
   FINALIZE_INVOICE = 'FINALIZE_INVOICE',
   CANCEL_INVOICE = 'CANCEL_INVOICE',
   CREATE_CREDIT_NOTE = 'CREATE_CREDIT_NOTE',
   CREATE_DEBIT_NOTE = 'CREATE_DEBIT_NOTE',
+
+  // Received invoices (incoming)
+  UPLOAD_RECEIVED_INVOICE = 'UPLOAD_RECEIVED_INVOICE',
+  UPDATE_RECEIVED_INVOICE = 'UPDATE_RECEIVED_INVOICE',
+  CONFIRM_RECEIVED_INVOICE = 'CONFIRM_RECEIVED_INVOICE',
+  DISCARD_RECEIVED_INVOICE = 'DISCARD_RECEIVED_INVOICE',
+  ARCHIVE_RECEIVED_INVOICE = 'ARCHIVE_RECEIVED_INVOICE',
+  UNARCHIVE_RECEIVED_INVOICE = 'UNARCHIVE_RECEIVED_INVOICE',
 }

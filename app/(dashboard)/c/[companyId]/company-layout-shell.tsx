@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Settings,
   Shield,
+  Inbox,
 } from 'lucide-react';
 
 export function CompanyLayoutShell({
@@ -33,6 +34,7 @@ export function CompanyLayoutShell({
   const companyNav = [
     { href: `${base}/dashboard`, icon: LayoutDashboard, label: 'Dashboard' },
     { href: `${base}/invoices`, icon: FileText, label: 'Invoices' },
+    { href: `${base}/received-invoices`, icon: Inbox, label: 'Received invoices' },
     { href: `${base}/partners`, icon: Handshake, label: 'Partners' },
     { href: `${base}/articles`, icon: Package, label: 'Articles' },
     { href: `${base}/settings`, icon: Building2, label: 'Company' },

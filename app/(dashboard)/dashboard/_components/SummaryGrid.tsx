@@ -1,29 +1,38 @@
-import { DollarSign, Clock, FileText, AlertTriangle } from 'lucide-react';
+import { DollarSign, Clock, FileText, AlertTriangle, TrendingDown } from 'lucide-react';
 import { SummaryCard } from './SummaryCard';
 import { formatCurrency } from './utils';
 import type { Totals } from './types';
 
 interface Props {
   totals: Totals;
-  hasMultipleCurrencies: boolean;
 }
 
-export function SummaryGrid({ totals, hasMultipleCurrencies }: Props) {
+export function SummaryGrid({ totals }: Props) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
       <SummaryCard
         icon={<DollarSign className="h-5 w-5 text-green-600" />}
-        label="Total Revenue"
-        value={formatCurrency(totals.revenue)}
-        sub={hasMultipleCurrencies ? 'mixed currencies' : undefined}
+        label="Revenue"
+        value={`${formatCurrency(totals.revenue)} EUR`}
         color="green"
       />
       <SummaryCard
         icon={<Clock className="h-5 w-5 text-amber-600" />}
         label="Outstanding"
-        value={formatCurrency(totals.outstanding)}
-        sub={hasMultipleCurrencies ? 'mixed currencies' : undefined}
+        value={`${formatCurrency(totals.outstanding)} EUR`}
         color="amber"
+      />
+      <SummaryCard
+        icon={<TrendingDown className="h-5 w-5 text-purple-600" />}
+        label="Expenses Paid"
+        value={`${formatCurrency(totals.expensesPaid)} EUR`}
+        color="purple"
+      />
+      <SummaryCard
+        icon={<TrendingDown className="h-5 w-5 text-rose-600" />}
+        label="Expenses Outstanding"
+        value={`${formatCurrency(totals.expensesOutstanding)} EUR`}
+        color="rose"
       />
       <SummaryCard
         icon={<FileText className="h-5 w-5 text-blue-600" />}

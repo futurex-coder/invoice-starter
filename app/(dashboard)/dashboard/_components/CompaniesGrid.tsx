@@ -59,6 +59,32 @@ export function CompaniesGrid({ companies }: Props) {
                     </p>
                   </div>
                 </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-2 text-center">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Expenses</p>
+                    <p className="text-sm font-semibold text-purple-700">
+                      {formatCurrency(c.expensesPaid + c.expensesOutstanding)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Unpaid</p>
+                    <p className="text-sm font-semibold text-rose-700">
+                      {formatCurrency(c.expensesOutstanding)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">To review</p>
+                    <p
+                      className={`text-sm font-semibold ${
+                        c.pendingReviewCount > 0
+                          ? 'text-amber-700'
+                          : 'text-gray-500'
+                      }`}
+                    >
+                      {c.pendingReviewCount}
+                    </p>
+                  </div>
+                </div>
                 <div className="mt-3 flex items-center justify-end text-xs text-muted-foreground group-hover:text-orange-500 transition-colors">
                   View invoices
                   <ArrowRight className="ml-1 h-3 w-3" />

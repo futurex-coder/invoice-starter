@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 
-type Color = 'green' | 'amber' | 'blue' | 'red' | 'gray';
+type Color = 'green' | 'amber' | 'blue' | 'red' | 'gray' | 'purple' | 'rose';
 
 interface Props {
   icon: ReactNode;
@@ -18,6 +18,8 @@ const BG_MAP: Record<Color, string> = {
   blue: 'bg-blue-50',
   red: 'bg-red-50',
   gray: 'bg-gray-50',
+  purple: 'bg-purple-50',
+  rose: 'bg-rose-50',
 };
 
 export function SummaryCard({ icon, label, value, sub, color, highlight }: Props) {

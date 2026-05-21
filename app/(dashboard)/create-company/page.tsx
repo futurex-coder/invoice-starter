@@ -11,8 +11,8 @@ import {
 import { Building2, Loader2 } from 'lucide-react';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { IdentityCard } from './_components/IdentityCard';
-import { AddressCard } from './_components/AddressCard';
-import { BankDetailsCard } from './_components/BankDetailsCard';
+import { AddressCard } from '@/components/company-form/AddressCard';
+import { BankDetailsCard } from '@/components/company-form/BankDetailsCard';
 import { InvoiceDefaultsCard } from './_components/InvoiceDefaultsCard';
 import {
   createCompanyFormReducer,

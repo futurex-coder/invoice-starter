@@ -17,8 +17,8 @@ import type { UpsertCompanyProfileInput } from '@/src/features/invoicing/schemas
 import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { Loader2, Save, Building2, CheckCircle, ShieldAlert } from 'lucide-react';
 import { IdentityCard } from './_components/IdentityCard';
-import { AddressCard } from './_components/AddressCard';
-import { BankDetailsCard } from './_components/BankDetailsCard';
+import { AddressCard } from '@/components/company-form/AddressCard';
+import { BankDetailsCard } from '@/components/company-form/BankDetailsCard';
 import { InvoiceDefaultsCard } from './_components/InvoiceDefaultsCard';
 import { DangerZoneCard } from './_components/DangerZoneCard';
 import { TransferOwnershipModal } from './_components/TransferOwnershipModal';

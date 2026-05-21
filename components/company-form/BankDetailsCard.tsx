@@ -31,7 +31,9 @@ export function BankDetailsCard({
     <Card className="mb-6">
       <CardHeader>
         <CardTitle>Bank details</CardTitle>
-        <CardDescription>Used when payment method is &quot;bank&quot;</CardDescription>
+        <CardDescription>
+          Optional — used when payment method is &quot;bank&quot;
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>

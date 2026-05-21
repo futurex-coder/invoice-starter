@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { requireStringParam } from '@/lib/route-params';
 import {
   AlertCircle,
   Archive,
@@ -357,7 +358,7 @@ function ReceivedInvoiceTableRow({
 export default function ReceivedInvoicesPage() {
   const router = useRouter();
   const params = useParams();
-  const companyId = params.companyId as string;
+  const companyId = requireStringParam(params, 'companyId');
 
   // Default: hide drafts. Drafts are surfaced via the pending banner above.
   const [filters, setFilters] = useState<ListReceivedInvoicesFilters>({

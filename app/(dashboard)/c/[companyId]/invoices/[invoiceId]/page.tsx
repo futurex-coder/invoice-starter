@@ -16,6 +16,7 @@ import { formatDocTypeLabel, formatInvoiceNumber, formatDateBg, formatMoney } fr
 import type { Invoice } from '@/lib/db/schema';
 import type { User } from '@/lib/db/schema';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
+import { requireStringParam } from '@/lib/route-params';
 import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -30,7 +31,7 @@ export default function InvoiceDetailPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const companyId = params.companyId as string;
+  const companyId = requireStringParam(params, 'companyId');
   const id = Number(params.invoiceId);
   const printMode = searchParams.get('print') === '1';
 

@@ -24,6 +24,11 @@ import {
 import { ActivityType } from '@/lib/db/schema';
 import { getUser, verifyCompanyAccess, getActivityLogs } from '@/lib/db/queries';
 
+const ACTIVITY_TYPE_VALUES: ReadonlySet<string> = new Set(Object.values(ActivityType));
+function isActivityType(value: string): value is ActivityType {
+  return ACTIVITY_TYPE_VALUES.has(value);
+}
+
 const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.SIGN_UP]: UserPlus,
   [ActivityType.SIGN_IN]: UserCog,
@@ -155,10 +160,9 @@ export default async function ActivityPage({
           {logs.length > 0 ? (
             <ul className="space-y-4">
               {logs.map((log) => {
-                const Icon = iconMap[log.action as ActivityType] || Settings;
-                const formattedAction = formatAction(
-                  log.action as ActivityType
-                );
+                const action = isActivityType(log.action) ? log.action : null;
+                const Icon = action ? iconMap[action] : Settings;
+                const formattedAction = action ? formatAction(action) : log.action;
 
                 return (
                   <li key={log.id} className="flex items-center space-x-4">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { requireStringParam } from '@/lib/route-params';
 import {
   ArrowLeft,
   Archive,
@@ -55,7 +56,7 @@ function formatDate(value: string | null): string {
 export default function ReceivedInvoiceDetailPage() {
   const router = useRouter();
   const params = useParams();
-  const companyId = params.companyId as string;
+  const companyId = requireStringParam(params, 'companyId');
   const id = Number(params.id);
 
   const [state, setState] = useState<LoadedState | null>(null);

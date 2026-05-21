@@ -24,6 +24,7 @@ import { parseBgVatRate, parseDocType } from '@/src/features/bulgarian-invoicing
 import type { Company } from '@/lib/db/schema';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { requireStringParam } from '@/lib/route-params';
 import { RecipientCard } from './_components/RecipientCard';
 import { DocumentCard } from './_components/DocumentCard';
 import { LineItemsCard } from './_components/LineItemsCard';
@@ -49,7 +50,7 @@ export default function NewInvoicePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
-  const companyId = params.companyId as string;
+  const companyId = requireStringParam(params, 'companyId');
   const editId = searchParams.get('edit') ? Number(searchParams.get('edit')) : null;
 
   const [draftId, setDraftId] = useState<number | null>(editId);

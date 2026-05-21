@@ -12,6 +12,7 @@ import {
   type ListInvoicesFilters,
 } from '@/src/features/bulgarian-invoicing/actions';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { requireStringParam } from '@/lib/route-params';
 import { Plus } from 'lucide-react';
 import { ListPageHeader } from '@/components/list-page/ListPageHeader';
 import { ListCard } from '@/components/list-page/ListCard';
@@ -23,7 +24,7 @@ import { InvoicesTable } from './_components/InvoicesTable';
 export default function InvoicesPage() {
   const router = useRouter();
   const params = useParams();
-  const companyId = params.companyId as string;
+  const companyId = requireStringParam(params, 'companyId');
   const [filters, setFilters] = useState<ListInvoicesFilters>({
     page: 1,
     pageSize: 20,

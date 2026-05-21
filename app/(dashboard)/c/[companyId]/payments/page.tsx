@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { requireStringParam } from '@/lib/route-params';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -59,7 +60,7 @@ function ninetyDaysAgo(): string {
 
 export default function PaymentsPage() {
   const params = useParams();
-  const companyId = params.companyId as string;
+  const companyId = requireStringParam(params, 'companyId');
 
   const [data, setData] = useState<PaymentsOverview | null>(null);
   const [loading, setLoading] = useState(true);

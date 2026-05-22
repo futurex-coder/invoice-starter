@@ -1,16 +1,7 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import { ActivityType } from '@/lib/db/schema';
-import { eq, sql, and, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
-import { invoices, companies, receivedInvoices } from '@/lib/db/schema';
+import { companies } from '@/lib/db/schema';
 import {
   getUser,
   verifyCompanyAccess,
@@ -19,166 +10,17 @@ import {
   getActivityLogs,
   getNextInvoiceNumber,
 } from '@/lib/db/queries';
-import {
-  DollarSign,
-  Clock,
-  FileText,
-  AlertTriangle,
-  Handshake,
-  Package,
-  Activity,
-  ArrowRight,
-  Building2,
-  Crown,
-  Settings,
-  Inbox,
-  TrendingDown,
-} from 'lucide-react';
+import { FileText, Handshake, Inbox, Package, Settings } from 'lucide-react';
+import { CompanyHeader } from './_components/CompanyHeader';
+import { PendingReviewBanner } from './_components/PendingReviewBanner';
+import { MetricsSummary } from './_components/MetricsSummary';
+import { InvoiceBreakdownCard } from './_components/InvoiceBreakdownCard';
+import { ReceivedBreakdownCard } from './_components/ReceivedBreakdownCard';
+import { QuickLinksCard, type QuickLink } from './_components/QuickLinksCard';
+import { ActivityFeed } from './_components/ActivityFeed';
+import { getCompanyMetrics, getCompanyExpenseMetrics } from './_components/queries';
 
 export const dynamic = 'force-dynamic';
-
-const ACTIVITY_LABELS: Record<string, string> = {
-  [ActivityType.CREATE_COMPANY]: 'Created company',
-  [ActivityType.UPDATE_COMPANY]: 'Updated company settings',
-  [ActivityType.DELETE_COMPANY]: 'Deleted company',
-  [ActivityType.RESTORE_COMPANY]: 'Restored company',
-  [ActivityType.TRANSFER_OWNERSHIP]: 'Transferred ownership',
-  [ActivityType.INVITE_MEMBER]: 'Invited a member',
-  [ActivityType.ACCEPT_INVITATION]: 'Accepted invitation',
-  [ActivityType.REMOVE_MEMBER]: 'Removed a member',
-  [ActivityType.CREATE_INVOICE]: 'Created an invoice',
-  [ActivityType.UPDATE_INVOICE]: 'Updated an invoice',
-  [ActivityType.FINALIZE_INVOICE]: 'Finalized an invoice',
-  [ActivityType.CANCEL_INVOICE]: 'Cancelled an invoice',
-  [ActivityType.CREATE_CREDIT_NOTE]: 'Created a credit note',
-  [ActivityType.CREATE_DEBIT_NOTE]: 'Created a debit note',
-  [ActivityType.UPLOAD_RECEIVED_INVOICE]: 'Uploaded a received invoice',
-  [ActivityType.UPDATE_RECEIVED_INVOICE]: 'Updated a received invoice',
-  [ActivityType.CONFIRM_RECEIVED_INVOICE]: 'Confirmed a received invoice',
-  [ActivityType.DISCARD_RECEIVED_INVOICE]: 'Discarded a received invoice',
-  [ActivityType.ARCHIVE_RECEIVED_INVOICE]: 'Archived a received invoice',
-  [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: 'Unarchived a received invoice',
-};
-
-function relativeTime(date: Date): string {
-  const now = Date.now();
-  const then = new Date(date).getTime();
-  const diff = now - then;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(date).toLocaleDateString();
-}
-
-function formatCurrency(amount: number) {
-  return amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-async function getCompanyMetrics(companyId: number) {
-  const [row] = await db
-    .select({
-      revenue: sql<string>`coalesce(sum(
-        case when ${invoices.docType} = 'invoice'
-             and ${invoices.status} = 'finalized'
-             and ${invoices.paymentStatus} = 'paid'
-        then (${invoices.totals}->>'grossAmount')::numeric else 0 end
-      ), 0)`,
-      outstanding: sql<string>`coalesce(sum(
-        case when ${invoices.docType} = 'invoice'
-             and ${invoices.status} = 'finalized'
-             and ${invoices.paymentStatus} = 'unpaid'
-        then (${invoices.totals}->>'grossAmount')::numeric else 0 end
-      ), 0)`,
-      invoiceCountThisMonth: sql<number>`count(*) filter (
-        where ${invoices.docType} = 'invoice'
-          and date_trunc('month', ${invoices.issueDate}::timestamp) = date_trunc('month', now())
-      )`,
-      overdueCount: sql<number>`count(*) filter (
-        where ${invoices.docType} = 'invoice'
-          and ${invoices.status} = 'finalized'
-          and ${invoices.paymentStatus} = 'unpaid'
-          and ${invoices.dueDate}::date < current_date
-      )`,
-      totalInvoices: sql<number>`count(*) filter (where ${invoices.docType} = 'invoice')`,
-      draftCount: sql<number>`count(*) filter (
-        where ${invoices.docType} = 'invoice' and ${invoices.status} = 'draft'
-      )`,
-      finalizedCount: sql<number>`count(*) filter (
-        where ${invoices.docType} = 'invoice' and ${invoices.status} = 'finalized'
-      )`,
-      creditNotes: sql<number>`count(*) filter (where ${invoices.docType} = 'credit_note')`,
-      debitNotes: sql<number>`count(*) filter (where ${invoices.docType} = 'debit_note')`,
-    })
-    .from(invoices)
-    .where(eq(invoices.companyId, companyId));
-
-  return {
-    revenue: parseFloat(row.revenue),
-    outstanding: parseFloat(row.outstanding),
-    invoiceCountThisMonth: row.invoiceCountThisMonth,
-    overdueCount: row.overdueCount,
-    totalInvoices: row.totalInvoices,
-    draftCount: row.draftCount,
-    finalizedCount: row.finalizedCount,
-    creditNotes: row.creditNotes,
-    debitNotes: row.debitNotes,
-  };
-}
-
-async function getCompanyExpenseMetrics(companyId: number) {
-  const [row] = await db
-    .select({
-      expensesPaid: sql<string>`coalesce(sum(
-        case when ${receivedInvoices.status} = 'confirmed'
-             and ${receivedInvoices.paymentStatus} = 'paid'
-        then ${receivedInvoices.grossAmount}::numeric else 0 end
-      ), 0)`,
-      expensesOutstanding: sql<string>`coalesce(sum(
-        case when ${receivedInvoices.status} = 'confirmed'
-             and ${receivedInvoices.paymentStatus} <> 'paid'
-        then ${receivedInvoices.grossAmount}::numeric else 0 end
-      ), 0)`,
-      receivedThisMonth: sql<number>`count(*) filter (
-        where ${receivedInvoices.status} = 'confirmed'
-          and date_trunc('month', ${receivedInvoices.issueDate}::timestamp)
-            = date_trunc('month', now())
-      )`,
-      pendingReviewCount: sql<number>`count(*) filter (
-        where ${receivedInvoices.status} = 'draft'
-      )`,
-      accountedCount: sql<number>`count(*) filter (
-        where ${receivedInvoices.status} = 'confirmed'
-          and ${receivedInvoices.accountingStatus} = 'accounted'
-      )`,
-      pendingAccountingCount: sql<number>`count(*) filter (
-        where ${receivedInvoices.status} = 'confirmed'
-          and ${receivedInvoices.accountingStatus} = 'pending'
-      )`,
-    })
-    .from(receivedInvoices)
-    .where(
-      and(
-        eq(receivedInvoices.companyId, companyId),
-        isNull(receivedInvoices.archivedAt)
-      )
-    );
-
-  return {
-    expensesPaid: parseFloat(row.expensesPaid),
-    expensesOutstanding: parseFloat(row.expensesOutstanding),
-    receivedThisMonth: Number(row.receivedThisMonth),
-    pendingReviewCount: Number(row.pendingReviewCount),
-    accountedCount: Number(row.accountedCount),
-    pendingAccountingCount: Number(row.pendingAccountingCount),
-  };
-}
 
 export default async function CompanyDashboardPage({
   params,
@@ -218,7 +60,7 @@ export default async function CompanyDashboardPage({
 
   const base = `/c/${companyId}`;
 
-  const quickLinks = [
+  const quickLinks: QuickLink[] = [
     {
       href: `${base}/invoices`,
       icon: FileText,
@@ -267,290 +109,37 @@ export default async function CompanyDashboardPage({
 
   return (
     <section className="flex-1 p-4 lg:p-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Building2 className="h-6 w-6 text-orange-500" />
-        <div>
-          <h1 className="text-lg lg:text-2xl font-medium">
-            {company.legalName}
-          </h1>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-xs text-muted-foreground font-mono">
-              EIK: {company.eik}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                membership.role === 'owner'
-                  ? 'bg-orange-100 text-orange-800'
-                  : 'bg-blue-50 text-blue-700'
-              }`}
-            >
-              {membership.role === 'owner' && <Crown className="h-3 w-3" />}
-              {membership.role === 'owner' ? 'Owner' : 'Accountant'}
-            </span>
-          </div>
-        </div>
-      </div>
+      <CompanyHeader
+        legalName={company.legalName}
+        eik={company.eik}
+        role={membership.role}
+      />
 
-      {expenseMetrics.pendingReviewCount > 0 && (
-        <div className="mb-6 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
-          <div className="flex items-center gap-2 text-amber-900">
-            <Inbox className="h-4 w-4" />
-            <span>
-              <strong>{expenseMetrics.pendingReviewCount}</strong> received{' '}
-              {expenseMetrics.pendingReviewCount === 1
-                ? 'invoice'
-                : 'invoices'}{' '}
-              awaiting review
-            </span>
-          </div>
-          <Link
-            href={`${base}/received-invoices`}
-            className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50"
-          >
-            Review →
-          </Link>
-        </div>
-      )}
+      <PendingReviewBanner
+        count={expenseMetrics.pendingReviewCount}
+        reviewHref={`${base}/received-invoices`}
+      />
 
-      {/* Summary cards — income */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <MetricCard
-          icon={<DollarSign className="h-5 w-5 text-green-600" />}
-          label="Revenue"
-          value={`${formatCurrency(metrics.revenue)} ${company.defaultCurrency}`}
-          color="green"
-        />
-        <MetricCard
-          icon={<Clock className="h-5 w-5 text-amber-600" />}
-          label="Outstanding"
-          value={`${formatCurrency(metrics.outstanding)} ${company.defaultCurrency}`}
-          color="amber"
-        />
-        <MetricCard
-          icon={<FileText className="h-5 w-5 text-blue-600" />}
-          label="Invoices This Month"
-          value={String(metrics.invoiceCountThisMonth)}
-          color="blue"
-        />
-        <MetricCard
-          icon={<AlertTriangle className="h-5 w-5 text-red-600" />}
-          label="Overdue"
-          value={String(metrics.overdueCount)}
-          color={metrics.overdueCount > 0 ? 'red' : 'gray'}
-          highlight={metrics.overdueCount > 0}
-        />
-      </div>
+      <MetricsSummary
+        metrics={metrics}
+        expenseMetrics={expenseMetrics}
+        currency={company.defaultCurrency}
+      />
 
-      {/* Summary cards — expenses */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <MetricCard
-          icon={<TrendingDown className="h-5 w-5 text-purple-600" />}
-          label="Expenses Paid"
-          value={`${formatCurrency(expenseMetrics.expensesPaid)} ${company.defaultCurrency}`}
-          color="purple"
-        />
-        <MetricCard
-          icon={<TrendingDown className="h-5 w-5 text-rose-600" />}
-          label="Expenses Outstanding"
-          value={`${formatCurrency(expenseMetrics.expensesOutstanding)} ${company.defaultCurrency}`}
-          color="rose"
-        />
-        <MetricCard
-          icon={<Inbox className="h-5 w-5 text-blue-600" />}
-          label="Received This Month"
-          value={String(expenseMetrics.receivedThisMonth)}
-          color="blue"
-        />
-        <MetricCard
-          icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
-          label="Pending Review"
-          value={String(expenseMetrics.pendingReviewCount)}
-          color={expenseMetrics.pendingReviewCount > 0 ? 'amber' : 'gray'}
-          highlight={expenseMetrics.pendingReviewCount > 0}
-        />
-      </div>
-
-      {/* Breakdown + Quick links */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Invoice breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <Row label="Total invoices" value={metrics.totalInvoices} />
-              <Row label="Drafts" value={metrics.draftCount} />
-              <Row label="Finalized" value={metrics.finalizedCount} />
-              <Row label="Credit notes" value={metrics.creditNotes} />
-              <Row label="Debit notes" value={metrics.debitNotes} />
-              <div className="border-t pt-2 mt-2">
-                <Row label="Partners" value={partners.length} />
-                <Row label="Articles" value={articlesList.length} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Received-invoice breakdown */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Received Invoices</CardTitle>
-            <Link
-              href={`${base}/received-invoices`}
-              className="text-xs text-orange-600 hover:underline"
-            >
-              View all →
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
-              <Row
-                label="Pending review"
-                value={expenseMetrics.pendingReviewCount}
-              />
-              <Row
-                label="Confirmed — accounted"
-                value={expenseMetrics.accountedCount}
-              />
-              <Row
-                label="Confirmed — to account"
-                value={expenseMetrics.pendingAccountingCount}
-              />
-              <div className="border-t pt-2 mt-2">
-                <Row
-                  label="This month"
-                  value={expenseMetrics.receivedThisMonth}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Quick links */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Links</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {quickLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50/50 transition-colors group"
-              >
-                <div className="flex items-center gap-3">
-                  <link.icon className="h-4 w-4 text-gray-400 group-hover:text-orange-500" />
-                  <span className="text-sm font-medium">{link.label}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {link.count !== undefined && (
-                    <span className="text-xs text-muted-foreground">
-                      {link.count}
-                    </span>
-                  )}
-                  {link.sub && (
-                    <span className="text-xs text-muted-foreground font-mono">
-                      {link.sub}
-                    </span>
-                  )}
-                  <ArrowRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-orange-500" />
-                </div>
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
+        <InvoiceBreakdownCard
+          metrics={metrics}
+          partnerCount={partners.length}
+          articleCount={articlesList.length}
+        />
+        <ReceivedBreakdownCard
+          expenseMetrics={expenseMetrics}
+          viewAllHref={`${base}/received-invoices`}
+        />
+        <QuickLinksCard links={quickLinks} />
       </div>
 
-      {/* Recent activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Last 5 actions in this company</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {activity.length === 0 ? (
-            <div className="flex flex-col items-center py-8 text-center text-muted-foreground">
-              <Activity className="h-8 w-8 mb-2 text-gray-300" />
-              <p className="text-sm">No activity yet</p>
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {activity.map((a) => (
-                <li key={a.id} className="flex items-start gap-3 text-sm">
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100">
-                    <Activity className="h-3.5 w-3.5 text-gray-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p>
-                      <span className="font-medium">
-                        {a.userName || 'Unknown'}
-                      </span>{' '}
-                      <span className="text-muted-foreground">
-                        {ACTIVITY_LABELS[a.action] ?? a.action}
-                      </span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {relativeTime(a.timestamp)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <ActivityFeed activity={activity} />
     </section>
-  );
-}
-
-function MetricCard({
-  icon,
-  label,
-  value,
-  color,
-  highlight,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  color: string;
-  highlight?: boolean;
-}) {
-  const bgMap: Record<string, string> = {
-    green: 'bg-green-50',
-    amber: 'bg-amber-50',
-    blue: 'bg-blue-50',
-    red: 'bg-red-50',
-    gray: 'bg-gray-50',
-    purple: 'bg-purple-50',
-    rose: 'bg-rose-50',
-  };
-  return (
-    <Card className={highlight ? 'border-red-300 bg-red-50/30' : ''}>
-      <CardContent className="pt-5">
-        <div className="flex items-center gap-3 mb-2">
-          <div
-            className={`flex h-9 w-9 items-center justify-center rounded-lg ${bgMap[color] ?? 'bg-gray-50'}`}
-          >
-            {icon}
-          </div>
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            {label}
-          </p>
-        </div>
-        <p className="text-2xl font-bold">{value}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function Row({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between py-1">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}</span>
-    </div>
   );
 }

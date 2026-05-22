@@ -13,7 +13,6 @@ import {
   InvoiceStatus,
   type Invoice,
   type NewInvoice,
-  type InvoiceLine,
 } from '@/lib/db/schema';
 import { getUser, getActiveCompanyId, verifyCompanyAccess, getNextInvoiceNumber } from '@/lib/db/queries';
 import { calculateInvoice } from './calculator';
@@ -30,6 +29,8 @@ import type {
   InvoiceTotals,
   LineItem,
 } from './types';
+import { parseInvoiceRow, parseInvoiceLineRow } from './parsers';
+import type { ParsedInvoice, ParsedInvoiceLine } from './parsed-types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -131,7 +132,7 @@ export interface ListInvoicesFilters {
 }
 
 interface ListInvoicesResult {
-  invoices: Invoice[];
+  invoices: ParsedInvoice[];
   total: number;
   page: number;
   pageSize: number;
@@ -393,7 +394,7 @@ function rowToDocument(row: Invoice): InvoiceDocument {
 
 export async function createInvoiceDraft(
   input: CreateInvoiceDraftInput
-): Promise<ActionResult<Invoice>> {
+): Promise<ActionResult<ParsedInvoice>> {
   try {
     const { user, companyId } = await requireCompanyAccess();
 
@@ -511,7 +512,7 @@ export async function createInvoiceDraft(
       return row;
     });
 
-    return { data: created };
+    return { data: parseInvoiceRow(created) };
   } catch (error) {
     console.error('createInvoiceDraft error:', error);
     return { error: error instanceof Error ? error.message : 'Unexpected error' };
@@ -525,7 +526,7 @@ export async function createInvoiceDraft(
 export async function updateInvoiceDraft(
   invoiceId: number,
   input: UpdateInvoiceDraftInput
-): Promise<ActionResult<Invoice>> {
+): Promise<ActionResult<ParsedInvoice>> {
   try {
     const { user, companyId } = await requireCompanyAccess();
 
@@ -650,7 +651,7 @@ export async function updateInvoiceDraft(
 
     await logInvoiceActivity(companyId, user.id, ActivityType.UPDATE_INVOICE);
 
-    return { data: updated };
+    return { data: parseInvoiceRow(updated) };
   } catch (error) {
     console.error('updateInvoiceDraft error:', error);
     return { error: error instanceof Error ? error.message : 'Unexpected error' };
@@ -663,7 +664,7 @@ export async function updateInvoiceDraft(
 
 export async function finalizeInvoice(
   invoiceId: number
-): Promise<ActionResult<Invoice>> {
+): Promise<ActionResult<ParsedInvoice>> {
   try {
     const { user, companyId } = await requireCompanyAccess();
 
@@ -723,7 +724,7 @@ export async function finalizeInvoice(
 
     await logInvoiceActivity(companyId, user.id, ActivityType.FINALIZE_INVOICE);
 
-    return { data: finalized };
+    return { data: parseInvoiceRow(finalized) };
   } catch (error) {
     console.error('finalizeInvoice error:', error);
     return { error: error instanceof Error ? error.message : 'Unexpected error' };
@@ -737,7 +738,7 @@ export async function finalizeInvoice(
 export async function cancelInvoice(
   invoiceId: number,
   reason?: string
-): Promise<ActionResult<Invoice>> {
+): Promise<ActionResult<ParsedInvoice>> {
   try {
     const { user, companyId } = await requireCompanyAccess();
 
@@ -771,7 +772,7 @@ export async function cancelInvoice(
       ipAddress: '',
     });
 
-    return { data: cancelled };
+    return { data: parseInvoiceRow(cancelled) };
   } catch (error) {
     console.error('cancelInvoice error:', error);
     return { error: error instanceof Error ? error.message : 'Unexpected error' };
@@ -787,7 +788,7 @@ const VALID_PAYMENT_STATUSES = ['unpaid', 'partial', 'paid'] as const;
 export async function updateInvoicePaymentInfo(
   invoiceId: number,
   input: { paymentStatus?: string; dueDate?: string | null }
-): Promise<ActionResult<Invoice>> {
+): Promise<ActionResult<ParsedInvoice>> {
   try {
     const { user, companyId } = await requireCompanyAccess();
 
@@ -829,7 +830,7 @@ export async function updateInvoicePaymentInfo(
       ipAddress: '',
     });
 
-    return { data: updated };
+    return { data: parseInvoiceRow(updated) };
   } catch (error) {
     console.error('updateInvoicePaymentInfo error:', error);
     return { error: error instanceof Error ? error.message : 'Unexpected error' };
@@ -843,7 +844,7 @@ export async function updateInvoicePaymentInfo(
 export async function createCreditNoteFromInvoice(
   originalInvoiceId: number,
   overrides?: NoteOverrides
-): Promise<ActionResult<Invoice>> {
+): Promise<ActionResult<ParsedInvoice>> {
   return createNoteFromInvoice('credit_note', originalInvoiceId, overrides);
 }
 
@@ -854,7 +855,7 @@ export async function createCreditNoteFromInvoice(
 export async function createDebitNoteFromInvoice(
   originalInvoiceId: number,
   overrides?: NoteOverrides
-): Promise<ActionResult<Invoice>> {
+): Promise<ActionResult<ParsedInvoice>> {
   return createNoteFromInvoice('debit_note', originalInvoiceId, overrides);
 }
 
@@ -866,7 +867,7 @@ async function createNoteFromInvoice(
   noteType: 'credit_note' | 'debit_note',
   originalInvoiceId: number,
   overrides?: NoteOverrides
-): Promise<ActionResult<Invoice>> {
+): Promise<ActionResult<ParsedInvoice>> {
   try {
     const { user, companyId } = await requireCompanyAccess();
 
@@ -1002,7 +1003,7 @@ async function createNoteFromInvoice(
       return created;
     });
 
-    return { data: result };
+    return { data: parseInvoiceRow(result) };
   } catch (error) {
     console.error('createNoteFromInvoice error:', error);
     return { error: error instanceof Error ? error.message : 'Unexpected error' };
@@ -1015,7 +1016,7 @@ async function createNoteFromInvoice(
 
 export async function getInvoice(
   invoiceId: number
-): Promise<ActionResult<Invoice>> {
+): Promise<ActionResult<ParsedInvoice>> {
   const { companyId } = await requireCompanyAccess();
 
   const [row] = await db
@@ -1028,7 +1029,7 @@ export async function getInvoice(
     return { error: 'Invoice not found' };
   }
 
-  return { data: row };
+  return { data: parseInvoiceRow(row) };
 }
 
 // ---------------------------------------------------------------------------
@@ -1037,7 +1038,7 @@ export async function getInvoice(
 
 export async function getInvoiceLines(
   invoiceId: number
-): Promise<ActionResult<InvoiceLine[]>> {
+): Promise<ActionResult<ParsedInvoiceLine[]>> {
   try {
     const { companyId } = await requireCompanyAccess();
     const [row] = await db
@@ -1056,7 +1057,7 @@ export async function getInvoiceLines(
       .where(eq(invoiceLines.invoiceId, invoiceId))
       .orderBy(invoiceLines.sortOrder);
 
-    return { data: lines };
+    return { data: lines.map(parseInvoiceLineRow) };
   } catch (error) {
     console.error('getInvoiceLines error:', error);
     return { error: error instanceof Error ? error.message : 'Unexpected error' };
@@ -1121,7 +1122,7 @@ export async function listInvoices(
 
   return {
     data: {
-      invoices: rows,
+      invoices: rows.map(parseInvoiceRow),
       total: countResult[0]?.count ?? 0,
       page,
       pageSize,

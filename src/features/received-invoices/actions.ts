@@ -8,8 +8,6 @@ import {
   partners,
   activityLogs,
   ActivityType,
-  type ReceivedInvoice,
-  type ReceivedInvoiceLine,
 } from '@/lib/db/schema';
 import {
   getUser,
@@ -18,7 +16,6 @@ import {
 } from '@/lib/db/queries';
 import {
   createSignedUrl,
-  RECEIVED_INVOICES_BUCKET,
   deleteFromBucket,
 } from '@/lib/supabase/storage';
 import { ReceivedInvoiceReviewSchema } from './schema';
@@ -33,6 +30,18 @@ import type {
   SupplierSnapshot,
   UploadDraftResult,
 } from './types';
+import {
+  parseAccountingStatus,
+  parseLifecycleStatus,
+  parsePaymentStatus,
+  parseReceivedInvoiceLineRow,
+  parseReceivedInvoiceRow,
+  parseSupplierSnapshot,
+} from './parsers';
+import type {
+  ParsedReceivedInvoice,
+  ParsedReceivedInvoiceLine,
+} from './parsed-types';
 import type { ExtractedInvoice } from '@/app/api/invoices/extract/schema';
 
 // ---------------------------------------------------------------------------
@@ -328,9 +337,9 @@ export interface ListReceivedInvoicesFilters {
 
 export interface ReceivedInvoiceListItem {
   id: number;
-  status: string;
-  accountingStatus: string;
-  paymentStatus: string;
+  status: ReceivedInvoiceLifecycleStatus;
+  accountingStatus: AccountingStatus;
+  paymentStatus: PaymentStatus;
   archivedAt: Date | null;
   invoiceNumber: string | null;
   issueDate: string | null;
@@ -339,7 +348,7 @@ export interface ReceivedInvoiceListItem {
   grossAmount: string;
   partnerId: number | null;
   partnerName: string | null;
-  supplierSnapshot: unknown;
+  supplierSnapshot: SupplierSnapshot;
   extractionConfidence: string | null;
   fileMimeType: string;
   createdAt: Date;
@@ -445,9 +454,17 @@ export async function listReceivedInvoices(
         ),
     ]);
 
+    const items: ReceivedInvoiceListItem[] = rows.map((r) => ({
+      ...r,
+      status: parseLifecycleStatus(r.status),
+      accountingStatus: parseAccountingStatus(r.accountingStatus),
+      paymentStatus: parsePaymentStatus(r.paymentStatus),
+      supplierSnapshot: parseSupplierSnapshot(r.supplierSnapshot),
+    }));
+
     return {
       data: {
-        items: rows,
+        items,
         total: countResult[0]?.count ?? 0,
         pendingCount: pendingResult[0]?.count ?? 0,
         page,
@@ -467,8 +484,8 @@ export async function listReceivedInvoices(
 // ---------------------------------------------------------------------------
 
 export interface GetReceivedInvoiceResult {
-  row: ReceivedInvoice;
-  lines: ReceivedInvoiceLine[];
+  row: ParsedReceivedInvoice;
+  lines: ParsedReceivedInvoiceLine[];
   partnerSuggestion:
     | { matchedPartnerId: number; matchedPartnerName: string }
     | null;
@@ -556,8 +573,8 @@ export async function getReceivedInvoice(
 
     return {
       data: {
-        row,
-        lines,
+        row: parseReceivedInvoiceRow(row),
+        lines: lines.map(parseReceivedInvoiceLineRow),
         partnerSuggestion,
         fileSignedUrl,
         nextPendingId,

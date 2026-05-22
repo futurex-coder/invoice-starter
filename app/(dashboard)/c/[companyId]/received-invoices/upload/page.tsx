@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { ReceivedInvoiceUploader } from '@/components/received-invoices/ReceivedInvoiceUploader';
+import { requireStringParam } from '@/lib/route-params';
 
 interface Uploaded {
   receivedInvoiceId: number;
@@ -21,7 +22,7 @@ interface Uploaded {
 export default function ReceivedInvoicesUploadPage() {
   const router = useRouter();
   const params = useParams();
-  const companyId = params.companyId as string;
+  const companyId = requireStringParam(params, 'companyId');
 
   const [uploaded, setUploaded] = useState<Uploaded[]>([]);
 

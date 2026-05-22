@@ -30,7 +30,7 @@ export async function sendInvitationEmail(to: string, companyName: string, role:
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent: %s', info.messageId);
+    console.warn('Email sent: %s', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error('Error sending email:', error);

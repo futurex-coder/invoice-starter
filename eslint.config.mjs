@@ -9,7 +9,7 @@ const tsPlugin = require('@typescript-eslint/eslint-plugin');
 const tsParser = require('@typescript-eslint/parser');
 
 const config = [
-  { ignores: ['docs/**', '.next/**', 'node_modules/**'] },
+  { ignores: ['docs/**', '.next/**', 'node_modules/**', '.claude/**'] },
   ...nextCoreWebVitals,
   {
     files: ['**/*.ts', '**/*.tsx'],
@@ -44,6 +44,7 @@ const config = [
     files: ['**/seed.ts', '**/migrations/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      'no-console': 'off',
     },
   },
 ];

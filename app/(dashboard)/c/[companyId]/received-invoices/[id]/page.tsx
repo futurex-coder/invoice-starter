@@ -14,7 +14,6 @@ import type {
   AccountingStatus,
   PaymentStatus,
 } from '@/src/features/received-invoices/types';
-import { parseSupplierSnapshot } from '@/src/features/received-invoices/parsers';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { requireStringParam } from '@/lib/route-params';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
@@ -69,7 +68,7 @@ export default function ReceivedInvoiceDetailPage() {
     return null;
   }
 
-  const supplier = parseSupplierSnapshot(row.supplierSnapshot);
+  const supplier = row.supplierSnapshot;
   const archived = row.archivedAt != null;
 
   const handleAccounting = async (value: AccountingStatus) => {

@@ -35,6 +35,8 @@ import {
   canTransferOwnership,
   canDeleteCompany,
 } from '@/lib/auth/permissions';
+import { parseCompanyRow } from '@/src/features/bulgarian-invoicing/parsers';
+import type { ParsedCompany } from '@/src/features/bulgarian-invoicing/parsed-types';
 import {
   upsertCompanyProfileSchema,
   createPartnerSchema,
@@ -106,7 +108,7 @@ async function logActivity(
 // ---------------------------------------------------------------------------
 
 export async function getCompanyProfile(): Promise<
-  ActionResult<Company | null>
+  ActionResult<ParsedCompany | null>
 > {
   try {
     const { companyId } = await requireCompanyAccess();
@@ -117,7 +119,7 @@ export async function getCompanyProfile(): Promise<
       .where(eq(companies.id, companyId))
       .limit(1);
 
-    return { data: row ?? null };
+    return { data: row ? parseCompanyRow(row) : null };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Unauthorized' };
   }
@@ -125,7 +127,7 @@ export async function getCompanyProfile(): Promise<
 
 export async function upsertCompanyProfile(
   input: UpsertCompanyProfileInput
-): Promise<ActionResult<Company>> {
+): Promise<ActionResult<ParsedCompany>> {
   try {
     const { user, companyId, role } = await requireCompanyAccess();
     if (!canEditCompanySettings(role)) {
@@ -169,7 +171,7 @@ export async function upsertCompanyProfile(
       .returning();
 
     await logActivity(companyId, user.id, 'company_profile.update');
-    return { data: updated };
+    return { data: parseCompanyRow(updated) };
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Failed to save company profile' };
   }

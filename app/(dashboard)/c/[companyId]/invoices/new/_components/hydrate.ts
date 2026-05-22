@@ -1,12 +1,8 @@
-import type { Invoice, InvoiceLine, Partner } from '@/lib/db/schema';
-import {
-  parseBgVatRate,
-  parseDocType,
-  parseInvoiceItems,
-  parsePartySnapshot,
-  parsePaymentMethod,
-  parseVatMode,
-} from '@/src/features/bulgarian-invoicing/parsers';
+import type { Partner } from '@/lib/db/schema';
+import type {
+  ParsedInvoice,
+  ParsedInvoiceLine,
+} from '@/src/features/bulgarian-invoicing/parsed-types';
 import {
   emptyRecipient,
   defaultLineItem,
@@ -15,7 +11,10 @@ import {
 } from './types';
 import type { FormState } from './form-state';
 
-function recipientFromInvoice(inv: Invoice, partners: Partner[]): {
+function recipientFromInvoice(
+  inv: ParsedInvoice,
+  partners: Partner[]
+): {
   recipient: RecipientForm;
   selectedPartnerId: number | '';
 } {
@@ -38,7 +37,7 @@ function recipientFromInvoice(inv: Invoice, partners: Partner[]): {
     }
     return { selectedPartnerId: inv.partnerId, recipient: emptyRecipient };
   }
-  const snap = parsePartySnapshot(inv.recipientSnapshot);
+  const snap = inv.recipientSnapshot;
   return {
     selectedPartnerId: '',
     recipient: {
@@ -54,21 +53,23 @@ function recipientFromInvoice(inv: Invoice, partners: Partner[]): {
   };
 }
 
-function lineItemsFromInvoice(inv: Invoice, dbLines: InvoiceLine[]): LineItemForm[] {
+function lineItemsFromInvoice(
+  inv: ParsedInvoice,
+  dbLines: ParsedInvoiceLine[]
+): LineItemForm[] {
   if (dbLines.length > 0) {
     return dbLines.map((l) => ({
       description: l.description,
       quantity: Number(l.quantity),
       unit: l.unit,
       unitPrice: Number(l.unitPrice),
-      vatRate: parseBgVatRate(l.vatRate),
+      vatRate: l.vatRate,
       discountPercent: Number(l.discountPercent ?? 0),
       articleId: l.articleId ?? null,
     }));
   }
-  const items = parseInvoiceItems(inv.items);
-  if (items.length > 0) {
-    return items.map((i) => ({
+  if (inv.items.length > 0) {
+    return inv.items.map((i) => ({
       description: i.description,
       quantity: i.quantity,
       unit: i.unit,
@@ -82,26 +83,26 @@ function lineItemsFromInvoice(inv: Invoice, dbLines: InvoiceLine[]): LineItemFor
 }
 
 export function invoiceToFormState(
-  inv: Invoice,
-  dbLines: InvoiceLine[],
+  inv: ParsedInvoice,
+  dbLines: ParsedInvoiceLine[],
   partners: Partner[]
 ): FormState {
   const { recipient, selectedPartnerId } = recipientFromInvoice(inv, partners);
   return {
     recipient,
     selectedPartnerId,
-    docType: parseDocType(inv.docType),
+    docType: inv.docType,
     issueDate: inv.issueDate,
     supplyDate: inv.supplyDate ?? inv.issueDate,
     language: inv.language ?? 'bg',
     currency: inv.currency ?? 'EUR',
     fxRate: Number(inv.fxRate ?? 1),
     lineItems: lineItemsFromInvoice(inv, dbLines),
-    vatMode: parseVatMode(inv.vatMode),
+    vatMode: inv.vatMode,
     noVatReason: inv.noVatReason ?? '',
     amountInWordsOverride: '',
-    paymentMethod: parsePaymentMethod(inv.paymentMethod),
-    paymentStatus: inv.paymentStatus ?? 'unpaid',
+    paymentMethod: inv.paymentMethod,
+    paymentStatus: inv.paymentStatus,
     dueDate: inv.dueDate ?? '',
     customerNote: inv.customerNote ?? '',
     internalComment: inv.internalComment ?? '',

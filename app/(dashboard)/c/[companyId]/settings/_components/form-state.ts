@@ -1,5 +1,4 @@
-import type { Company } from '@/lib/db/schema';
-import { parsePaymentMethod } from '@/src/features/bulgarian-invoicing/parsers';
+import type { ParsedCompany } from '@/src/features/bulgarian-invoicing/parsed-types';
 import type { PaymentMethod } from './types';
 
 export interface SettingsFormState {
@@ -38,7 +37,7 @@ export const initialSettingsForm: SettingsFormState = {
   defaultPaymentMethod: 'bank',
 };
 
-export function profileToFormState(p: Company): SettingsFormState {
+export function profileToFormState(p: ParsedCompany): SettingsFormState {
   return {
     legalName: p.legalName,
     eik: p.eik,
@@ -54,7 +53,7 @@ export function profileToFormState(p: Company): SettingsFormState {
     bicSwift: p.bicSwift ?? '',
     defaultCurrency: p.defaultCurrency,
     defaultVatRate: p.defaultVatRate,
-    defaultPaymentMethod: parsePaymentMethod(p.defaultPaymentMethod),
+    defaultPaymentMethod: p.defaultPaymentMethod,
   };
 }
 

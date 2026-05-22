@@ -4,19 +4,31 @@
  */
 
 import { z } from 'zod';
+import type {
+  ReceivedInvoice,
+  ReceivedInvoiceLine,
+} from '@/lib/db/schema';
+import { parseBgVatRate } from '@/src/features/bulgarian-invoicing/parsers';
 import {
   ACCOUNTING_STATUSES,
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
+  RECEIVED_INVOICE_STATUSES,
   type AccountingStatus,
   type PaymentMethod,
   type PaymentStatus,
+  type ReceivedInvoiceLifecycleStatus,
   type SupplierSnapshot,
 } from './types';
+import type {
+  ParsedReceivedInvoice,
+  ParsedReceivedInvoiceLine,
+} from './parsed-types';
 
 const accountingStatusSchema = z.enum(ACCOUNTING_STATUSES);
 const paymentStatusSchema = z.enum(PAYMENT_STATUSES);
 const paymentMethodSchema = z.enum(PAYMENT_METHODS);
+const lifecycleStatusSchema = z.enum(RECEIVED_INVOICE_STATUSES);
 
 const supplierSnapshotSchema = z.object({
   legalName: z.string().nullable(),
@@ -72,4 +84,38 @@ export function isPaymentStatus(value: unknown): value is PaymentStatus {
 
 export function isPaymentMethod(value: unknown): value is PaymentMethod {
   return paymentMethodSchema.safeParse(value).success;
+}
+
+export function parseLifecycleStatus(
+  value: unknown,
+  fallback: ReceivedInvoiceLifecycleStatus = 'draft'
+): ReceivedInvoiceLifecycleStatus {
+  const r = lifecycleStatusSchema.safeParse(value);
+  return r.success ? r.data : fallback;
+}
+
+// ---------------------------------------------------------------------------
+// Aggregator: full row → ParsedReceivedInvoice
+// ---------------------------------------------------------------------------
+
+export function parseReceivedInvoiceRow(
+  raw: ReceivedInvoice
+): ParsedReceivedInvoice {
+  return {
+    ...raw,
+    status: parseLifecycleStatus(raw.status),
+    paymentMethod: parsePaymentMethod(raw.paymentMethod),
+    paymentStatus: parsePaymentStatus(raw.paymentStatus),
+    accountingStatus: parseAccountingStatus(raw.accountingStatus),
+    supplierSnapshot: parseSupplierSnapshot(raw.supplierSnapshot),
+  };
+}
+
+export function parseReceivedInvoiceLineRow(
+  raw: ReceivedInvoiceLine
+): ParsedReceivedInvoiceLine {
+  return {
+    ...raw,
+    vatRate: parseBgVatRate(raw.vatRate),
+  };
 }

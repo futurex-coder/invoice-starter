@@ -8,7 +8,7 @@ import { defaultLineItem, emptyRecipient } from './types';
 import type { Partner } from '@/lib/db/schema';
 
 function fixturePartner(overrides?: Partial<Partner>): Partner {
-  return {
+  const base: Partner = {
     id: 42,
     companyId: 1,
     name: 'Acme Ltd',
@@ -23,8 +23,8 @@ function fixturePartner(overrides?: Partial<Partner>): Partner {
     linkedCompanyId: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    ...overrides,
-  } as Partner;
+  };
+  return { ...base, ...overrides };
 }
 
 describe('formReducer', () => {

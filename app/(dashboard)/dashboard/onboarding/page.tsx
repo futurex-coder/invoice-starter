@@ -64,7 +64,8 @@ export default function OnboardingPage() {
         router.replace('/dashboard');
         return;
       }
-      setStep(2);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStep(2); // one-shot: pick the initial step from hydrated SWR data
     } else {
       setStep(1);
     }

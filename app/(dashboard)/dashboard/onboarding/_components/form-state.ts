@@ -1,5 +1,4 @@
-import type { Company } from '@/lib/db/schema';
-import { parsePaymentMethod } from '@/src/features/bulgarian-invoicing/parsers';
+import type { ParsedCompany } from '@/src/features/bulgarian-invoicing/parsed-types';
 import type { PaymentMethod } from './types';
 
 export interface OnboardingFormState {
@@ -38,7 +37,7 @@ export const initialOnboardingForm: OnboardingFormState = {
   defaultVatRate: 20,
 };
 
-export function profileToOnboardingForm(p: Company): OnboardingFormState {
+export function profileToOnboardingForm(p: ParsedCompany): OnboardingFormState {
   return {
     legalName: p.legalName,
     eik: p.eik,
@@ -52,7 +51,7 @@ export function profileToOnboardingForm(p: Company): OnboardingFormState {
     bankName: p.bankName ?? '',
     iban: p.iban ?? '',
     bicSwift: p.bicSwift ?? '',
-    defaultPaymentMethod: parsePaymentMethod(p.defaultPaymentMethod),
+    defaultPaymentMethod: p.defaultPaymentMethod,
     defaultCurrency: p.defaultCurrency,
     defaultVatRate: p.defaultVatRate,
   };

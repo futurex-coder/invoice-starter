@@ -9,13 +9,22 @@
  */
 
 import { z } from 'zod';
+import type { Company, Invoice, InvoiceLine } from '@/lib/db/schema';
 import {
   DOC_TYPES,
+  STATUSES,
   type BgVatRate,
   type DocType,
+  type InvoiceStatus,
+  type InvoiceTotals,
   type LineItemInput,
   type PartySnapshot,
 } from './types';
+import type {
+  ParsedCompany,
+  ParsedInvoice,
+  ParsedInvoiceLine,
+} from './parsed-types';
 
 const bgVatRateSchema: z.ZodType<BgVatRate> = z.union([
   z.literal(20),
@@ -23,9 +32,16 @@ const bgVatRateSchema: z.ZodType<BgVatRate> = z.union([
   z.literal(0),
 ]);
 const docTypeSchema = z.enum(DOC_TYPES);
+const invoiceStatusSchema = z.enum(STATUSES);
 const vatModeSchema = z.enum(['standard', 'no_vat']);
 const paymentMethodSchema = z.enum(['bank', 'cash', 'barter']);
 const paymentStatusSchema = z.enum(['unpaid', 'partial', 'paid']);
+
+const invoiceTotalsSchema = z.object({
+  netAmount: z.coerce.number(),
+  vatAmount: z.coerce.number(),
+  grossAmount: z.coerce.number(),
+});
 
 export type VatMode = z.infer<typeof vatModeSchema>;
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
@@ -109,4 +125,56 @@ export function isPaymentStatus(value: unknown): value is PaymentStatus {
 
 export function isDocType(value: unknown): value is DocType {
   return docTypeSchema.safeParse(value).success;
+}
+
+export function parseInvoiceStatus(
+  value: unknown,
+  fallback: InvoiceStatus = 'draft'
+): InvoiceStatus {
+  const r = invoiceStatusSchema.safeParse(value);
+  return r.success ? r.data : fallback;
+}
+
+export function parseInvoiceTotals(value: unknown): Partial<InvoiceTotals> {
+  const r = invoiceTotalsSchema.partial().safeParse(value ?? {});
+  return r.success ? r.data : {};
+}
+
+// ---------------------------------------------------------------------------
+// Aggregator: full row → ParsedInvoice
+// ---------------------------------------------------------------------------
+
+/**
+ * Narrow a raw `Invoice` row (Drizzle-inferred type with loose JSONB/enum
+ * fields) into a `ParsedInvoice` whose docType/vatMode/etc. are properly
+ * typed. Used in server actions so consumers don't have to call individual
+ * field parsers.
+ */
+export function parseInvoiceRow(raw: Invoice): ParsedInvoice {
+  return {
+    ...raw,
+    docType: parseDocType(raw.docType),
+    status: parseInvoiceStatus(raw.status),
+    vatMode: parseVatMode(raw.vatMode),
+    paymentMethod: parsePaymentMethod(raw.paymentMethod),
+    paymentStatus: parsePaymentStatus(raw.paymentStatus),
+    supplierSnapshot: parsePartySnapshot(raw.supplierSnapshot),
+    recipientSnapshot: parsePartySnapshot(raw.recipientSnapshot),
+    items: parseInvoiceItems(raw.items),
+    totals: parseInvoiceTotals(raw.totals),
+  };
+}
+
+export function parseInvoiceLineRow(raw: InvoiceLine): ParsedInvoiceLine {
+  return {
+    ...raw,
+    vatRate: parseBgVatRate(raw.vatRate),
+  };
+}
+
+export function parseCompanyRow(raw: Company): ParsedCompany {
+  return {
+    ...raw,
+    defaultPaymentMethod: parsePaymentMethod(raw.defaultPaymentMethod),
+  };
 }

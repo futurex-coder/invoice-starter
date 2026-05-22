@@ -1,5 +1,4 @@
 import type { ReceivedInvoiceListItem } from '@/src/features/received-invoices/actions';
-import { parseSupplierSnapshot } from '@/src/features/received-invoices/parsers';
 
 export const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
@@ -22,8 +21,7 @@ export function formatDate(value: string | null): string {
 
 export function supplierName(item: ReceivedInvoiceListItem): string {
   if (item.partnerName) return item.partnerName;
-  const snap = parseSupplierSnapshot(item.supplierSnapshot);
-  return snap.legalName ?? '—';
+  return item.supplierSnapshot.legalName ?? '—';
 }
 
 export function isOverdue(

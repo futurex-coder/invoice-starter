@@ -5,12 +5,11 @@ import {
   initialSettingsForm,
   type SettingsFormState,
 } from './form-state';
-import type { Company } from '@/lib/db/schema';
+import type { ParsedCompany } from '@/src/features/bulgarian-invoicing/parsed-types';
 
-function fixtureCompany(overrides?: Partial<Company>): Company {
-  return {
+function fixtureCompany(overrides?: Partial<ParsedCompany>): ParsedCompany {
+  const base: ParsedCompany = {
     id: 1,
-    ownerId: 1,
     legalName: 'Acme Ltd',
     eik: '123456789',
     vatNumber: 'BG123456789',
@@ -29,8 +28,8 @@ function fixtureCompany(overrides?: Partial<Company>): Company {
     deletedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    ...overrides,
-  } as Company;
+  };
+  return { ...base, ...overrides };
 }
 
 describe('settingsFormReducer', () => {
@@ -59,7 +58,7 @@ describe('settingsFormReducer', () => {
 });
 
 describe('profileToFormState', () => {
-  it('maps every field from the DB row', () => {
+  it('maps every field from the parsed row', () => {
     const out = profileToFormState(fixtureCompany());
     expect(out.legalName).toBe('Acme Ltd');
     expect(out.eik).toBe('123456789');
@@ -89,11 +88,9 @@ describe('profileToFormState', () => {
     expect(out.postCode).toBe('');
   });
 
-  it('parses unknown payment method to bank (no cast)', () => {
-    // The DB column allows any string; parsePaymentMethod narrows it.
-    const out = profileToFormState(
-      fixtureCompany({ defaultPaymentMethod: 'card' })
-    );
-    expect(out.defaultPaymentMethod).toBe('bank');
-  });
+  // Note: payment-method narrowing used to happen inside profileToFormState
+  // via parsePaymentMethod. Since the parser pushdown landed, narrowing is
+  // done in the server action's parseCompanyRow(), and profileToFormState
+  // receives an already-narrowed ParsedCompany. The narrowing logic itself
+  // is covered by src/features/bulgarian-invoicing/parsers.test.ts.
 });

@@ -1,6 +1,6 @@
 import { DollarSign, Clock, FileText, AlertTriangle, TrendingDown } from 'lucide-react';
 import { SummaryCard } from './SummaryCard';
-import { formatCurrency } from './utils';
+import { formatMoney } from '@/lib/format';
 import type { Totals } from './types';
 
 interface Props {
@@ -13,25 +13,25 @@ export function SummaryGrid({ totals }: Props) {
       <SummaryCard
         icon={<DollarSign className="h-5 w-5 text-green-600" />}
         label="Revenue"
-        value={`${formatCurrency(totals.revenue)} EUR`}
+        value={`${formatMoney(totals.revenue)} EUR`}
         color="green"
       />
       <SummaryCard
         icon={<Clock className="h-5 w-5 text-amber-600" />}
         label="Outstanding"
-        value={`${formatCurrency(totals.outstanding)} EUR`}
+        value={`${formatMoney(totals.outstanding)} EUR`}
         color="amber"
       />
       <SummaryCard
         icon={<TrendingDown className="h-5 w-5 text-purple-600" />}
         label="Expenses Paid"
-        value={`${formatCurrency(totals.expensesPaid)} EUR`}
+        value={`${formatMoney(totals.expensesPaid)} EUR`}
         color="purple"
       />
       <SummaryCard
         icon={<TrendingDown className="h-5 w-5 text-rose-600" />}
         label="Expenses Outstanding"
-        value={`${formatCurrency(totals.expensesOutstanding)} EUR`}
+        value={`${formatMoney(totals.expensesOutstanding)} EUR`}
         color="rose"
       />
       <SummaryCard

@@ -10,10 +10,10 @@ import { ReceivedInvoiceRowActions } from './ReceivedInvoiceRowActions';
 import {
   STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
-  formatDate,
   supplierName,
   isOverdue,
 } from './utils';
+import { formatDate } from '@/lib/format';
 
 interface RowProps {
   item: ReceivedInvoiceListItem;

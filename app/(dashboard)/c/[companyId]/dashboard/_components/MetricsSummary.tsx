@@ -7,7 +7,7 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import { MetricCard } from './MetricCard';
-import { formatCurrency } from './utils';
+import { formatMoney } from '@/lib/format';
 import type { CompanyExpenseMetrics, CompanyMetrics } from './queries';
 
 interface Props {
@@ -23,13 +23,13 @@ export function MetricsSummary({ metrics, expenseMetrics, currency }: Props) {
         <MetricCard
           icon={<DollarSign className="h-5 w-5 text-green-600" />}
           label="Revenue"
-          value={`${formatCurrency(metrics.revenue)} ${currency}`}
+          value={`${formatMoney(metrics.revenue)} ${currency}`}
           color="green"
         />
         <MetricCard
           icon={<Clock className="h-5 w-5 text-amber-600" />}
           label="Outstanding"
-          value={`${formatCurrency(metrics.outstanding)} ${currency}`}
+          value={`${formatMoney(metrics.outstanding)} ${currency}`}
           color="amber"
         />
         <MetricCard
@@ -51,13 +51,13 @@ export function MetricsSummary({ metrics, expenseMetrics, currency }: Props) {
         <MetricCard
           icon={<TrendingDown className="h-5 w-5 text-purple-600" />}
           label="Expenses Paid"
-          value={`${formatCurrency(expenseMetrics.expensesPaid)} ${currency}`}
+          value={`${formatMoney(expenseMetrics.expensesPaid)} ${currency}`}
           color="purple"
         />
         <MetricCard
           icon={<TrendingDown className="h-5 w-5 text-rose-600" />}
           label="Expenses Outstanding"
-          value={`${formatCurrency(expenseMetrics.expensesOutstanding)} ${currency}`}
+          value={`${formatMoney(expenseMetrics.expensesOutstanding)} ${currency}`}
           color="rose"
         />
         <MetricCard

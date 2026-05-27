@@ -1,7 +1,7 @@
 import { AlertTriangle, Clock, TrendingDown } from 'lucide-react';
 import type { PaymentsOverview } from '@/src/features/received-invoices/actions';
 import { KpiCard } from './KpiCard';
-import { formatMoney } from './utils';
+import { formatMoney } from '@/lib/format';
 
 interface Props {
   totals: PaymentsOverview['totals'] | undefined;

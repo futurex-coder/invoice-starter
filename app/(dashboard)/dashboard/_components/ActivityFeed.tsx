@@ -3,7 +3,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Activity, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { ACTIVITY_LABELS, relativeTime } from './utils';
+import { formatActivityAction } from '@/lib/activity-labels';
+import { relativeTime } from '@/lib/format';
 import type { ActivityLog } from './types';
 
 interface Props {
@@ -58,7 +59,7 @@ export function ActivityFeed({ activity, onlyOwn, loading, showToggle, onToggle 
                   <p>
                     <span className="font-medium">{a.userName || 'Unknown'}</span>{' '}
                     <span className="text-muted-foreground">
-                      {ACTIVITY_LABELS[a.action] ?? a.action}
+                      {formatActivityAction(a.action)}
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">

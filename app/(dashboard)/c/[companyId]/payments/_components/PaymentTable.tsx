@@ -5,7 +5,7 @@ import { AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { PaymentRow } from '@/src/features/received-invoices/actions';
 import type { PaymentStatus } from '@/src/features/received-invoices/types';
-import { formatDate, formatMoney } from './utils';
+import { formatDate, formatMoney } from '@/lib/format';
 
 interface Props {
   rows: PaymentRow[];

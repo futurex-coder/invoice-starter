@@ -24,11 +24,11 @@ import {
 import { ActivityType } from '@/lib/db/schema';
 import { verifyCompanyAccess, getActivityLogs } from '@/lib/db/queries';
 import { requireUserOrRedirect } from '@/lib/auth/guards';
-
-const ACTIVITY_TYPE_VALUES: ReadonlySet<string> = new Set(Object.values(ActivityType));
-function isActivityType(value: string): value is ActivityType {
-  return ACTIVITY_TYPE_VALUES.has(value);
-}
+import {
+  ACTIVITY_LABELS,
+  isActivityType,
+} from '@/lib/activity-labels';
+import { relativeTime } from '@/lib/format';
 
 const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.SIGN_UP]: UserPlus,
@@ -59,78 +59,6 @@ const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: ArchiveRestore,
 };
 
-function getRelativeTime(date: Date) {
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffInSeconds < 60) return 'just now';
-  if (diffInSeconds < 3600)
-    return `${Math.floor(diffInSeconds / 60)} minutes ago`;
-  if (diffInSeconds < 86400)
-    return `${Math.floor(diffInSeconds / 3600)} hours ago`;
-  if (diffInSeconds < 604800)
-    return `${Math.floor(diffInSeconds / 86400)} days ago`;
-  return date.toLocaleDateString();
-}
-
-function formatAction(action: ActivityType): string {
-  switch (action) {
-    case ActivityType.SIGN_UP:
-      return 'Signed up';
-    case ActivityType.SIGN_IN:
-      return 'Signed in';
-    case ActivityType.SIGN_OUT:
-      return 'Signed out';
-    case ActivityType.UPDATE_PASSWORD:
-      return 'Changed password';
-    case ActivityType.DELETE_ACCOUNT:
-      return 'Deleted account';
-    case ActivityType.UPDATE_ACCOUNT:
-      return 'Updated account';
-    case ActivityType.CREATE_COMPANY:
-      return 'Created company';
-    case ActivityType.UPDATE_COMPANY:
-      return 'Updated company settings';
-    case ActivityType.DELETE_COMPANY:
-      return 'Deleted company';
-    case ActivityType.RESTORE_COMPANY:
-      return 'Restored company';
-    case ActivityType.TRANSFER_OWNERSHIP:
-      return 'Transferred ownership';
-    case ActivityType.REMOVE_MEMBER:
-      return 'Removed a member';
-    case ActivityType.INVITE_MEMBER:
-      return 'Invited a member';
-    case ActivityType.ACCEPT_INVITATION:
-      return 'Accepted an invitation';
-    case ActivityType.CREATE_INVOICE:
-      return 'Created an invoice';
-    case ActivityType.UPDATE_INVOICE:
-      return 'Updated an invoice';
-    case ActivityType.FINALIZE_INVOICE:
-      return 'Finalized an invoice';
-    case ActivityType.CANCEL_INVOICE:
-      return 'Cancelled an invoice';
-    case ActivityType.CREATE_CREDIT_NOTE:
-      return 'Created a credit note';
-    case ActivityType.CREATE_DEBIT_NOTE:
-      return 'Created a debit note';
-    case ActivityType.UPLOAD_RECEIVED_INVOICE:
-      return 'Uploaded a received invoice';
-    case ActivityType.UPDATE_RECEIVED_INVOICE:
-      return 'Updated a received invoice';
-    case ActivityType.CONFIRM_RECEIVED_INVOICE:
-      return 'Confirmed a received invoice';
-    case ActivityType.DISCARD_RECEIVED_INVOICE:
-      return 'Discarded a received invoice';
-    case ActivityType.ARCHIVE_RECEIVED_INVOICE:
-      return 'Archived a received invoice';
-    case ActivityType.UNARCHIVE_RECEIVED_INVOICE:
-      return 'Unarchived a received invoice';
-    default:
-      return 'Unknown action';
-  }
-}
 
 export default async function ActivityPage({
   params,
@@ -162,7 +90,7 @@ export default async function ActivityPage({
               {logs.map((log) => {
                 const action = isActivityType(log.action) ? log.action : null;
                 const Icon = action ? iconMap[action] : Settings;
-                const formattedAction = action ? formatAction(action) : log.action;
+                const formattedAction = action ? ACTIVITY_LABELS[action] : log.action;
 
                 return (
                   <li key={log.id} className="flex items-center space-x-4">
@@ -183,7 +111,7 @@ export default async function ActivityPage({
                         )}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {getRelativeTime(new Date(log.timestamp))}
+                        {relativeTime(new Date(log.timestamp))}
                       </p>
                     </div>
                   </li>

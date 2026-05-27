@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { ReceivedInvoice } from '@/lib/db/schema';
-import { formatDate } from './utils';
+import { formatDate } from '@/lib/format';
 
 interface Props {
   row: ReceivedInvoice;

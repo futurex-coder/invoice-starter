@@ -65,11 +65,6 @@ export interface DuplicateMatch {
   matchType: 'checksum' | 'fields';
 }
 
-export interface ActionResult<T = undefined> {
-  error?: string;
-  data?: T;
-}
-
 export interface UploadDraftResult {
   id: number;
   duplicates: DuplicateMatch[];

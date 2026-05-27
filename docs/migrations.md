@@ -47,11 +47,36 @@ Run it **once** against each environment that has the existing schema
 
 ## State table — what `db:setup` does
 
-| `public.users` | `drizzle.__drizzle_migrations` | Action |
-|---|---|---|
-| missing | missing | Apply all migrations (fresh install). |
-| present | missing | Baseline the journal. No SQL executed. |
-| present | present | Apply any pending migrations (no-op if up to date). |
+| `public.users` | `drizzle.__drizzle_migrations` | Hashes match | Action |
+|---|---|---|---|
+| missing | missing or empty | — | Apply all migrations (fresh install). |
+| present | missing or empty | — | Baseline the journal. No SQL executed. |
+| present | populated | all our migration hashes present | No-op (everything in sync). |
+| present | populated | journal is a subset of our migrations | Apply the pending migrations. |
+| present | populated | journal has hashes we don't recognize | **Refuse** — print instructions. Pass `--reset-journal` to truncate the orphans and reseed from the current migrations folder. |
+
+### When you'd use `--reset-journal`
+
+If you see something like:
+
+> ⚠️ Journal contains N entries that don't match any committed migration
+
+It means the DB's journal table records migrations whose SQL files no
+longer exist in `lib/db/migrations/`. This typically happens when:
+
+- A previous Drizzle migrations folder was deleted (e.g., during a
+  refactor that introduced this F2 baseline workflow).
+- A different migration tool was used previously.
+
+To reconcile:
+
+```bash
+npm run db:setup -- --reset-journal
+```
+
+This **TRUNCATEs `drizzle.__drizzle_migrations`** and re-seeds it with
+hashes from the current `lib/db/migrations/` folder. **Your data in
+`public.*` is not affected** — only the metadata table is rewritten.
 
 ## Supabase gotchas
 

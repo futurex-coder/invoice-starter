@@ -13,6 +13,7 @@ import {
   getActivityLogs,
 } from '@/lib/db/queries';
 import { requireUserOrRedirect } from '@/lib/auth/guards';
+import { PageShell } from '@/components/page-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -183,7 +184,7 @@ export default async function DebugPage() {
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8 max-w-4xl">
+    <PageShell maxWidth="4xl">
       <h1 className="text-2xl font-bold mb-1">Debug / Refactoring Checklist</h1>
       <p className="text-xs text-gray-400 mb-6">
         Development only — verifies the teams→companies refactoring.
@@ -377,7 +378,7 @@ export default async function DebugPage() {
           )}
         </div>
       )}
-    </section>
+    </PageShell>
   );
 }
 

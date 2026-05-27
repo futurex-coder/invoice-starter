@@ -35,6 +35,7 @@ import { ActionsBar } from './_components/ActionsBar';
 import { useInvoiceForm } from './_components/use-invoice-form';
 import { makeInitialFormState } from './_components/form-state';
 import { invoiceToFormState } from './_components/hydrate';
+import { PageShell } from '@/components/page-shell';
 
 function buildSupplierSnapshot(profile: Company): PartySnapshot {
   const address = [profile.street, [profile.postCode, profile.city].filter(Boolean).join(' '), profile.country].filter(Boolean).join(', ');
@@ -233,14 +234,14 @@ export default function NewInvoicePage() {
 
   if (loading) {
     return (
-      <section className="flex-1 p-4 lg:p-8 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-      </section>
+      </PageShell>
     );
   }
 
   return (
-    <section className="flex-1 p-4 lg:p-8 max-w-4xl mx-auto">
+    <PageShell maxWidth="4xl" className="mx-auto">
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" size="icon" asChild>
           <Link href={`/c/${companyId}/invoices`}>
@@ -336,6 +337,6 @@ export default function NewInvoicePage() {
         onPreview={handlePreview}
         onFinalize={handleFinalize}
       />
-    </section>
+    </PageShell>
   );
 }

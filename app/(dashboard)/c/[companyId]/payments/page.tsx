@@ -26,6 +26,7 @@ import {
   PaymentEmptyRow,
 } from './_components/PaymentSectionStates';
 import { isOverdue, ninetyDaysAgo } from './_components/utils';
+import { PageShell } from '@/components/page-shell';
 
 export default function PaymentsPage() {
   const params = useParams();
@@ -62,7 +63,7 @@ export default function PaymentsPage() {
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <div className="mb-6">
         <h1 className="flex items-center gap-2 text-lg font-medium lg:text-2xl">
           <CreditCard className="h-5 w-5" />
@@ -154,6 +155,6 @@ export default function PaymentsPage() {
           )}
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

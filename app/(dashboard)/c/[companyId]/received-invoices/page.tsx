@@ -31,6 +31,7 @@ import { Pagination } from '@/components/list-page/Pagination';
 import { ReceivedInvoiceFilters } from './_components/ReceivedInvoiceFilters';
 import { PendingReviewBanner } from './_components/PendingReviewBanner';
 import { ReceivedInvoicesTable } from './_components/ReceivedInvoicesTable';
+import { PageShell } from '@/components/page-shell';
 
 export default function ReceivedInvoicesPage() {
   const router = useRouter();
@@ -117,7 +118,7 @@ export default function ReceivedInvoicesPage() {
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-medium lg:text-2xl">
@@ -198,6 +199,6 @@ export default function ReceivedInvoicesPage() {
           )}
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

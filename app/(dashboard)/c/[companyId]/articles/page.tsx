@@ -24,6 +24,7 @@ import {
   type ArticleForm,
 } from './_components/ArticleForm';
 import { ArticlesTable } from './_components/ArticlesTable';
+import { PageShell } from '@/components/page-shell';
 
 function articleToForm(a: Article): ArticleForm {
   const rawType = a.type ?? 'service';
@@ -138,7 +139,7 @@ export default function ArticlesPage() {
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <ListPageHeader
         title="Articles"
         action={
@@ -190,6 +191,6 @@ export default function ArticlesPage() {
           onDelete={handleDelete}
         />
       </ListCard>
-    </section>
+    </PageShell>
   );
 }

@@ -19,6 +19,7 @@ import {
 } from './_components/InviteMemberForm';
 import { MembersTable } from './_components/MembersTable';
 import { PendingInvitationsTable } from './_components/PendingInvitationsTable';
+import { PageShell } from '@/components/page-shell';
 
 export default function MembersPage() {
   const { role } = useCompany();
@@ -88,9 +89,9 @@ export default function MembersPage() {
 
   if (loading) {
     return (
-      <section className="flex-1 p-4 lg:p-8 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-      </section>
+      </PageShell>
     );
   }
 
@@ -99,7 +100,7 @@ export default function MembersPage() {
   const isOwner = role === 'owner';
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <ListPageHeader
         title="Members"
         action={
@@ -144,6 +145,6 @@ export default function MembersPage() {
       />
 
       <PendingInvitationsTable invitations={pendingInvitations} />
-    </section>
+    </PageShell>
   );
 }

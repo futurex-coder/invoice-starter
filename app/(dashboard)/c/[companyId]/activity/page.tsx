@@ -32,6 +32,7 @@ import {
   isActivityType,
 } from '@/lib/activity-labels';
 import { relativeTime } from '@/lib/format';
+import { PageShell } from '@/components/page-shell';
 
 const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.SIGN_UP]: UserPlus,
@@ -85,7 +86,7 @@ export default async function ActivityPage({
   const logs = await getActivityLogs(companyId, { limit: 50 });
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
         Activity Log
       </h1>
@@ -141,6 +142,6 @@ export default async function ActivityPage({
           )}
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

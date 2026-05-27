@@ -29,6 +29,7 @@ import {
   profileToFormState,
   settingsFormReducer,
 } from './_components/form-state';
+import { PageShell } from '@/components/page-shell';
 
 export default function CompanySettingsPage() {
   const router = useRouter();
@@ -147,7 +148,7 @@ export default function CompanySettingsPage() {
 
   if (!canEditCompanySettings(role)) {
     return (
-      <section className="flex-1 p-4 lg:p-8">
+      <PageShell>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <ShieldAlert className="h-12 w-12 text-gray-400 mb-4" />
@@ -157,22 +158,22 @@ export default function CompanySettingsPage() {
             </p>
           </CardContent>
         </Card>
-      </section>
+      </PageShell>
     );
   }
 
   if (loading) {
     return (
-      <section className="flex-1 p-4 lg:p-8 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-      </section>
+      </PageShell>
     );
   }
 
   const otherMembers = members.filter((m) => m.role !== 'owner');
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <div className="flex items-center gap-3 mb-6">
         <Building2 className="h-6 w-6 text-primary" />
         <h1 className="text-lg lg:text-2xl font-medium">Company Settings</h1>
@@ -293,6 +294,6 @@ export default function CompanySettingsPage() {
           onConfirm={handleDelete}
         />
       )}
-    </section>
+    </PageShell>
   );
 }

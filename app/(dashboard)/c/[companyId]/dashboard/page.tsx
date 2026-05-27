@@ -19,6 +19,7 @@ import { ReceivedBreakdownCard } from './_components/ReceivedBreakdownCard';
 import { QuickLinksCard, type QuickLink } from './_components/QuickLinksCard';
 import { ActivityFeed } from './_components/ActivityFeed';
 import { getCompanyMetrics, getCompanyExpenseMetrics } from './_components/queries';
+import { PageShell } from '@/components/page-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,7 +108,7 @@ export default async function CompanyDashboardPage({
   ];
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <CompanyHeader
         legalName={company.legalName}
         eik={company.eik}
@@ -139,6 +140,6 @@ export default async function CompanyDashboardPage({
       </div>
 
       <ActivityFeed activity={activity} />
-    </section>
+    </PageShell>
   );
 }

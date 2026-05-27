@@ -25,6 +25,7 @@ import {
   type PartnerForm,
 } from './_components/PartnerForm';
 import { PartnersTable } from './_components/PartnersTable';
+import { PageShell } from '@/components/page-shell';
 
 function partnerToForm(p: Partner): PartnerForm {
   return {
@@ -209,7 +210,7 @@ export default function PartnersPage() {
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <ListPageHeader
         title="Partners"
         action={
@@ -265,6 +266,6 @@ export default function PartnersPage() {
           onDelete={handleDelete}
         />
       </ListCard>
-    </section>
+    </PageShell>
   );
 }

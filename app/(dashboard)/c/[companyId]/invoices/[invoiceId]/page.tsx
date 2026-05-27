@@ -22,6 +22,7 @@ import type { SafeUser } from '@/lib/db/schema';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
 import { requireStringParam } from '@/lib/route-params';
 import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
+import { PageShell } from '@/components/page-shell';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -89,20 +90,20 @@ export default function InvoiceDetailPage() {
 
   if (loading) {
     return (
-      <section className="flex-1 p-4 lg:p-8 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-      </section>
+      </PageShell>
     );
   }
 
   if (error || !invoice) {
     return (
-      <section className="flex-1 p-4 lg:p-8">
+      <PageShell>
         <p className="text-red-600">{error ?? 'Invoice not found'}</p>
         <Button variant="outline" className="mt-4" asChild>
           <Link href={`/c/${companyId}/invoices`}>Back to list</Link>
         </Button>
-      </section>
+      </PageShell>
     );
   }
 
@@ -129,7 +130,7 @@ export default function InvoiceDetailPage() {
   }
 
   return (
-    <section className="flex-1 p-4 lg:p-8 max-w-4xl mx-auto">
+    <PageShell maxWidth="4xl" className="mx-auto">
       <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
@@ -279,6 +280,6 @@ export default function InvoiceDetailPage() {
           </div>
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

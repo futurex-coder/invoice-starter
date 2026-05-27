@@ -27,6 +27,7 @@ import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { ReviewHeader } from './_components/ReviewHeader';
 import { DuplicatesWarning } from './_components/DuplicatesWarning';
 import { rowToReviewInput } from './_components/rowToReviewInput';
+import { PageShell } from '@/components/page-shell';
 
 export default function ReviewReceivedInvoicePage() {
   const router = useRouter();
@@ -107,7 +108,7 @@ export default function ReviewReceivedInvoicePage() {
 
   if (fetchError || !state) {
     return (
-      <section className="flex-1 p-4 lg:p-8">
+      <PageShell>
         <ErrorAlert
           message={fetchError ? fetchError.message : 'Could not load invoice'}
           className="mb-4"
@@ -115,7 +116,7 @@ export default function ReviewReceivedInvoicePage() {
         <Button variant="outline" asChild>
           <Link href={`/c/${companyId}/received-invoices`}>← Back to list</Link>
         </Button>
-      </section>
+      </PageShell>
     );
   }
 

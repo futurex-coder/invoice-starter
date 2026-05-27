@@ -20,6 +20,7 @@ import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
 import { InvoiceFilters } from './_components/InvoiceFilters';
 import { InvoicesTable } from './_components/InvoicesTable';
+import { PageShell } from '@/components/page-shell';
 
 export default function InvoicesPage() {
   const router = useRouter();
@@ -69,7 +70,7 @@ export default function InvoicesPage() {
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <ListPageHeader
         title="Invoices"
         action={
@@ -116,6 +117,6 @@ export default function InvoicesPage() {
           onDebitNote={handleDebitNote}
         />
       </ListCard>
-    </section>
+    </PageShell>
   );
 }

@@ -10,6 +10,7 @@ import { updateAccount } from '@/app/(login)/actions';
 import type { SafeUser } from '@/lib/db/schema';
 import useSWR from 'swr';
 import { Suspense } from 'react';
+import { PageShell } from '@/components/page-shell';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -79,7 +80,7 @@ export default function GeneralPage() {
   );
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
         General Settings
       </h1>
@@ -116,6 +117,6 @@ export default function GeneralPage() {
           </form>
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

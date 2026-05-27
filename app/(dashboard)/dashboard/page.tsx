@@ -17,6 +17,7 @@ import { ActivityFeed } from './_components/ActivityFeed';
 import { DeletedCompaniesCard } from './_components/DeletedCompaniesCard';
 import { ManageSubscription } from './_components/ManageSubscription';
 import { EmptyDashboard } from './_components/EmptyDashboard';
+import { PageShell } from '@/components/page-shell';
 
 const EMPTY_TOTALS = {
   revenue: 0,
@@ -71,9 +72,9 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <section className="flex-1 p-4 lg:p-8 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-      </section>
+      </PageShell>
     );
   }
 
@@ -82,7 +83,7 @@ export default function DashboardPage() {
 
   if (companies.length === 0) {
     return (
-      <section className="flex-1 p-4 lg:p-8">
+      <PageShell>
         <h1 className="text-lg lg:text-2xl font-medium mb-6">Dashboard</h1>
         <EmptyDashboard />
         <DeletedCompaniesCard
@@ -94,12 +95,12 @@ export default function DashboardPage() {
         <div className="mt-6">
           <ManageSubscription />
         </div>
-      </section>
+      </PageShell>
     );
   }
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-lg lg:text-2xl font-medium">Dashboard</h1>
         <Button
@@ -154,6 +155,6 @@ export default function DashboardPage() {
       />
 
       <ManageSubscription />
-    </section>
+    </PageShell>
   );
 }

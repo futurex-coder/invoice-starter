@@ -24,7 +24,7 @@ import {
 import { ReviewForm } from '@/components/received-invoices/ReviewForm';
 import { PreviewPane } from '@/components/received-invoices/PreviewPane';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
-import { Alert } from '@/components/ui/alert';
+import { toast } from '@/lib/toast';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ReviewHeader } from './_components/ReviewHeader';
 import { DuplicatesWarning } from './_components/DuplicatesWarning';
@@ -46,7 +46,6 @@ export default function ReviewReceivedInvoicePage() {
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
   const error = actionError ?? (fetchError ? fetchError.message : null);
@@ -63,7 +62,6 @@ export default function ReviewReceivedInvoicePage() {
 
   const handleSaveDraft = async (patch: ReceivedInvoiceReviewInput) => {
     setSaving(true);
-    setActionMessage(null);
     setActionError(null);
     const res = await updateReceivedInvoiceDraft(id, patch);
     setSaving(false);
@@ -72,12 +70,11 @@ export default function ReviewReceivedInvoicePage() {
       return;
     }
     setDuplicates(res.data?.duplicates ?? []);
-    setActionMessage('Draft saved.');
+    toast.success('Draft saved.');
   };
 
   const handleConfirm = async (patch: ReceivedInvoiceReviewInput) => {
     setSaving(true);
-    setActionMessage(null);
     setActionError(null);
     const res = await confirmReceivedInvoice(id, patch);
     setSaving(false);
@@ -151,11 +148,6 @@ export default function ReviewReceivedInvoicePage() {
       />
 
       <ErrorAlert message={error} className="mb-4" />
-      {actionMessage && (
-        <Alert variant="success" className="mb-4">
-          {actionMessage}
-        </Alert>
-      )}
       <DuplicatesWarning duplicates={duplicates} companyId={companyId} />
 
       <div className="grid gap-6 lg:grid-cols-2">

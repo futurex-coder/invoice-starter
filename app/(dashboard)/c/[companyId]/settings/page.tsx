@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useReducer, useCallback } from 'react';
+import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -50,7 +51,6 @@ export default function CompanySettingsPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -81,7 +81,6 @@ export default function CompanySettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    setSuccess(null);
 
     const input: UpsertCompanyProfileInput = {
       legalName: form.legalName,
@@ -111,7 +110,7 @@ export default function CompanySettingsPage() {
 
     if (res.data) {
       mutateProfile(res.data, { revalidate: false });
-      setSuccess('Company profile saved successfully.');
+      toast.success('Company profile saved successfully.');
     }
   };
 
@@ -193,12 +192,6 @@ export default function CompanySettingsPage() {
           {error}
         </Alert>
       )}
-      {success && (
-        <Alert variant="success" className="mb-4">
-          {success}
-        </Alert>
-      )}
-
       <IdentityCard
         legalName={form.legalName}
         onLegalNameChange={(v) => updateForm({ legalName: v })}

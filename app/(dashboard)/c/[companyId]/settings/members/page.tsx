@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { getCompanyMembersAction } from '@/src/features/invoicing/actions';
 import {
@@ -14,7 +15,6 @@ import { ListPageHeader } from '@/components/list-page/ListPageHeader';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Loader2, UserPlus } from 'lucide-react';
-import { Alert } from '@/components/ui/alert';
 import {
   InviteMemberForm,
   type InviteRole,
@@ -34,7 +34,6 @@ export default function MembersPage() {
   } = useActionSWR('companyMembers', getCompanyMembersAction);
 
   const [actionError, setActionError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const error = actionError ?? (fetchError ? fetchError.message : null);
 
   // Invite form state
@@ -51,7 +50,6 @@ export default function MembersPage() {
     if (!inviteEmail.trim()) return;
     setInviting(true);
     setActionError(null);
-    setSuccess(null);
 
     const formData = new FormData();
     formData.set('email', inviteEmail.trim());
@@ -64,7 +62,7 @@ export default function MembersPage() {
       setActionError(res.error);
       return;
     }
-    setSuccess('Invitation sent successfully');
+    toast.success('Invitation sent successfully');
     setInviteEmail('');
     setShowInvite(false);
     refetch();
@@ -74,7 +72,6 @@ export default function MembersPage() {
     if (!confirmRemove) return;
     setRemovingId(confirmRemove.id);
     setActionError(null);
-    setSuccess(null);
 
     const formData = new FormData();
     formData.set('memberId', String(confirmRemove.id));
@@ -86,7 +83,7 @@ export default function MembersPage() {
       setActionError(res.error);
       throw new Error(res.error);
     }
-    setSuccess('Member removed');
+    toast.success('Member removed');
     refetch();
   };
 
@@ -120,11 +117,6 @@ export default function MembersPage() {
       />
 
       <ErrorAlert message={error} className="mb-4" />
-      {success && (
-        <Alert variant="success" className="mb-4">
-          {success}
-        </Alert>
-      )}
 
       {showInvite && (
         <InviteMemberForm

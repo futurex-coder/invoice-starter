@@ -337,6 +337,16 @@ function mergeExtractions(
 ): ExtractedInvoice {
   const out: ExtractedInvoice = { ...second };
 
+  // Generic helper — binds K on both sides so TS can prove `src[key]` is
+  // assignable to `dest[key]`. Replaces a former double-cast workaround.
+  function copyField<K extends CriticalFieldKey>(
+    dest: ExtractedInvoice,
+    src: ExtractedInvoice,
+    key: K
+  ): void {
+    dest[key] = src[key];
+  }
+
   for (const key of fieldsToConsider) {
     const a = first[key];
     const b = second[key];
@@ -345,10 +355,7 @@ function mergeExtractions(
     const rankB = CONFIDENCE_RANK[b.confidence] ?? 0;
     if (rankA > rankB) {
       // Keep first pass for this field.
-      // (TS has trouble with the dynamic key + union type, but this is safe
-      // because we're assigning the same field key.)
-      const target = out as unknown as Record<CriticalFieldKey, typeof a>;
-      target[key] = a;
+      copyField(out, first, key);
     }
   }
 

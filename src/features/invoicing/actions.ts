@@ -182,7 +182,7 @@ export async function createPartner(
           postCode: data.postCode ?? null,
           mol: data.mol ?? null,
           linkedCompanyId: data.linkedCompanyId ?? null,
-        } as NewPartner)
+        } satisfies NewPartner)
         .returning();
     } catch (e) {
       if (isUniqueViolation(e)) {
@@ -340,7 +340,7 @@ export async function createArticle(
         defaultUnitPrice: String(data.defaultUnitPrice),
         currency: data.currency,
         type: data.type ?? null,
-      } as NewArticle)
+      } satisfies NewArticle)
       .returning();
 
     if (!created) throw new Error('Failed to create article');

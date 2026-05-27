@@ -10,6 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 
 export type InviteRole = 'owner' | 'accountant';
@@ -63,17 +70,20 @@ export function InviteMemberForm({
             </div>
             <div>
               <Label htmlFor="invRole">Role</Label>
-              <select
-                id="invRole"
-                className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+              <Select
                 value={role}
-                onChange={(e) => {
-                  if (isInviteRole(e.target.value)) onRoleChange(e.target.value);
+                onValueChange={(v) => {
+                  if (isInviteRole(v)) onRoleChange(v);
                 }}
               >
-                <option value="accountant">Accountant</option>
-                {showOwnerOption && <option value="owner">Owner</option>}
-              </select>
+                <SelectTrigger id="invRole" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="accountant">Accountant</SelectItem>
+                  {showOwnerOption && <SelectItem value="owner">Owner</SelectItem>}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex gap-2">

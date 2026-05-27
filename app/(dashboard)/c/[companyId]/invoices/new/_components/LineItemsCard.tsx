@@ -5,6 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { calculateInvoice } from '@/src/features/bulgarian-invoicing';
 import type { BgVatRate } from '@/src/features/bulgarian-invoicing/types';
 import type { Article } from '@/lib/db/schema';
@@ -98,12 +105,14 @@ export function LineItemsCard({
                   <tr key={i} className="border-b">
                     <td className="py-1">
                       <div className="space-y-1">
-                        <select
-                          className="w-full max-w-[200px] h-8 rounded border px-2 text-sm"
-                          value={line.articleId ? String(line.articleId) : ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const art = articles.find((a) => a.id === Number(val));
+                        <Select
+                          value={line.articleId ? String(line.articleId) : '__none__'}
+                          onValueChange={(v) => {
+                            if (v === '__none__') {
+                              onUpdateLine(i, { articleId: null });
+                              return;
+                            }
+                            const art = articles.find((a) => a.id === Number(v));
                             if (art) {
                               onUpdateLine(i, {
                                 articleId: art.id,
@@ -116,13 +125,18 @@ export function LineItemsCard({
                             }
                           }}
                         >
-                          <option value="">From article...</option>
-                          {articles.map((a) => (
-                            <option key={a.id} value={String(a.id)}>
-                              {a.name}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="h-8 w-full max-w-[200px]">
+                            <SelectValue placeholder="From article..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none__">From article...</SelectItem>
+                            {articles.map((a) => (
+                              <SelectItem key={a.id} value={String(a.id)}>
+                                {a.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <Input
                           className="max-w-[200px]"
                           placeholder="Description *"

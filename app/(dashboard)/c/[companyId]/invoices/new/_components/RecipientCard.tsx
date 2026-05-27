@@ -4,6 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { Partner } from '@/lib/db/schema';
 import type { RecipientForm } from './types';
 
@@ -30,18 +37,24 @@ export function RecipientCard({
       <CardContent className="space-y-4">
         <div>
           <Label>Select partner (optional)</Label>
-          <select
-            className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-            value={selectedPartnerId}
-            onChange={(e) => onPartnerSelect(e.target.value ? Number(e.target.value) : '')}
+          <Select
+            value={selectedPartnerId === '' ? '__manual__' : String(selectedPartnerId)}
+            onValueChange={(v) =>
+              onPartnerSelect(v === '__manual__' ? '' : Number(v))
+            }
           >
-            <option value="">— Manual entry —</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.eik})
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__manual__">— Manual entry —</SelectItem>
+              {partners.map((p) => (
+                <SelectItem key={p.id} value={String(p.id)}>
+                  {p.name} ({p.eik})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

@@ -10,6 +10,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   CURRENCIES,
   PAYMENT_METHODS,
   isPaymentMethod,
@@ -43,17 +50,21 @@ export function InvoiceDefaultsCard({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <Label>Default currency</Label>
-            <select
-              className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            <Select
               value={defaultCurrency}
-              onChange={(e) => onDefaultCurrencyChange(e.target.value)}
+              onValueChange={onDefaultCurrencyChange}
             >
-              {CURRENCIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label htmlFor="defaultVatRate">Default VAT rate (%)</Label>
@@ -68,20 +79,23 @@ export function InvoiceDefaultsCard({
           </div>
           <div>
             <Label>Default payment method</Label>
-            <select
-              className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            <Select
               value={defaultPaymentMethod}
-              onChange={(e) => {
-                const v = e.target.value;
+              onValueChange={(v) => {
                 if (isPaymentMethod(v)) onDefaultPaymentMethodChange(v);
               }}
             >
-              {PAYMENT_METHODS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAYMENT_METHODS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </CardContent>

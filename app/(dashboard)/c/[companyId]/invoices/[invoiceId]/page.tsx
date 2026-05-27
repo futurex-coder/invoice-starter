@@ -11,6 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { getInvoice, finalizeInvoice, cancelInvoice, updateInvoicePaymentInfo } from '@/src/features/bulgarian-invoicing/actions';
 import { formatDocTypeLabel, formatInvoiceNumber, formatDateBg, formatMoney } from '@/src/features/bulgarian-invoicing/formatter';
 import {
@@ -220,23 +227,27 @@ export default function InvoiceDetailPage() {
           <div className="flex justify-between items-center">
             <span className="text-gray-600">Payment status</span>
             {!isCancelled ? (
-              <select
-                className="h-8 rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+              <Select
                 value={invoice.paymentStatus ?? 'unpaid'}
                 disabled={actionLoading}
-                onChange={async (e) => {
+                onValueChange={async (v) => {
                   setActionLoading(true);
                   setError(null);
-                  const res = await updateInvoicePaymentInfo(id, { paymentStatus: e.target.value });
+                  const res = await updateInvoicePaymentInfo(id, { paymentStatus: v });
                   setActionLoading(false);
                   if (res.error) setError(res.error);
                   else if (res.data) setInvoice(res.data);
                 }}
               >
-                <option value="unpaid">Unpaid</option>
-                <option value="partial">Partial</option>
-                <option value="paid">Paid</option>
-              </select>
+                <SelectTrigger className="h-8 w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unpaid">Unpaid</SelectItem>
+                  <SelectItem value="partial">Partial</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectContent>
+              </Select>
             ) : (
               <span>{invoice.paymentStatus}</span>
             )}

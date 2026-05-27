@@ -4,6 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { Company } from '@/lib/db/schema';
 import { isPaymentMethod } from '@/src/features/bulgarian-invoicing/parsers';
 import { PAYMENT_METHODS, type PaymentMethod } from './types';
@@ -70,15 +77,16 @@ export function PaymentCard({
           </div>
           <div>
             <Label>Payment status</Label>
-            <select
-              className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-              value={paymentStatus}
-              onChange={(e) => onPaymentStatusChange(e.target.value)}
-            >
-              <option value="unpaid">Unpaid</option>
-              <option value="partial">Partial</option>
-              <option value="paid">Paid</option>
-            </select>
+            <Select value={paymentStatus} onValueChange={onPaymentStatusChange}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
+                <SelectItem value="partial">Partial</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </CardContent>

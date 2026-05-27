@@ -3,13 +3,13 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import { companies } from '@/lib/db/schema';
 import {
-  getUser,
   verifyCompanyAccess,
   getPartnersForCompany,
   getArticlesForCompany,
   getActivityLogs,
   getNextInvoiceNumber,
 } from '@/lib/db/queries';
+import { requireUserOrRedirect } from '@/lib/auth/guards';
 import { FileText, Handshake, Inbox, Package, Settings } from 'lucide-react';
 import { CompanyHeader } from './_components/CompanyHeader';
 import { PendingReviewBanner } from './_components/PendingReviewBanner';
@@ -30,8 +30,7 @@ export default async function CompanyDashboardPage({
   const { companyId: companyIdStr } = await params;
   const companyId = Number(companyIdStr);
 
-  const user = await getUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireUserOrRedirect();
 
   const membership = await verifyCompanyAccess(user.id, companyId);
   if (!membership) redirect('/dashboard');

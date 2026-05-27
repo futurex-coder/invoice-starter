@@ -14,7 +14,9 @@ import {
   type Invoice,
   type NewInvoice,
 } from '@/lib/db/schema';
-import { getUser, getActiveCompanyId, verifyCompanyAccess, getNextInvoiceNumber } from '@/lib/db/queries';
+import { getNextInvoiceNumber } from '@/lib/db/queries';
+import { action, failWith, type ActionResult } from '@/lib/actions/result';
+import { requireCompanyAccess } from '@/lib/auth/guards';
 import { calculateInvoice } from './calculator';
 import { validateInvoice } from './validator';
 import { formatInvoiceNumber, amountInWordsBg } from './formatter';
@@ -28,6 +30,7 @@ import type {
   InvoiceDocument,
   InvoiceTotals,
   LineItem,
+  ValidationError as DomainValidationIssue,
 } from './types';
 import { parseInvoiceRow, parseInvoiceLineRow } from './parsers';
 import type { ParsedInvoice, ParsedInvoiceLine } from './parsed-types';
@@ -35,12 +38,6 @@ import type { ParsedInvoice, ParsedInvoiceLine } from './parsed-types';
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-interface ActionResult<T = undefined> {
-  error?: string;
-  validationErrors?: { code: string; field: string; message: string }[];
-  data?: T;
-}
 
 function isDocType(v: string): v is DocType {
   return (DOC_TYPES as readonly string[]).includes(v);
@@ -139,20 +136,40 @@ interface ListInvoicesResult {
 }
 
 // ---------------------------------------------------------------------------
-// Auth helpers
+// Domain validation bridge
+//
+// `validateInvoice()` is a domain-specific validator (not Zod) — it returns
+// field-level errors that must surface in `validationErrors`. The canonical
+// `action()` wrapper only converts ZodError automatically, so we use a small
+// sentinel: throw `DomainValidationError(issues)` inside the action body, then
+// `runWithDomainValidation()` converts a top-level error message matching the
+// sentinel back into the canonical `failWith(issues)` shape.
 // ---------------------------------------------------------------------------
 
-async function requireCompanyAccess() {
-  const user = await getUser();
-  if (!user) throw new Error('Not authenticated');
+class DomainValidationError extends Error {
+  readonly issues: DomainValidationIssue[];
+  constructor(issues: DomainValidationIssue[]) {
+    super('Validation failed');
+    this.name = 'DomainValidationError';
+    this.issues = issues;
+  }
+}
 
-  const companyId = await getActiveCompanyId();
-  if (!companyId) throw new Error('No active company selected');
-
-  const membership = await verifyCompanyAccess(user.id, companyId);
-  if (!membership) throw new Error('No access to this company');
-
-  return { user, companyId, role: membership.role };
+async function runWithDomainValidation<T>(
+  fn: () => Promise<T>
+): Promise<ActionResult<T>> {
+  try {
+    const data = await fn();
+    return { data };
+  } catch (e) {
+    if (e instanceof DomainValidationError) {
+      return failWith(e.issues);
+    }
+    // Delegate to `action()`'s error handling by re-running through it.
+    return action(async () => {
+      throw e;
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -395,14 +412,14 @@ function rowToDocument(row: Invoice): InvoiceDocument {
 export async function createInvoiceDraft(
   input: CreateInvoiceDraftInput
 ): Promise<ActionResult<ParsedInvoice>> {
-  try {
+  return runWithDomainValidation(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const profile = await getSupplierProfile(companyId);
     let supplier = input.supplier;
     if (!supplier) {
       if (!profile) {
-        return { error: 'Company profile (Supplier) is required. Please complete it in Settings.' };
+        throw new Error('Company profile (Supplier) is required. Please complete it in Settings.');
       }
       supplier = profileToSnapshot(profile);
     }
@@ -436,7 +453,7 @@ export async function createInvoiceDraft(
 
     const vr = validateInvoice(doc);
     if (!vr.valid) {
-      return { error: 'Validation failed', validationErrors: vr.errors };
+      throw new DomainValidationError(vr.errors);
     }
 
     if (input.referencedInvoiceId) {
@@ -451,7 +468,7 @@ export async function createInvoiceDraft(
         )
         .limit(1);
       if (!ref) {
-        return { error: 'Referenced invoice not found in this company' };
+        throw new Error('Referenced invoice not found in this company');
       }
     }
 
@@ -512,11 +529,8 @@ export async function createInvoiceDraft(
       return row;
     });
 
-    return { data: parseInvoiceRow(created) };
-  } catch (error) {
-    console.error('createInvoiceDraft error:', error);
-    return { error: error instanceof Error ? error.message : 'Unexpected error' };
-  }
+    return parseInvoiceRow(created);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -527,7 +541,7 @@ export async function updateInvoiceDraft(
   invoiceId: number,
   input: UpdateInvoiceDraftInput
 ): Promise<ActionResult<ParsedInvoice>> {
-  try {
+  return runWithDomainValidation(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
@@ -537,10 +551,10 @@ export async function updateInvoiceDraft(
       .limit(1);
 
     if (!existing) {
-      return { error: 'Invoice not found' };
+      throw new Error('Invoice not found');
     }
     if (existing.status !== 'draft') {
-      return { error: 'Only draft invoices can be updated' };
+      throw new Error('Only draft invoices can be updated');
     }
 
     // TODO: replace with Zod schema parse once JSONB column schemas are defined
@@ -579,7 +593,7 @@ export async function updateInvoiceDraft(
 
     const vr = validateInvoice(doc);
     if (!vr.valid) {
-      return { error: 'Validation failed', validationErrors: vr.errors };
+      throw new DomainValidationError(vr.errors);
     }
 
     if (input.referencedInvoiceId !== undefined && input.referencedInvoiceId !== null) {
@@ -594,7 +608,7 @@ export async function updateInvoiceDraft(
         )
         .limit(1);
       if (!ref) {
-        return { error: 'Referenced invoice not found in this company' };
+        throw new Error('Referenced invoice not found in this company');
       }
     }
 
@@ -651,11 +665,8 @@ export async function updateInvoiceDraft(
 
     await logInvoiceActivity(companyId, user.id, ActivityType.UPDATE_INVOICE);
 
-    return { data: parseInvoiceRow(updated) };
-  } catch (error) {
-    console.error('updateInvoiceDraft error:', error);
-    return { error: error instanceof Error ? error.message : 'Unexpected error' };
-  }
+    return parseInvoiceRow(updated);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -665,7 +676,7 @@ export async function updateInvoiceDraft(
 export async function finalizeInvoice(
   invoiceId: number
 ): Promise<ActionResult<ParsedInvoice>> {
-  try {
+  return runWithDomainValidation(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
@@ -675,15 +686,15 @@ export async function finalizeInvoice(
       .limit(1);
 
     if (!existing) {
-      return { error: 'Invoice not found' };
+      throw new Error('Invoice not found');
     }
     if (!isDomainStatus(existing.status) || !canTransition(existing.status, 'finalized')) {
-      return { error: `Cannot finalize invoice with status "${existing.status}"` };
+      throw new Error(`Cannot finalize invoice with status "${existing.status}"`);
     }
 
     // Credit/debit notes must reference an original
     if (isDocType(existing.docType) && requiresReference(existing.docType) && !existing.referencedInvoiceId) {
-      return { error: `${existing.docType} must reference an original invoice` };
+      throw new Error(`${existing.docType} must reference an original invoice`);
     }
 
     const preDoc: InvoiceDocument = {
@@ -692,7 +703,7 @@ export async function finalizeInvoice(
     };
     const vr = validateInvoice(preDoc);
     if (!vr.valid) {
-      return { error: 'Validation failed', validationErrors: vr.errors };
+      throw new DomainValidationError(vr.errors);
     }
 
     // TODO: replace with Zod schema parse once JSONB column schemas are defined
@@ -719,16 +730,13 @@ export async function finalizeInvoice(
       .returning();
 
     if (!finalized) {
-      return { error: 'Failed to finalize — invoice may have been modified concurrently' };
+      throw new Error('Failed to finalize — invoice may have been modified concurrently');
     }
 
     await logInvoiceActivity(companyId, user.id, ActivityType.FINALIZE_INVOICE);
 
-    return { data: parseInvoiceRow(finalized) };
-  } catch (error) {
-    console.error('finalizeInvoice error:', error);
-    return { error: error instanceof Error ? error.message : 'Unexpected error' };
-  }
+    return parseInvoiceRow(finalized);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -739,7 +747,7 @@ export async function cancelInvoice(
   invoiceId: number,
   reason?: string
 ): Promise<ActionResult<ParsedInvoice>> {
-  try {
+  return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
@@ -749,10 +757,10 @@ export async function cancelInvoice(
       .limit(1);
 
     if (!existing) {
-      return { error: 'Invoice not found' };
+      throw new Error('Invoice not found');
     }
     if (!isDomainStatus(existing.status) || !canTransition(existing.status, 'cancelled')) {
-      return { error: `Cannot cancel invoice with status "${existing.status}"` };
+      throw new Error(`Cannot cancel invoice with status "${existing.status}"`);
     }
 
     const [cancelled] = await db
@@ -772,11 +780,8 @@ export async function cancelInvoice(
       ipAddress: '',
     });
 
-    return { data: parseInvoiceRow(cancelled) };
-  } catch (error) {
-    console.error('cancelInvoice error:', error);
-    return { error: error instanceof Error ? error.message : 'Unexpected error' };
-  }
+    return parseInvoiceRow(cancelled);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -789,7 +794,7 @@ export async function updateInvoicePaymentInfo(
   invoiceId: number,
   input: { paymentStatus?: string; dueDate?: string | null }
 ): Promise<ActionResult<ParsedInvoice>> {
-  try {
+  return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
@@ -799,17 +804,17 @@ export async function updateInvoicePaymentInfo(
       .limit(1);
 
     if (!existing) {
-      return { error: 'Invoice not found' };
+      throw new Error('Invoice not found');
     }
     if (existing.status === 'cancelled') {
-      return { error: 'Cannot update a cancelled invoice' };
+      throw new Error('Cannot update a cancelled invoice');
     }
 
     const patch: Record<string, unknown> = { updatedAt: new Date() };
 
     if (input.paymentStatus !== undefined) {
       if (!(VALID_PAYMENT_STATUSES as readonly string[]).includes(input.paymentStatus)) {
-        return { error: `Invalid payment status: ${input.paymentStatus}` };
+        throw new Error(`Invalid payment status: ${input.paymentStatus}`);
       }
       patch.paymentStatus = input.paymentStatus;
     }
@@ -830,11 +835,8 @@ export async function updateInvoicePaymentInfo(
       ipAddress: '',
     });
 
-    return { data: parseInvoiceRow(updated) };
-  } catch (error) {
-    console.error('updateInvoicePaymentInfo error:', error);
-    return { error: error instanceof Error ? error.message : 'Unexpected error' };
-  }
+    return parseInvoiceRow(updated);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -868,7 +870,7 @@ async function createNoteFromInvoice(
   originalInvoiceId: number,
   overrides?: NoteOverrides
 ): Promise<ActionResult<ParsedInvoice>> {
-  try {
+  return runWithDomainValidation(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const [original] = await db
@@ -878,10 +880,10 @@ async function createNoteFromInvoice(
       .limit(1);
 
     if (!original) {
-      return { error: 'Original invoice not found' };
+      throw new Error('Original invoice not found');
     }
     if (original.status !== InvoiceStatus.FINALIZED) {
-      return { error: 'Can only create notes against finalized invoices' };
+      throw new Error('Can only create notes against finalized invoices');
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -947,7 +949,7 @@ async function createNoteFromInvoice(
 
     const vr = validateInvoice(doc);
     if (!vr.valid) {
-      return { error: 'Validation failed', validationErrors: vr.errors };
+      throw new DomainValidationError(vr.errors);
     }
 
     const activityType = noteType === 'credit_note'
@@ -1003,11 +1005,8 @@ async function createNoteFromInvoice(
       return created;
     });
 
-    return { data: parseInvoiceRow(result) };
-  } catch (error) {
-    console.error('createNoteFromInvoice error:', error);
-    return { error: error instanceof Error ? error.message : 'Unexpected error' };
-  }
+    return parseInvoiceRow(result);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1017,19 +1016,21 @@ async function createNoteFromInvoice(
 export async function getInvoice(
   invoiceId: number
 ): Promise<ActionResult<ParsedInvoice>> {
-  const { companyId } = await requireCompanyAccess();
+  return action(async () => {
+    const { companyId } = await requireCompanyAccess();
 
-  const [row] = await db
-    .select()
-    .from(invoices)
-    .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
-    .limit(1);
+    const [row] = await db
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
+      .limit(1);
 
-  if (!row) {
-    return { error: 'Invoice not found' };
-  }
+    if (!row) {
+      throw new Error('Invoice not found');
+    }
 
-  return { data: parseInvoiceRow(row) };
+    return parseInvoiceRow(row);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1039,7 +1040,7 @@ export async function getInvoice(
 export async function getInvoiceLines(
   invoiceId: number
 ): Promise<ActionResult<ParsedInvoiceLine[]>> {
-  try {
+  return action(async () => {
     const { companyId } = await requireCompanyAccess();
     const [row] = await db
       .select({ id: invoices.id })
@@ -1048,7 +1049,7 @@ export async function getInvoiceLines(
       .limit(1);
 
     if (!row) {
-      return { error: 'Invoice not found' };
+      throw new Error('Invoice not found');
     }
 
     const lines = await db
@@ -1057,11 +1058,8 @@ export async function getInvoiceLines(
       .where(eq(invoiceLines.invoiceId, invoiceId))
       .orderBy(invoiceLines.sortOrder);
 
-    return { data: lines.map(parseInvoiceLineRow) };
-  } catch (error) {
-    console.error('getInvoiceLines error:', error);
-    return { error: error instanceof Error ? error.message : 'Unexpected error' };
-  }
+    return lines.map(parseInvoiceLineRow);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1071,63 +1069,63 @@ export async function getInvoiceLines(
 export async function listInvoices(
   filters: ListInvoicesFilters = {}
 ): Promise<ActionResult<ListInvoicesResult>> {
-  const { companyId } = await requireCompanyAccess();
+  return action(async () => {
+    const { companyId } = await requireCompanyAccess();
 
-  const page = filters.page ?? 1;
-  const pageSize = Math.min(filters.pageSize ?? 20, 100);
-  const offset = (page - 1) * pageSize;
+    const page = filters.page ?? 1;
+    const pageSize = Math.min(filters.pageSize ?? 20, 100);
+    const offset = (page - 1) * pageSize;
 
-  const conditions = [eq(invoices.companyId, companyId)];
+    const conditions = [eq(invoices.companyId, companyId)];
 
-  if (filters.status) {
-    conditions.push(eq(invoices.status, filters.status));
-  }
-  if (filters.docType) {
-    conditions.push(eq(invoices.docType, filters.docType));
-  }
-  if (filters.paymentStatus) {
-    conditions.push(eq(invoices.paymentStatus, filters.paymentStatus));
-  }
-  if (filters.dateFrom) {
-    conditions.push(gte(invoices.issueDate, filters.dateFrom));
-  }
-  if (filters.dateTo) {
-    conditions.push(lte(invoices.issueDate, filters.dateTo));
-  }
-  if (filters.search?.trim()) {
-    const term = `%${filters.search.trim()}%`;
-    const searchCond = or(
-      sql`${invoices.number}::text LIKE ${term}`,
-      sql`${invoices.recipientSnapshot}->>'legalName' ILIKE ${term}`,
-      sql`EXISTS (SELECT 1 FROM partners p WHERE p.id = ${invoices.partnerId} AND (p.name ILIKE ${term} OR p.eik LIKE ${term}))`
-    );
-    if (searchCond) conditions.push(searchCond);
-  }
+    if (filters.status) {
+      conditions.push(eq(invoices.status, filters.status));
+    }
+    if (filters.docType) {
+      conditions.push(eq(invoices.docType, filters.docType));
+    }
+    if (filters.paymentStatus) {
+      conditions.push(eq(invoices.paymentStatus, filters.paymentStatus));
+    }
+    if (filters.dateFrom) {
+      conditions.push(gte(invoices.issueDate, filters.dateFrom));
+    }
+    if (filters.dateTo) {
+      conditions.push(lte(invoices.issueDate, filters.dateTo));
+    }
+    if (filters.search?.trim()) {
+      const term = `%${filters.search.trim()}%`;
+      const searchCond = or(
+        sql`${invoices.number}::text LIKE ${term}`,
+        sql`${invoices.recipientSnapshot}->>'legalName' ILIKE ${term}`,
+        sql`EXISTS (SELECT 1 FROM partners p WHERE p.id = ${invoices.partnerId} AND (p.name ILIKE ${term} OR p.eik LIKE ${term}))`
+      );
+      if (searchCond) conditions.push(searchCond);
+    }
 
-  const where = and(...conditions);
+    const where = and(...conditions);
 
-  const [rows, countResult] = await Promise.all([
-    db
-      .select()
-      .from(invoices)
-      .where(where)
-      .orderBy(desc(invoices.createdAt))
-      .limit(pageSize)
-      .offset(offset),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(invoices)
-      .where(where),
-  ]);
+    const [rows, countResult] = await Promise.all([
+      db
+        .select()
+        .from(invoices)
+        .where(where)
+        .orderBy(desc(invoices.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(invoices)
+        .where(where),
+    ]);
 
-  return {
-    data: {
+    return {
       invoices: rows.map(parseInvoiceRow),
       total: countResult[0]?.count ?? 0,
       page,
       pageSize,
-    },
-  };
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1137,11 +1135,9 @@ export async function listInvoices(
 export async function getNextNumber(
   series?: string
 ): Promise<ActionResult<number>> {
-  try {
+  return action(async () => {
     const { companyId } = await requireCompanyAccess();
     const nextNumber = await getNextInvoiceNumber(companyId, series ?? 'INV');
-    return { data: nextNumber };
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : 'Failed to get next number' };
-  }
+    return nextNumber;
+  });
 }

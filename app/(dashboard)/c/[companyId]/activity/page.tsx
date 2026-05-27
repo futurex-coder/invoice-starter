@@ -22,7 +22,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ActivityType } from '@/lib/db/schema';
-import { getUser, verifyCompanyAccess, getActivityLogs } from '@/lib/db/queries';
+import { verifyCompanyAccess, getActivityLogs } from '@/lib/db/queries';
+import { requireUserOrRedirect } from '@/lib/auth/guards';
 
 const ACTIVITY_TYPE_VALUES: ReadonlySet<string> = new Set(Object.values(ActivityType));
 function isActivityType(value: string): value is ActivityType {
@@ -139,8 +140,7 @@ export default async function ActivityPage({
   const { companyId: companyIdStr } = await params;
   const companyId = Number(companyIdStr);
 
-  const user = await getUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireUserOrRedirect();
 
   const membership = await verifyCompanyAccess(user.id, companyId);
   if (!membership) redirect('/dashboard');

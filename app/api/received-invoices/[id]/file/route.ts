@@ -1,18 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import { receivedInvoices } from '@/lib/db/schema';
 import { createSignedUrl } from '@/lib/supabase/storage';
-import {
-  getUser,
-  getActiveCompanyId,
-  verifyCompanyAccess,
-} from '@/lib/db/queries';
+import { withApiCompanyAuth } from '@/lib/auth/guards';
 
-export async function GET(
-  request: NextRequest,
+export const GET = withApiCompanyAuth(async (
+  { companyId },
+  request,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   try {
     const { id: idParam } = await params;
     const id = Number(idParam);
@@ -20,28 +17,6 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
     }
     const wantRedirect = request.nextUrl.searchParams.get('redirect') === '1';
-
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
-    }
-    const companyId = await getActiveCompanyId();
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'No active company selected' },
-        { status: 400 }
-      );
-    }
-    const membership = await verifyCompanyAccess(user.id, companyId);
-    if (!membership) {
-      return NextResponse.json(
-        { error: 'No access to this company' },
-        { status: 403 }
-      );
-    }
 
     const [row] = await db
       .select({
@@ -81,4 +56,4 @@ export async function GET(
       { status: 500 }
     );
   }
-}
+});

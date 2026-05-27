@@ -10,18 +10,14 @@ import {
   ActivityType,
 } from '@/lib/db/schema';
 import {
-  getUser,
-  getActiveCompanyId,
-  verifyCompanyAccess,
-} from '@/lib/db/queries';
-import {
   createSignedUrl,
   deleteFromBucket,
 } from '@/lib/supabase/storage';
+import { action, type ActionResult } from '@/lib/actions/result';
+import { requireCompanyAccess } from '@/lib/auth/guards';
 import { ReceivedInvoiceReviewSchema } from './schema';
 import { calculateReceivedInvoice } from './calculator';
 import type {
-  ActionResult,
   AccountingStatus,
   DuplicateMatch,
   PaymentStatus,
@@ -44,29 +40,15 @@ import type {
 } from './parsed-types';
 import type { ExtractedInvoice } from '@/app/api/invoices/extract/schema';
 
-// ---------------------------------------------------------------------------
-// Auth helper
-// ---------------------------------------------------------------------------
-
-async function requireCompanyAccess() {
-  const user = await getUser();
-  if (!user) throw new Error('Not authenticated');
-  const companyId = await getActiveCompanyId();
-  if (!companyId) throw new Error('No active company selected');
-  const membership = await verifyCompanyAccess(user.id, companyId);
-  if (!membership) throw new Error('No access to this company');
-  return { user, companyId, role: membership.role };
-}
-
 async function logActivity(
   companyId: number,
   userId: number,
-  action: ActivityType
+  type: ActivityType
 ) {
   await db.insert(activityLogs).values({
     companyId,
     userId,
-    action,
+    action: type,
     ipAddress: '',
   });
 }
@@ -201,7 +183,7 @@ export async function createDraftFromUpload(input: {
   rawExtraction: ExtractedInvoice;
   extractionModelId: string;
 }): Promise<ActionResult<UploadDraftResult>> {
-  try {
+  return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const supplier = supplierFromExtraction(input.rawExtraction);
@@ -310,13 +292,8 @@ export async function createDraftFromUpload(input: {
       issueDate: extractedIssueDate,
     });
 
-    return { data: { id: created.id, duplicates } };
-  } catch (error) {
-    console.error('createDraftFromUpload error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+    return { id: created.id, duplicates };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -365,7 +342,7 @@ export async function listReceivedInvoices(
     pendingCount: number;
   }>
 > {
-  try {
+  return action(async () => {
     const { companyId } = await requireCompanyAccess();
 
     const page = filters.page ?? 1;
@@ -463,20 +440,13 @@ export async function listReceivedInvoices(
     }));
 
     return {
-      data: {
-        items,
-        total: countResult[0]?.count ?? 0,
-        pendingCount: pendingResult[0]?.count ?? 0,
-        page,
-        pageSize,
-      },
+      items,
+      total: countResult[0]?.count ?? 0,
+      pendingCount: pendingResult[0]?.count ?? 0,
+      page,
+      pageSize,
     };
-  } catch (error) {
-    console.error('listReceivedInvoices error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -497,7 +467,7 @@ export interface GetReceivedInvoiceResult {
 export async function getReceivedInvoice(
   id: number
 ): Promise<ActionResult<GetReceivedInvoiceResult>> {
-  try {
+  return action(async () => {
     const { companyId } = await requireCompanyAccess();
 
     const [row] = await db
@@ -512,7 +482,7 @@ export async function getReceivedInvoice(
       .limit(1);
 
     if (!row) {
-      return { error: 'Received invoice not found' };
+      throw new Error('Received invoice not found');
     }
 
     const lines = await db
@@ -572,21 +542,14 @@ export async function getReceivedInvoice(
     }
 
     return {
-      data: {
-        row: parseReceivedInvoiceRow(row),
-        lines: lines.map(parseReceivedInvoiceLineRow),
-        partnerSuggestion,
-        fileSignedUrl,
-        nextPendingId,
-        pendingPosition,
-      },
+      row: parseReceivedInvoiceRow(row),
+      lines: lines.map(parseReceivedInvoiceLineRow),
+      partnerSuggestion,
+      fileSignedUrl,
+      nextPendingId,
+      pendingPosition,
     };
-  } catch (error) {
-    console.error('getReceivedInvoice error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -681,13 +644,10 @@ export async function updateReceivedInvoiceDraft(
   id: number,
   patch: ReceivedInvoiceReviewInput
 ): Promise<ActionResult<{ id: number; duplicates: DuplicateMatch[] }>> {
-  try {
+  return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
-    const parsed = ReceivedInvoiceReviewSchema.safeParse(patch);
-    if (!parsed.success) {
-      return { error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-    }
+    ReceivedInvoiceReviewSchema.parse(patch);
 
     const [existing] = await db
       .select()
@@ -701,10 +661,10 @@ export async function updateReceivedInvoiceDraft(
       .limit(1);
 
     if (!existing) {
-      return { error: 'Received invoice not found' };
+      throw new Error('Received invoice not found');
     }
     if (existing.status === 'discarded') {
-      return { error: 'Cannot edit a discarded invoice' };
+      throw new Error('Cannot edit a discarded invoice');
     }
 
     const { partnerId } = await applyReviewPatch(id, companyId, patch);
@@ -723,13 +683,8 @@ export async function updateReceivedInvoiceDraft(
       issueDate: patch.issueDate,
     });
 
-    return { data: { id, duplicates } };
-  } catch (error) {
-    console.error('updateReceivedInvoiceDraft error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+    return { id, duplicates };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -740,13 +695,10 @@ export async function confirmReceivedInvoice(
   id: number,
   patch: ReceivedInvoiceReviewInput
 ): Promise<ActionResult<{ id: number; duplicates: DuplicateMatch[] }>> {
-  try {
+  return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
-    const parsed = ReceivedInvoiceReviewSchema.safeParse(patch);
-    if (!parsed.success) {
-      return { error: parsed.error.issues[0]?.message ?? 'Invalid input' };
-    }
+    ReceivedInvoiceReviewSchema.parse(patch);
 
     const [existing] = await db
       .select()
@@ -760,17 +712,17 @@ export async function confirmReceivedInvoice(
       .limit(1);
 
     if (!existing) {
-      return { error: 'Received invoice not found' };
+      throw new Error('Received invoice not found');
     }
     if (existing.status === 'discarded') {
-      return { error: 'Cannot confirm a discarded invoice' };
+      throw new Error('Cannot confirm a discarded invoice');
     }
 
     if (!patch.supplier.legalName?.trim()) {
-      return { error: 'Supplier legal name is required to confirm' };
+      throw new Error('Supplier legal name is required to confirm');
     }
     if (!patch.issueDate) {
-      return { error: 'Issue date is required to confirm' };
+      throw new Error('Issue date is required to confirm');
     }
 
     const { partnerId } = await applyReviewPatch(id, companyId, patch);
@@ -805,13 +757,8 @@ export async function confirmReceivedInvoice(
       issueDate: patch.issueDate,
     });
 
-    return { data: { id, duplicates } };
-  } catch (error) {
-    console.error('confirmReceivedInvoice error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+    return { id, duplicates };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -821,7 +768,7 @@ export async function confirmReceivedInvoice(
 export async function discardReceivedInvoice(
   id: number
 ): Promise<ActionResult<{ id: number }>> {
-  try {
+  return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
@@ -835,12 +782,11 @@ export async function discardReceivedInvoice(
       )
       .limit(1);
 
-    if (!existing) return { error: 'Received invoice not found' };
+    if (!existing) throw new Error('Received invoice not found');
     if (existing.status === 'confirmed') {
-      return {
-        error:
-          'Cannot discard a confirmed invoice — archive it instead if you no longer want it counted',
-      };
+      throw new Error(
+        'Cannot discard a confirmed invoice — archive it instead if you no longer want it counted'
+      );
     }
 
     await db
@@ -859,13 +805,8 @@ export async function discardReceivedInvoice(
       ActivityType.DISCARD_RECEIVED_INVOICE
     );
 
-    return { data: { id } };
-  } catch (error) {
-    console.error('discardReceivedInvoice error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+    return { id };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -876,7 +817,7 @@ export async function setReceivedInvoiceAccountingStatus(
   id: number,
   status: AccountingStatus
 ): Promise<ActionResult<{ id: number }>> {
-  try {
+  return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
@@ -889,7 +830,7 @@ export async function setReceivedInvoiceAccountingStatus(
         )
       )
       .limit(1);
-    if (!existing) return { error: 'Received invoice not found' };
+    if (!existing) throw new Error('Received invoice not found');
 
     await db
       .update(receivedInvoices)
@@ -907,20 +848,15 @@ export async function setReceivedInvoiceAccountingStatus(
       ActivityType.UPDATE_RECEIVED_INVOICE
     );
 
-    return { data: { id } };
-  } catch (error) {
-    console.error('setReceivedInvoiceAccountingStatus error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+    return { id };
+  });
 }
 
 export async function setReceivedInvoicePaymentStatus(
   id: number,
   status: PaymentStatus
 ): Promise<ActionResult<{ id: number }>> {
-  try {
+  return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
@@ -933,7 +869,7 @@ export async function setReceivedInvoicePaymentStatus(
         )
       )
       .limit(1);
-    if (!existing) return { error: 'Received invoice not found' };
+    if (!existing) throw new Error('Received invoice not found');
 
     await db
       .update(receivedInvoices)
@@ -951,20 +887,15 @@ export async function setReceivedInvoicePaymentStatus(
       ActivityType.UPDATE_RECEIVED_INVOICE
     );
 
-    return { data: { id } };
-  } catch (error) {
-    console.error('setReceivedInvoicePaymentStatus error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+    return { id };
+  });
 }
 
 export async function setReceivedInvoiceArchived(
   id: number,
   archived: boolean
 ): Promise<ActionResult<{ id: number }>> {
-  try {
+  return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
     const [existing] = await db
@@ -977,7 +908,7 @@ export async function setReceivedInvoiceArchived(
         )
       )
       .limit(1);
-    if (!existing) return { error: 'Received invoice not found' };
+    if (!existing) throw new Error('Received invoice not found');
 
     await db
       .update(receivedInvoices)
@@ -1000,13 +931,8 @@ export async function setReceivedInvoiceArchived(
         : ActivityType.UNARCHIVE_RECEIVED_INVOICE
     );
 
-    return { data: { id } };
-  } catch (error) {
-    console.error('setReceivedInvoiceArchived error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+    return { id };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1016,7 +942,7 @@ export async function setReceivedInvoiceArchived(
 export async function hardDeleteDiscardedReceivedInvoice(
   id: number
 ): Promise<ActionResult<{ id: number }>> {
-  try {
+  return action(async () => {
     const { companyId } = await requireCompanyAccess();
 
     const [existing] = await db
@@ -1030,9 +956,9 @@ export async function hardDeleteDiscardedReceivedInvoice(
       )
       .limit(1);
 
-    if (!existing) return { error: 'Received invoice not found' };
+    if (!existing) throw new Error('Received invoice not found');
     if (existing.status !== 'discarded') {
-      return { error: 'Only discarded invoices can be permanently deleted' };
+      throw new Error('Only discarded invoices can be permanently deleted');
     }
 
     try {
@@ -1053,13 +979,8 @@ export async function hardDeleteDiscardedReceivedInvoice(
         )
       );
 
-    return { data: { id } };
-  } catch (error) {
-    console.error('hardDeleteDiscardedReceivedInvoice error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+    return { id };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1097,7 +1018,7 @@ export async function getPaymentsOverview(filters?: {
   paidFromDate?: string;
   paidToDate?: string;
 }): Promise<ActionResult<PaymentsOverview>> {
-  try {
+  return action(async () => {
     const { companyId } = await requireCompanyAccess();
 
     const baseConditions = [
@@ -1194,22 +1115,15 @@ export async function getPaymentsOverview(filters?: {
     };
 
     return {
-      data: {
-        toPay: toPayRows.map(mapRow),
-        paid: paidRows.map(mapRow),
-        totals: {
-          toPayAmount: parseFloat(totals.toPayAmount),
-          paidThisMonthAmount: parseFloat(totals.paidThisMonthAmount),
-          overdueCount: Number(totals.overdueCount),
-          overdueAmount: parseFloat(totals.overdueAmount),
-        },
+      toPay: toPayRows.map(mapRow),
+      paid: paidRows.map(mapRow),
+      totals: {
+        toPayAmount: parseFloat(totals.toPayAmount),
+        paidThisMonthAmount: parseFloat(totals.paidThisMonthAmount),
+        overdueCount: Number(totals.overdueCount),
+        overdueAmount: parseFloat(totals.overdueAmount),
       },
     };
-  } catch (error) {
-    console.error('getPaymentsOverview error:', error);
-    return {
-      error: error instanceof Error ? error.message : 'Unexpected error',
-    };
-  }
+  });
 }
 

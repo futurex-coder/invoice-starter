@@ -3,7 +3,6 @@ import { db } from '@/lib/db/drizzle';
 import { invoices, companies } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import {
-  getUser,
   getCompaniesForUser,
   getActiveCompanyId,
   verifyCompanyAccess,
@@ -13,6 +12,7 @@ import {
   getNextInvoiceNumber,
   getActivityLogs,
 } from '@/lib/db/queries';
+import { requireUserOrRedirect } from '@/lib/auth/guards';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,8 +116,7 @@ async function createTestCreditNote(
 export default async function DebugPage() {
   if (process.env.NODE_ENV !== 'development') redirect('/');
 
-  const user = await getUser();
-  if (!user) redirect('/sign-in');
+  const user = await requireUserOrRedirect();
 
   const memberships = await getCompaniesForUser(user.id);
   const activeCompanyId = await getActiveCompanyId();

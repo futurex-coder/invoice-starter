@@ -1,27 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import {
   extractInvoiceFromBytes,
   isAllowedExtractMimeType,
   InvoiceExtractionError,
 } from '@/lib/ai/extract-invoice';
-import { getUser } from '@/lib/db/queries';
+import { withApiAuth } from '@/lib/auth/guards';
 
-export async function POST(request: NextRequest) {
-  // Auth gate — this endpoint calls Anthropic and burns credits per request.
-  // Unauthenticated callers must be rejected before any work is done.
-  const user = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+// Auth gate via `withApiAuth` — this endpoint calls Anthropic and burns
+// credits per request. Unauthenticated callers receive 401 before any
+// work is done.
+export const POST = withApiAuth(async (_user, request) => {
   try {
     const formData = await request.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) {
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
     const fileType = file.type;
@@ -52,4 +45,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

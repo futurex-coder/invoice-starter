@@ -1,8 +1,7 @@
 'use client';
 
 import useSWR, { type SWRConfiguration, type SWRResponse, type Key } from 'swr';
-
-type ActionResult<T> = { data?: T; error?: string };
+import type { ActionResult } from '@/lib/actions/result';
 
 /**
  * SWR wrapper for server actions that return `{ data?, error? }`.

@@ -5,13 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { EntityPicker } from '@/components/forms/entity-picker';
 import { calculateInvoice } from '@/src/features/bulgarian-invoicing';
 import type { BgVatRate } from '@/src/features/bulgarian-invoicing/types';
 import type { Article } from '@/lib/db/schema';
@@ -105,14 +99,16 @@ export function LineItemsCard({
                   <tr key={i} className="border-b">
                     <td className="py-1">
                       <div className="space-y-1">
-                        <Select
-                          value={line.articleId ? String(line.articleId) : '__none__'}
-                          onValueChange={(v) => {
-                            if (v === '__none__') {
+                        <EntityPicker
+                          className="h-8 max-w-[200px]"
+                          items={articles}
+                          value={line.articleId ?? null}
+                          onChange={(v) => {
+                            if (v === null) {
                               onUpdateLine(i, { articleId: null });
                               return;
                             }
-                            const art = articles.find((a) => a.id === Number(v));
+                            const art = articles.find((a) => a.id === v);
                             if (art) {
                               onUpdateLine(i, {
                                 articleId: art.id,
@@ -124,19 +120,13 @@ export function LineItemsCard({
                               onUpdateLine(i, { articleId: null });
                             }
                           }}
-                        >
-                          <SelectTrigger className="h-8 w-full max-w-[200px]">
-                            <SelectValue placeholder="From article..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">From article...</SelectItem>
-                            {articles.map((a) => (
-                              <SelectItem key={a.id} value={String(a.id)}>
-                                {a.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          getKey={(a) => a.id}
+                          getLabel={(a) => a.name}
+                          getSearchText={(a) => `${a.name} ${a.unit}`}
+                          placeholder="From article..."
+                          clearLabel="From article..."
+                          emptyMessage="No articles match"
+                        />
                         <Input
                           className="max-w-[200px]"
                           placeholder="Description *"

@@ -13,6 +13,7 @@ import {
   receivedInvoices,
   CompanyRole,
   type UserCompanyMembership,
+  type SafeUser,
 } from './schema';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/auth/session';
@@ -51,6 +52,18 @@ export async function getUser() {
   }
 
   return user[0];
+}
+
+/**
+ * Like {@link getUser}, but strips the `passwordHash` field.
+ * Use this anywhere user data crosses the network boundary
+ * (API routes, server-component → client props).
+ */
+export async function getSafeUser(): Promise<SafeUser | null> {
+  const user = await getUser();
+  if (!user) return null;
+  const { passwordHash: _passwordHash, ...safe } = user;
+  return safe;
 }
 
 // ─────────────────────────────────────────────

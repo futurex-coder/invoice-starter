@@ -4,12 +4,12 @@ import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { customerPortalAction } from '@/lib/payments/actions';
-import type { User } from '@/lib/db/schema';
+import type { SafeUser } from '@/lib/db/schema';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function ManageSubscription() {
-  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const { data: user } = useSWR<SafeUser>('/api/user', fetcher);
 
   return (
     <Card>

@@ -743,6 +743,11 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+/**
+ * User shape safe to send to the client.
+ * Omits `passwordHash` — anything that crosses the network boundary must use this.
+ */
+export type SafeUser = Omit<User, 'passwordHash'>;
 export type Company = typeof companies.$inferSelect;
 export type NewCompany = typeof companies.$inferInsert;
 export type CompanyMember = typeof companyMembers.$inferSelect;

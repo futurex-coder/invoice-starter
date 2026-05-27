@@ -14,7 +14,7 @@ import {
 import { getInvoice, finalizeInvoice, cancelInvoice, updateInvoicePaymentInfo } from '@/src/features/bulgarian-invoicing/actions';
 import { formatDocTypeLabel, formatInvoiceNumber, formatDateBg, formatMoney } from '@/src/features/bulgarian-invoicing/formatter';
 import type { Invoice } from '@/lib/db/schema';
-import type { User } from '@/lib/db/schema';
+import type { SafeUser } from '@/lib/db/schema';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
 import { requireStringParam } from '@/lib/route-params';
 import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
@@ -39,7 +39,7 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const { data: currentUser } = useSWR<User>('/api/user', fetcher);
+  const { data: currentUser } = useSWR<SafeUser>('/api/user', fetcher);
 
   useEffect(() => {
     let cancelled = false;

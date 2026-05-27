@@ -6,12 +6,12 @@ import { db } from '@/lib/db/drizzle';
 import {
   users,
   companyMembers,
-  activityLogs,
   type NewUser,
   type NewCompanyMember,
   ActivityType,
   invitations
 } from '@/lib/db/schema';
+import { logActivity } from '@/lib/db/activity';
 import { comparePasswords, hashPassword, setSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -24,23 +24,6 @@ import {
   validatedAction,
   validatedActionWithUser
 } from '@/lib/auth/middleware';
-
-async function logActivity(
-  companyId: number | null | undefined,
-  userId: number,
-  type: ActivityType,
-  ipAddress?: string
-) {
-  if (companyId === null || companyId === undefined) {
-    return;
-  }
-  await db.insert(activityLogs).values({
-    companyId,
-    userId,
-    action: type,
-    ipAddress: ipAddress || ''
-  });
-}
 
 async function getFirstCompanyId(userId: number): Promise<number | null> {
   const memberships = await getCompaniesForUser(userId);

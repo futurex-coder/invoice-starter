@@ -6,9 +6,9 @@ import {
   receivedInvoices,
   receivedInvoiceLines,
   partners,
-  activityLogs,
   ActivityType,
 } from '@/lib/db/schema';
+import { logActivity, logActivityInTx } from '@/lib/db/activity';
 import {
   createSignedUrl,
   deleteFromBucket,
@@ -39,19 +39,6 @@ import type {
   ParsedReceivedInvoiceLine,
 } from './parsed-types';
 import type { ExtractedInvoice } from '@/app/api/invoices/extract/schema';
-
-async function logActivity(
-  companyId: number,
-  userId: number,
-  type: ActivityType
-) {
-  await db.insert(activityLogs).values({
-    companyId,
-    userId,
-    action: type,
-    ipAddress: '',
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -274,12 +261,12 @@ export async function createDraftFromUpload(input: {
           .values(lines.map((l) => ({ ...l, receivedInvoiceId: row.id })));
       }
 
-      await tx.insert(activityLogs).values({
+      await logActivityInTx(
+        tx,
         companyId,
-        userId: user.id,
-        action: ActivityType.UPLOAD_RECEIVED_INVOICE,
-        ipAddress: '',
-      });
+        user.id,
+        ActivityType.UPLOAD_RECEIVED_INVOICE
+      );
 
       return row;
     });
@@ -1090,7 +1077,7 @@ export async function getPaymentsOverview(filters?: {
     ]);
 
     const mapRow = (r: typeof toPayRows[number]): PaymentRow => {
-      const snap = (r.supplierSnapshot ?? {}) as { legalName?: string | null };
+      const snap = parseSupplierSnapshot(r.supplierSnapshot);
       return {
         id: r.id,
         partnerId: r.partnerId,

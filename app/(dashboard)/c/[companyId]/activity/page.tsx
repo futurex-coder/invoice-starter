@@ -19,6 +19,9 @@ import {
   Inbox,
   Archive,
   ArchiveRestore,
+  Handshake,
+  Package,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 import { ActivityType } from '@/lib/db/schema';
@@ -45,6 +48,12 @@ const iconMap: Record<ActivityType, LucideIcon> = {
   [ActivityType.REMOVE_MEMBER]: UserMinus,
   [ActivityType.INVITE_MEMBER]: Mail,
   [ActivityType.ACCEPT_INVITATION]: CheckCircle,
+  [ActivityType.CREATE_PARTNER]: Handshake,
+  [ActivityType.UPDATE_PARTNER]: Handshake,
+  [ActivityType.DELETE_PARTNER]: Trash2,
+  [ActivityType.CREATE_ARTICLE]: Package,
+  [ActivityType.UPDATE_ARTICLE]: Package,
+  [ActivityType.DELETE_ARTICLE]: Trash2,
   [ActivityType.CREATE_INVOICE]: FileText,
   [ActivityType.UPDATE_INVOICE]: FilePen,
   [ActivityType.FINALIZE_INVOICE]: FileCheck,

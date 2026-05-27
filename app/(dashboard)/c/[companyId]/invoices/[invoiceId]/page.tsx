@@ -13,6 +13,10 @@ import {
 } from '@/components/ui/card';
 import { getInvoice, finalizeInvoice, cancelInvoice, updateInvoicePaymentInfo } from '@/src/features/bulgarian-invoicing/actions';
 import { formatDocTypeLabel, formatInvoiceNumber, formatDateBg, formatMoney } from '@/src/features/bulgarian-invoicing/formatter';
+import {
+  parseInvoiceTotalsStrict,
+  parsePartySnapshotStrict,
+} from '@/src/features/bulgarian-invoicing/parsers';
 import type { Invoice } from '@/lib/db/schema';
 import type { SafeUser } from '@/lib/db/schema';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
@@ -102,8 +106,8 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  const totals = (invoice.totals ?? { grossAmount: 0, netAmount: 0, vatAmount: 0 }) as { grossAmount: number; netAmount: number; vatAmount: number };
-  const recipient = (invoice.recipientSnapshot ?? {}) as { legalName?: string };
+  const totals = parseInvoiceTotalsStrict(invoice.totals);
+  const recipient = parsePartySnapshotStrict(invoice.recipientSnapshot);
   const isDraft = invoice.status === 'draft';
   const isCancelled = invoice.status === 'cancelled';
 

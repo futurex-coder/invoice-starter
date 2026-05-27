@@ -8,7 +8,6 @@ import {
   companies,
   partners,
   articles,
-  activityLogs,
   ActivityType,
   InvoiceStatus,
   type Invoice,
@@ -17,6 +16,7 @@ import {
 import { getNextInvoiceNumber } from '@/lib/db/queries';
 import { action, failWith, type ActionResult } from '@/lib/actions/result';
 import { requireCompanyAccess } from '@/lib/auth/guards';
+import { logActivity, logActivityInTx } from '@/lib/db/activity';
 import { calculateInvoice } from './calculator';
 import { validateInvoice } from './validator';
 import { formatInvoiceNumber, amountInWordsBg } from './formatter';
@@ -175,24 +175,6 @@ async function runWithDomainValidation<T>(
       throw e;
     });
   }
-}
-
-// ---------------------------------------------------------------------------
-// Activity log helper
-// ---------------------------------------------------------------------------
-
-async function logInvoiceActivity(
-  companyId: number,
-  userId: number,
-  type: ActivityType,
-  ipAddress?: string
-) {
-  await db.insert(activityLogs).values({
-    companyId,
-    userId,
-    action: type,
-    ipAddress: ipAddress ?? '',
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -516,12 +498,7 @@ export async function createInvoiceDraft(
 
       await saveInvoiceLines(tx, row.id, calc.items, articleIds);
 
-      await tx.insert(activityLogs).values({
-        companyId,
-        userId: user.id,
-        action: ActivityType.CREATE_INVOICE,
-        ipAddress: '',
-      });
+      await logActivityInTx(tx, companyId, user.id, ActivityType.CREATE_INVOICE);
 
       return row;
     });
@@ -661,7 +638,7 @@ export async function updateInvoiceDraft(
       return row;
     });
 
-    await logInvoiceActivity(companyId, user.id, ActivityType.UPDATE_INVOICE);
+    await logActivity(companyId, user.id, ActivityType.UPDATE_INVOICE);
 
     return parseInvoiceRow(updated);
   });
@@ -730,7 +707,7 @@ export async function finalizeInvoice(
       throw new Error('Failed to finalize — invoice may have been modified concurrently');
     }
 
-    await logInvoiceActivity(companyId, user.id, ActivityType.FINALIZE_INVOICE);
+    await logActivity(companyId, user.id, ActivityType.FINALIZE_INVOICE);
 
     return parseInvoiceRow(finalized);
   });
@@ -769,13 +746,13 @@ export async function cancelInvoice(
     const actionDesc = reason
       ? `${ActivityType.CANCEL_INVOICE}: ${reason}`
       : ActivityType.CANCEL_INVOICE;
-
-    await db.insert(activityLogs).values({
-      companyId,
-      userId: user.id,
-      action: actionDesc,
-      ipAddress: '',
-    });
+    // TODO: re-surface `actionDesc` once `activity_logs` has a `description`
+    // column. Today the activity feed only reads `action` and would render
+    // "Unknown action" for the concatenated string, so we log just the enum
+    // and drop the reason in the feed. The full `actionDesc` is preserved
+    // here as a hint for the future migration.
+    void actionDesc;
+    await logActivity(companyId, user.id, ActivityType.CANCEL_INVOICE);
 
     return parseInvoiceRow(cancelled);
   });
@@ -825,12 +802,7 @@ export async function updateInvoicePaymentInfo(
       .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
       .returning();
 
-    await db.insert(activityLogs).values({
-      companyId,
-      userId: user.id,
-      action: ActivityType.UPDATE_INVOICE,
-      ipAddress: '',
-    });
+    await logActivity(companyId, user.id, ActivityType.UPDATE_INVOICE);
 
     return parseInvoiceRow(updated);
   });
@@ -989,12 +961,7 @@ async function createNoteFromInvoice(
 
       await saveInvoiceLines(tx, created.id, calc.items, articleIds);
 
-      await tx.insert(activityLogs).values({
-        companyId,
-        userId: user.id,
-        action: activityType,
-        ipAddress: '',
-      });
+      await logActivityInTx(tx, companyId, user.id, activityType);
 
       return created;
     });

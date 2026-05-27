@@ -234,7 +234,7 @@ export default async function DebugPage() {
                     <span
                       className={
                         m.role === 'owner'
-                          ? 'text-orange-700 font-medium'
+                          ? 'text-primary font-medium'
                           : 'text-blue-700'
                       }
                     >
@@ -320,7 +320,7 @@ export default async function DebugPage() {
             <form action={createDraftAction}>
               <button
                 type="submit"
-                className="px-3 py-1.5 bg-orange-500 text-white text-sm rounded hover:bg-orange-600"
+                className="px-3 py-1.5 bg-primary text-white text-sm rounded hover:bg-primary/90"
               >
                 Create test draft invoice (#{String(nextNumber).padStart(10, '0')})
               </button>

@@ -105,7 +105,7 @@ export default function DashboardPage() {
         <Button
           asChild
           size="sm"
-          className="bg-orange-500 hover:bg-orange-600 text-white"
+          className="bg-primary hover:bg-primary/90 text-white"
         >
           <Link href="/create-company">
             <Plus className="mr-1.5 h-3.5 w-3.5" />

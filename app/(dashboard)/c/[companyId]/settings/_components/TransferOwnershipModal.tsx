@@ -49,7 +49,7 @@ export function TransferOwnershipModal({
                   key={m.userId}
                   className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer ${
                     selectedMemberId === m.userId
-                      ? 'border-orange-400 bg-orange-50'
+                      ? 'border-primary/40 bg-primary/5'
                       : 'border-gray-200 hover:bg-gray-50'
                   }`}
                 >
@@ -75,7 +75,7 @@ export function TransferOwnershipModal({
               Cancel
             </Button>
             <Button
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-primary hover:bg-primary/90"
               disabled={!selectedMemberId || loading}
               onClick={onConfirm}
             >

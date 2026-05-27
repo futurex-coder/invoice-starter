@@ -71,7 +71,7 @@ export default function ReceivedInvoicesUploadPage() {
             </CardTitle>
             <Button
               onClick={startReview}
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-primary hover:bg-primary/90"
             >
               Start review
               <ArrowRight className="ml-2 h-4 w-4" />

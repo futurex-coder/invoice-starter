@@ -73,7 +73,7 @@ export default function InvoicesPage() {
       <ListPageHeader
         title="Invoices"
         action={
-          <Button asChild className="bg-orange-500 hover:bg-orange-600">
+          <Button asChild className="bg-primary hover:bg-primary/90">
             <Link href={`/c/${companyId}/invoices/new`}>
               <Plus className="mr-2 h-4 w-4" />
               New invoice

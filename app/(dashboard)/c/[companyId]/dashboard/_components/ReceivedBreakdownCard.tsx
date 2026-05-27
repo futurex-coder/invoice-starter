@@ -13,7 +13,7 @@ export function ReceivedBreakdownCard({ expenseMetrics, viewAllHref }: Props) {
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle>Received Invoices</CardTitle>
-        <Link href={viewAllHref} className="text-xs text-orange-600 hover:underline">
+        <Link href={viewAllHref} className="text-xs text-primary/90 hover:underline">
           View all →
         </Link>
       </CardHeader>

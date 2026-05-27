@@ -174,7 +174,7 @@ export default function CompanySettingsPage() {
   return (
     <section className="flex-1 p-4 lg:p-8">
       <div className="flex items-center gap-3 mb-6">
-        <Building2 className="h-6 w-6 text-orange-500" />
+        <Building2 className="h-6 w-6 text-primary" />
         <h1 className="text-lg lg:text-2xl font-medium">Company Settings</h1>
       </div>
 
@@ -248,7 +248,7 @@ export default function CompanySettingsPage() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
+          className="bg-primary hover:bg-primary/90 text-white"
         >
           {saving ? (
             <>

@@ -73,7 +73,7 @@ export default function PaymentsPage() {
           invoices count here — drafts are still in{' '}
           <Link
             href={`/c/${companyId}/received-invoices`}
-            className="text-orange-600 hover:underline"
+            className="text-primary/90 hover:underline"
           >
             received invoices
           </Link>

@@ -75,7 +75,7 @@ export function MembersTable({ members, canRemove, removingId, onRemove }: Props
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                         m.role === 'owner'
-                          ? 'bg-orange-100 text-orange-800'
+                          ? 'bg-primary/10 text-primary'
                           : 'bg-blue-50 text-blue-700'
                       }`}
                     >

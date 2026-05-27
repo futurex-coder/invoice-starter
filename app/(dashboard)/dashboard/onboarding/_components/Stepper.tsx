@@ -22,9 +22,9 @@ export function Stepper({ current }: Props) {
             <div
               className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-sm font-medium transition-colors ${
                 active
-                  ? 'bg-orange-500 text-white'
+                  ? 'bg-primary text-white'
                   : completed
-                    ? 'bg-orange-100 text-orange-700'
+                    ? 'bg-primary/10 text-primary'
                     : 'bg-gray-100 text-gray-400'
               }`}
             >
@@ -34,7 +34,7 @@ export function Stepper({ current }: Props) {
             {i < STEPS.length - 1 && (
               <div
                 className={`w-6 sm:w-10 h-0.5 mx-1 ${
-                  completed ? 'bg-orange-300' : 'bg-gray-200'
+                  completed ? 'bg-primary/30' : 'bg-gray-200'
                 }`}
               />
             )}

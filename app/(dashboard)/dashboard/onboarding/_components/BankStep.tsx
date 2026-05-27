@@ -152,7 +152,7 @@ export function BankStep({
           <Button
             onClick={onSave}
             disabled={saving}
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-primary hover:bg-primary/90 text-white"
           >
             {saving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

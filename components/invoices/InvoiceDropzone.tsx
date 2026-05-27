@@ -127,7 +127,7 @@ export function InvoiceDropzone({
       className={cn(
         'rounded-lg border border-dashed transition-colors',
         dragOver
-          ? 'border-orange-400 bg-orange-50'
+          ? 'border-primary/40 bg-primary/5'
           : 'border-gray-300 bg-gray-50',
         className
       )}

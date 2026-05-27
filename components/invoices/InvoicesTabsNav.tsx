@@ -39,7 +39,7 @@ export function InvoicesTabsNav({ companyId, active, pendingReceivedCount }: Pro
               aria-current={isActive ? 'page' : undefined}
               className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'border-orange-500 text-orange-600'
+                  ? 'border-primary text-primary/90'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -49,7 +49,7 @@ export function InvoicesTabsNav({ companyId, active, pendingReceivedCount }: Pro
                 <span
                   className={`ml-1 inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
                     isActive
-                      ? 'bg-orange-100 text-orange-700'
+                      ? 'bg-primary/10 text-primary'
                       : 'bg-amber-100 text-amber-700'
                   }`}
                 >

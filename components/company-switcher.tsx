@@ -19,7 +19,7 @@ function RoleBadge({ role }: { role: string }) {
     <span
       className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ${
         isOwner
-          ? 'bg-orange-100 text-orange-700'
+          ? 'bg-primary/10 text-primary'
           : 'bg-gray-100 text-gray-600'
       }`}
     >
@@ -39,7 +39,7 @@ export function CompanySwitcher() {
           className="w-full justify-between gap-2 px-3 py-2 h-auto text-left"
         >
           <span className="flex items-center gap-2 min-w-0">
-            <Building2 className="h-4 w-4 shrink-0 text-orange-500" />
+            <Building2 className="h-4 w-4 shrink-0 text-primary" />
             <span className="truncate text-sm font-medium">
               {company.legalName}
             </span>
@@ -54,7 +54,7 @@ export function CompanySwitcher() {
             href="/dashboard"
             className="flex items-center gap-2 font-medium"
           >
-            <LayoutGrid className="h-3.5 w-3.5 text-orange-500" />
+            <LayoutGrid className="h-3.5 w-3.5 text-primary" />
             <span className="text-sm">All Companies</span>
           </Link>
         </DropdownMenuItem>
@@ -73,7 +73,7 @@ export function CompanySwitcher() {
               >
                 <Check
                   className={`h-3.5 w-3.5 shrink-0 ${
-                    isActive ? 'text-orange-500' : 'text-transparent'
+                    isActive ? 'text-primary' : 'text-transparent'
                   }`}
                 />
                 <span className="flex flex-col gap-0.5 min-w-0 flex-1">

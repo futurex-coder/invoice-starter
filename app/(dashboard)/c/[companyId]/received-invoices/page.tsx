@@ -128,7 +128,7 @@ export default function ReceivedInvoicesPage() {
             Invoices your partners sent — what you have paid and what you owe.
           </p>
         </div>
-        <Button onClick={goUpload} className="bg-orange-500 hover:bg-orange-600">
+        <Button onClick={goUpload} className="bg-primary hover:bg-primary/90">
           <Plus className="mr-2 h-4 w-4" />
           Upload invoices
         </Button>

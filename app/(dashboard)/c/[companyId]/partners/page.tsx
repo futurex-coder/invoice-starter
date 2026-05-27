@@ -213,7 +213,7 @@ export default function PartnersPage() {
       <ListPageHeader
         title="Partners"
         action={
-          <Button className="bg-orange-500 hover:bg-orange-600" onClick={openCreate}>
+          <Button className="bg-primary hover:bg-primary/90" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Add partner
           </Button>

@@ -105,7 +105,7 @@ export default function MembersPage() {
         action={
           canInviteMembers(role) && (
             <Button
-              className="bg-orange-500 hover:bg-orange-600"
+              className="bg-primary hover:bg-primary/90"
               onClick={() => setShowInvite(true)}
             >
               <UserPlus className="mr-2 h-4 w-4" />

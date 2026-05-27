@@ -495,7 +495,7 @@ export async function getReceivedInvoice(
       | { matchedPartnerId: number; matchedPartnerName: string }
       | null = null;
     if (!row.partnerId) {
-      const supplier = (row.supplierSnapshot ?? {}) as SupplierSnapshot;
+      const supplier = parseSupplierSnapshot(row.supplierSnapshot);
       if (supplier.eik) {
         const match = await findPartnerByEik(companyId, supplier.eik);
         if (match) {

@@ -6,7 +6,10 @@ import {
   parsePaymentMethod,
   parsePaymentStatus,
   parsePartySnapshot,
+  parsePartySnapshotStrict,
   parseInvoiceItems,
+  parseStoredLineItems,
+  parseInvoiceTotalsStrict,
   isPaymentMethod,
   isPaymentStatus,
   isDocType,
@@ -179,5 +182,167 @@ describe('type guards', () => {
   it('isDocType', () => {
     expect(isDocType('credit_note')).toBe(true);
     expect(isDocType('memo')).toBe(false);
+  });
+});
+
+describe('parsePartySnapshotStrict', () => {
+  it('returns a full PartySnapshot for a valid JSONB object', () => {
+    const r = parsePartySnapshotStrict({
+      legalName: 'Acme EOOD',
+      address: 'Sofia, BG',
+      uic: '123456789',
+      vatNumber: 'BG123456789',
+    });
+    expect(r.legalName).toBe('Acme EOOD');
+    expect(r.uic).toBe('123456789');
+    expect(r.vatNumber).toBe('BG123456789');
+  });
+
+  it('fills empty defaults for missing fields without lying about completeness', () => {
+    const r = parsePartySnapshotStrict({ legalName: 'Acme' });
+    expect(r.legalName).toBe('Acme');
+    expect(r.address).toBe('');
+    expect(r.uic).toBe('');
+    expect(r.vatNumber).toBeNull();
+  });
+
+  it('returns an all-default snapshot for null/undefined input', () => {
+    const r = parsePartySnapshotStrict(null);
+    expect(r).toEqual({
+      legalName: '',
+      address: '',
+      uic: '',
+      vatNumber: null,
+      bankName: undefined,
+      iban: undefined,
+      bic: undefined,
+    });
+  });
+
+  it('preserves optional bank fields when present', () => {
+    const r = parsePartySnapshotStrict({
+      legalName: 'Acme',
+      address: 'Sofia',
+      uic: '111',
+      vatNumber: null,
+      bankName: 'DSK',
+      iban: 'BG80BNBG96611020345678',
+      bic: 'STSABGSF',
+    });
+    expect(r.bankName).toBe('DSK');
+    expect(r.iban).toBe('BG80BNBG96611020345678');
+    expect(r.bic).toBe('STSABGSF');
+  });
+});
+
+describe('parseInvoiceTotalsStrict', () => {
+  it('returns a full InvoiceTotals for a valid JSONB object', () => {
+    const r = parseInvoiceTotalsStrict({
+      netAmount: 100,
+      vatAmount: 20,
+      grossAmount: 120,
+      vatBreakdown: [{ vatRate: 20, taxableAmount: 100, vatAmount: 20 }],
+    });
+    expect(r).toEqual({
+      netAmount: 100,
+      vatAmount: 20,
+      grossAmount: 120,
+      vatBreakdown: [{ vatRate: 20, taxableAmount: 100, vatAmount: 20 }],
+    });
+  });
+
+  it('zeros out missing numeric fields and defaults vatBreakdown to []', () => {
+    expect(parseInvoiceTotalsStrict({})).toEqual({
+      netAmount: 0,
+      vatAmount: 0,
+      grossAmount: 0,
+      vatBreakdown: [],
+    });
+  });
+
+  it('returns all-zeros for null/undefined input', () => {
+    const z = {
+      netAmount: 0,
+      vatAmount: 0,
+      grossAmount: 0,
+      vatBreakdown: [],
+    };
+    expect(parseInvoiceTotalsStrict(null)).toEqual(z);
+    expect(parseInvoiceTotalsStrict(undefined)).toEqual(z);
+  });
+
+  it('coerces numeric strings (JSONB columns often serialize numbers as strings)', () => {
+    const r = parseInvoiceTotalsStrict({
+      netAmount: '100',
+      vatAmount: '20',
+      grossAmount: '120',
+    });
+    expect(r.netAmount).toBe(100);
+    expect(r.vatAmount).toBe(20);
+    expect(r.grossAmount).toBe(120);
+  });
+});
+
+describe('parseStoredLineItems', () => {
+  const fullItem = {
+    description: 'Widget',
+    quantity: 2,
+    unit: 'pcs',
+    unitPrice: 10,
+    vatRate: 20,
+    discountPercent: 0,
+    discountAmount: 0,
+    netAmount: 20,
+    vatAmount: 4,
+    grossAmount: 24,
+    sortOrder: 1,
+  };
+
+  it('returns valid LineItems unchanged', () => {
+    const r = parseStoredLineItems([fullItem]);
+    expect(r).toHaveLength(1);
+    expect(r[0].description).toBe('Widget');
+    expect(r[0].netAmount).toBe(20);
+    expect(r[0].grossAmount).toBe(24);
+  });
+
+  it('drops items missing computed fields (filters silently)', () => {
+    // Missing netAmount, vatAmount, grossAmount, sortOrder — these are the
+    // post-calculation fields. Such items aren't fully formed; drop them
+    // rather than fabricate values.
+    const stored = { ...fullItem };
+    const partial = {
+      description: 'Half-built',
+      quantity: 1,
+      unit: 'pcs',
+      unitPrice: 5,
+      vatRate: 20,
+    };
+    const r = parseStoredLineItems([stored, partial]);
+    expect(r).toHaveLength(1);
+    expect(r[0].description).toBe('Widget');
+  });
+
+  it('returns [] for non-array input', () => {
+    expect(parseStoredLineItems(null)).toEqual([]);
+    expect(parseStoredLineItems(undefined)).toEqual([]);
+    expect(parseStoredLineItems('not an array')).toEqual([]);
+    expect(parseStoredLineItems({})).toEqual([]);
+  });
+
+  it('coerces numeric strings within each item', () => {
+    const stringy = {
+      ...fullItem,
+      quantity: '2',
+      unitPrice: '10',
+      netAmount: '20',
+      vatAmount: '4',
+      grossAmount: '24',
+      sortOrder: '1',
+    };
+    const r = parseStoredLineItems([stringy]);
+    expect(r).toHaveLength(1);
+    expect(r[0].quantity).toBe(2);
+    expect(r[0].grossAmount).toBe(24);
   });
 });

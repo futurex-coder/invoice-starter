@@ -6,6 +6,11 @@
 
 import type { InvoiceDocument, LineItem, PartySnapshot } from './types';
 import { MONEY_PRECISION, QUANTITY_PRECISION } from './rules';
+import {
+  parsePartySnapshotStrict,
+  parseInvoiceTotalsStrict,
+  parseStoredLineItems,
+} from './parsers';
 
 // ---------------------------------------------------------------------------
 // Number formatting
@@ -235,15 +240,12 @@ export function buildPrintModel(
   invoice: InvoiceForPrint,
   options?: { createdByName?: string | null }
 ): PrintModel {
-  const supplier = partyToPrintParty(invoice.supplierSnapshot as PartySnapshot);
-  const recipient = partyToPrintParty(invoice.recipientSnapshot as PartySnapshot);
-  const items = (invoice.items ?? []) as LineItem[];
-  const totals = (invoice.totals ?? { netAmount: 0, vatAmount: 0, grossAmount: 0, vatBreakdown: [] }) as {
-    netAmount: number;
-    vatAmount: number;
-    grossAmount: number;
-    vatBreakdown: Array<{ vatRate: number; vatAmount: number }>;
-  };
+  const supplierSnap = parsePartySnapshotStrict(invoice.supplierSnapshot);
+  const recipientSnap = parsePartySnapshotStrict(invoice.recipientSnapshot);
+  const supplier = partyToPrintParty(supplierSnap);
+  const recipient = partyToPrintParty(recipientSnap);
+  const items = parseStoredLineItems(invoice.items);
+  const totals = parseInvoiceTotalsStrict(invoice.totals);
   const fxRate = Number(invoice.fxRate ?? 1);
   const currency = (invoice.currency ?? 'EUR').toUpperCase();
   const isEur = currency === 'EUR';
@@ -266,10 +268,10 @@ export function buildPrintModel(
         ? Math.round((totals.vatAmount / totals.netAmount) * 100)
         : 0;
 
-  const supplierSnap = invoice.supplierSnapshot as PartySnapshot & { bankName?: string; iban?: string; bic?: string };
+  // `supplierSnap` already parsed above (now extended with optional
+  // bankName/iban/bic on `PartySnapshot`).
   const bankDetails =
-    invoice.paymentMethod === 'bank' &&
-    supplierSnap?.iban
+    invoice.paymentMethod === 'bank' && supplierSnap.iban
       ? {
           bankName: supplierSnap.bankName ?? '',
           iban: supplierSnap.iban,

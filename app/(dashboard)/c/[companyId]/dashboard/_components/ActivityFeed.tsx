@@ -6,7 +6,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ACTIVITY_LABELS, relativeTime } from './utils';
+import { formatActivityAction } from '@/lib/activity-labels';
+import { relativeTime } from '@/lib/format';
 
 interface ActivityLogRow {
   id: number;
@@ -43,7 +44,7 @@ export function ActivityFeed({ activity }: Props) {
                   <p>
                     <span className="font-medium">{a.userName || 'Unknown'}</span>{' '}
                     <span className="text-muted-foreground">
-                      {ACTIVITY_LABELS[a.action] ?? a.action}
+                      {formatActivityAction(a.action)}
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">

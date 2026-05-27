@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Crown, ArrowRight } from 'lucide-react';
-import { formatCurrency } from './utils';
+import { formatMoney } from '@/lib/format';
 import type { CompanyMetric } from './types';
 
 interface Props {
@@ -39,13 +39,13 @@ export function CompaniesGrid({ companies }: Props) {
                   <div>
                     <p className="text-xs text-muted-foreground">Revenue</p>
                     <p className="text-sm font-semibold text-green-700">
-                      {formatCurrency(c.revenue)}
+                      {formatMoney(c.revenue)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Outstanding</p>
                     <p className="text-sm font-semibold text-amber-700">
-                      {formatCurrency(c.outstanding)}
+                      {formatMoney(c.outstanding)}
                     </p>
                   </div>
                   <div>
@@ -63,13 +63,13 @@ export function CompaniesGrid({ companies }: Props) {
                   <div>
                     <p className="text-xs text-muted-foreground">Expenses</p>
                     <p className="text-sm font-semibold text-purple-700">
-                      {formatCurrency(c.expensesPaid + c.expensesOutstanding)}
+                      {formatMoney(c.expensesPaid + c.expensesOutstanding)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Unpaid</p>
                     <p className="text-sm font-semibold text-rose-700">
-                      {formatCurrency(c.expensesOutstanding)}
+                      {formatMoney(c.expensesOutstanding)}
                     </p>
                   </div>
                   <div>

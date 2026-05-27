@@ -1,6 +1,27 @@
+/**
+ * Activity-feed label mapping.
+ *
+ * Canonical home for `ActivityType` → user-facing label strings used by
+ * `<ActivityFeed>` and the dedicated `/activity` page. Previously
+ * duplicated in three places with diverging wording — keep edits here so
+ * the feed reads consistently everywhere.
+ */
+
 import { ActivityType } from '@/lib/db/schema';
 
-export const ACTIVITY_LABELS: Record<string, string> = {
+const ACTIVITY_TYPE_VALUES: ReadonlySet<string> = new Set(
+  Object.values(ActivityType)
+);
+
+/**
+ * Type guard — narrow a DB-sourced action string into the `ActivityType` enum.
+ * Returns `false` for unknown values; callers should fall back gracefully.
+ */
+export function isActivityType(value: string): value is ActivityType {
+  return ACTIVITY_TYPE_VALUES.has(value);
+}
+
+export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   [ActivityType.SIGN_UP]: 'Signed up',
   [ActivityType.SIGN_IN]: 'Signed in',
   [ActivityType.SIGN_OUT]: 'Signed out',
@@ -29,24 +50,13 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: 'Unarchived a received invoice',
 };
 
-export function formatCurrency(amount: number): string {
-  return amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-export function relativeTime(date: Date | null): string {
-  if (!date) return '';
-  const now = Date.now();
-  const then = new Date(date).getTime();
-  const diff = now - then;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(date).toLocaleDateString();
+/**
+ * Look up the label for an action string from the activity log.
+ * Returns "Unknown action" for unrecognized values (defensive — log rows
+ * are written with current enum values, but older rows may reference
+ * actions that no longer exist).
+ */
+export function formatActivityAction(action: string): string {
+  if (!isActivityType(action)) return 'Unknown action';
+  return ACTIVITY_LABELS[action];
 }

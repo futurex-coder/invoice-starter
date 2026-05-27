@@ -28,11 +28,16 @@ import type {
   LineItemInput,
   PartySnapshot,
   InvoiceDocument,
-  InvoiceTotals,
   LineItem,
   ValidationError as DomainValidationIssue,
 } from './types';
-import { parseInvoiceRow, parseInvoiceLineRow } from './parsers';
+import {
+  parseInvoiceRow,
+  parseInvoiceLineRow,
+  parsePartySnapshotStrict,
+  parseInvoiceTotalsStrict,
+  parseStoredLineItems,
+} from './parsers';
 import type { ParsedInvoice, ParsedInvoiceLine } from './parsed-types';
 
 // ---------------------------------------------------------------------------
@@ -376,14 +381,8 @@ async function saveInvoiceLines(
 // ---------------------------------------------------------------------------
 
 function rowToDocument(row: Invoice): InvoiceDocument {
-  // TODO: replace with Zod schema parse once JSONB column schemas are defined
-  const items = (row.items ?? []) as LineItem[];
-  const totals = (row.totals ?? {
-    netAmount: 0,
-    vatAmount: 0,
-    grossAmount: 0,
-    vatBreakdown: [],
-  }) as InvoiceTotals;
+  const items = parseStoredLineItems(row.items);
+  const totals = parseInvoiceTotalsStrict(row.totals);
 
   return {
     docType: isDocType(row.docType) ? row.docType : 'invoice',
@@ -394,9 +393,8 @@ function rowToDocument(row: Invoice): InvoiceDocument {
     supplyDate: row.supplyDate,
     currency: row.currency,
     fxRate: Number(row.fxRate),
-    // TODO: replace with Zod schema parse once JSONB column schemas are defined
-    supplier: (row.supplierSnapshot ?? {}) as PartySnapshot,
-    recipient: (row.recipientSnapshot ?? {}) as PartySnapshot,
+    supplier: parsePartySnapshotStrict(row.supplierSnapshot),
+    recipient: parsePartySnapshotStrict(row.recipientSnapshot),
     items,
     totals,
     referencedInvoiceNumber: row.number
@@ -511,8 +509,7 @@ export async function createInvoiceDraft(
           amountInWords: words,
           customerNote: input.customerNote ?? null,
           internalComment: input.internalComment ?? null,
-        // TODO: remove cast once Drizzle insert type aligns with column definitions
-        } as NewInvoice)
+        } satisfies NewInvoice)
         .returning();
 
       if (!row) throw new Error('Failed to create invoice');
@@ -557,16 +554,17 @@ export async function updateInvoiceDraft(
       throw new Error('Only draft invoices can be updated');
     }
 
-    // TODO: replace with Zod schema parse once JSONB column schemas are defined
-    const supplier = input.supplier ?? (existing.supplierSnapshot as PartySnapshot);
+    const supplier = input.supplier ?? parsePartySnapshotStrict(existing.supplierSnapshot);
     const recipientSnapshot = input.recipient
       ? recipientInputToSnapshot(input.recipient)
-      : (existing.recipientSnapshot as PartySnapshot);
+      : parsePartySnapshotStrict(existing.recipientSnapshot);
     const lineItemInputs = input.lineItems;
-    // TODO: replace with Zod schema parse once JSONB column schemas are defined
     const calc = lineItemInputs
       ? calculateInvoice(lineItemInputs)
-      : { items: existing.items as LineItem[], totals: existing.totals as InvoiceTotals };
+      : {
+          items: parseStoredLineItems(existing.items),
+          totals: parseInvoiceTotalsStrict(existing.totals),
+        };
 
     const issueDate = input.issueDate ?? existing.issueDate;
     const supplyDate = input.supplyDate !== undefined ? input.supplyDate : existing.supplyDate;
@@ -706,8 +704,7 @@ export async function finalizeInvoice(
       throw new DomainValidationError(vr.errors);
     }
 
-    // TODO: replace with Zod schema parse once JSONB column schemas are defined
-    const totals = (existing.totals ?? { grossAmount: 0 }) as InvoiceTotals;
+    const totals = parseInvoiceTotalsStrict(existing.totals);
     const currency = existing.currency ?? 'EUR';
     const amountInWords =
       existing.amountInWords?.trim() ||
@@ -889,15 +886,13 @@ async function createNoteFromInvoice(
     const today = new Date().toISOString().slice(0, 10);
     const series = DEFAULT_SERIES[noteType];
 
-    // TODO: replace with Zod schema parse once JSONB column schemas are defined
     const supplier = overrides?.supplier
-      ?? (original.supplierSnapshot as PartySnapshot);
+      ?? parsePartySnapshotStrict(original.supplierSnapshot);
 
     // Build recipient snapshot: from overrides or copy from original
-    // TODO: replace with Zod schema parse once JSONB column schemas are defined
     const recipientSnapshot = overrides?.recipient
       ? recipientInputToSnapshot(overrides.recipient)
-      : (original.recipientSnapshot as PartySnapshot);
+      : parsePartySnapshotStrict(original.recipientSnapshot);
 
     const issueDate = overrides?.issueDate ?? today;
     const supplyDate = overrides?.supplyDate !== undefined
@@ -913,9 +908,8 @@ async function createNoteFromInvoice(
       .where(eq(invoiceLines.invoiceId, originalInvoiceId))
       .orderBy(invoiceLines.sortOrder);
 
-    // TODO: replace with Zod schema parse once JSONB column schemas are defined
     const lineItemInputs: LineItemWithArticle[] = overrides?.lineItems
-      ?? (original.items as LineItem[]).map((item, i): LineItemWithArticle => ({
+      ?? parseStoredLineItems(original.items).map((item, i): LineItemWithArticle => ({
           description: item.description,
           quantity: item.quantity,
           unit: item.unit,

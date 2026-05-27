@@ -22,6 +22,11 @@ import type {
   ReceivedInvoiceReviewInput,
   SupplierSnapshot,
 } from '@/src/features/received-invoices/types';
+import {
+  parseAccountingStatus,
+  parsePaymentMethod,
+  parsePaymentStatus,
+} from '@/src/features/received-invoices/parsers';
 import type {
   ExtractedInvoice,
   FieldConfidence,
@@ -765,7 +770,7 @@ export function ReviewForm({
             <Label>Method</Label>
             <RadioGroup
               value={paymentMethod}
-              onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}
+              onValueChange={(v) => setPaymentMethod(parsePaymentMethod(v))}
               className="flex gap-4 pt-2"
             >
               {PAYMENT_METHODS.map((m) => (
@@ -784,7 +789,7 @@ export function ReviewForm({
                 className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                 value={paymentStatus}
                 onChange={(e) =>
-                  setPaymentStatus(e.target.value as PaymentStatus)
+                  setPaymentStatus(parsePaymentStatus(e.target.value))
                 }
               >
                 {PAYMENT_STATUSES.map((s) => (
@@ -801,7 +806,7 @@ export function ReviewForm({
                 className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
                 value={accountingStatus}
                 onChange={(e) =>
-                  setAccountingStatus(e.target.value as AccountingStatus)
+                  setAccountingStatus(parseAccountingStatus(e.target.value))
                 }
               >
                 {ACCOUNTING_STATUSES.map((s) => (

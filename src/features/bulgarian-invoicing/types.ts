@@ -35,6 +35,12 @@ export interface PartySnapshot {
   uic: string;
   /** BG VAT number (BG + 9/10 digits), null if not VAT-registered */
   vatNumber: string | null;
+  /** Optional supplier-side bank details — present when the issuer copies
+   * them from the company profile at draft time. Consumed by the formatter
+   * to render the "Bank details" block on bank-payment invoices. */
+  bankName?: string;
+  iban?: string;
+  bic?: string;
 }
 
 // ---------------------------------------------------------------------------

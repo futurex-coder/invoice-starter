@@ -17,6 +17,7 @@ import { SearchBar } from '@/components/list-page/SearchBar';
 import { ListCard } from '@/components/list-page/ListCard';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { Card, CardContent } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   ArticleFormCard,
   emptyArticleForm,
@@ -75,6 +76,7 @@ export default function ArticlesPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<ArticleForm>(emptyArticleForm);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
 
   const handleFormChange = (patch: Partial<ArticleForm>) => {
     setForm((f) => ({ ...f, ...patch }));
@@ -130,12 +132,15 @@ export default function ArticlesPage() {
     refetch();
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this article? This cannot be undone.')) return;
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDelete) return;
     setActionError(null);
-    const res = await deleteArticle(id);
-    if (res.error) setActionError(res.error);
-    else refetch();
+    const res = await deleteArticle(confirmDelete.id);
+    if (res.error) {
+      setActionError(res.error);
+      throw new Error(res.error);
+    }
+    refetch();
   };
 
   return (
@@ -188,9 +193,23 @@ export default function ArticlesPage() {
         <ArticlesTable
           articles={items}
           onEdit={openEdit}
-          onDelete={handleDelete}
+          onDelete={(a) => setConfirmDelete({ id: a.id, name: a.name })}
         />
       </ListCard>
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        title="Delete article?"
+        description={
+          confirmDelete
+            ? `${confirmDelete.name} will be permanently removed. This cannot be undone.`
+            : undefined
+        }
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDeleteConfirmed}
+      />
     </PageShell>
   );
 }

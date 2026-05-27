@@ -19,6 +19,7 @@ import { SearchBar } from '@/components/list-page/SearchBar';
 import { ListCard } from '@/components/list-page/ListCard';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { Card, CardContent } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   PartnerFormCard,
   emptyPartnerForm,
@@ -89,6 +90,8 @@ export default function PartnersPage() {
   const [linkedCompany, setLinkedCompany] = useState<Company | null>(null);
   const [selfEikError, setSelfEikError] = useState(false);
   const eikLookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
 
   const doEikLookup = useCallback(
     async (eik: string) => {
@@ -201,12 +204,15 @@ export default function PartnersPage() {
     refetch();
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this partner? This cannot be undone.')) return;
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDelete) return;
     setActionError(null);
-    const res = await deletePartner(id);
-    if (res.error) setActionError(res.error);
-    else refetch();
+    const res = await deletePartner(confirmDelete.id);
+    if (res.error) {
+      setActionError(res.error);
+      throw new Error(res.error);
+    }
+    refetch();
   };
 
   return (
@@ -263,9 +269,23 @@ export default function PartnersPage() {
         <PartnersTable
           partners={items}
           onEdit={openEdit}
-          onDelete={handleDelete}
+          onDelete={(p) => setConfirmDelete({ id: p.id, name: p.name })}
         />
       </ListCard>
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        title="Delete partner?"
+        description={
+          confirmDelete
+            ? `${confirmDelete.name} will be permanently removed. This cannot be undone.`
+            : undefined
+        }
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDeleteConfirmed}
+      />
     </PageShell>
   );
 }

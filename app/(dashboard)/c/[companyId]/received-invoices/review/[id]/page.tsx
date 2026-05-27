@@ -24,6 +24,7 @@ import {
 import { ReviewForm } from '@/components/received-invoices/ReviewForm';
 import { PreviewPane } from '@/components/received-invoices/PreviewPane';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ReviewHeader } from './_components/ReviewHeader';
 import { DuplicatesWarning } from './_components/DuplicatesWarning';
 import { rowToReviewInput } from './_components/rowToReviewInput';
@@ -45,6 +46,7 @@ export default function ReviewReceivedInvoicePage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
   const error = actionError ?? (fetchError ? fetchError.message : null);
 
@@ -86,14 +88,17 @@ export default function ReviewReceivedInvoicePage() {
   };
 
   const handleDiscard = async () => {
-    if (!confirm('Discard this draft? It will not count in any totals.')) return;
+    setConfirmDiscardOpen(true);
+  };
+
+  const handleDiscardConfirmed = async () => {
     setSaving(true);
     setActionError(null);
     const res = await discardReceivedInvoice(id);
     setSaving(false);
     if (res.error) {
       setActionError(res.error);
-      return;
+      throw new Error(res.error);
     }
     goNextOrList();
   };
@@ -174,6 +179,20 @@ export default function ReviewReceivedInvoicePage() {
           />
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        title="Discard draft?"
+        description={
+          state.row.invoiceNumber
+            ? `Draft № ${state.row.invoiceNumber} will not count in any totals. You can still find it under the Discarded filter.`
+            : 'This draft will not count in any totals. You can still find it under the Discarded filter.'
+        }
+        confirmText="Discard"
+        variant="destructive"
+        onConfirm={handleDiscardConfirmed}
+      />
     </section>
   );
 }

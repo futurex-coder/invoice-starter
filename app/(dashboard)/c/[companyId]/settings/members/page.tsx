@@ -12,6 +12,7 @@ import { useCompany } from '@/lib/context/company-context';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { ListPageHeader } from '@/components/list-page/ListPageHeader';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { CheckCircle, Loader2, UserPlus } from 'lucide-react';
 import {
   InviteMemberForm,
@@ -42,6 +43,7 @@ export default function MembersPage() {
   const [inviting, setInviting] = useState(false);
 
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ id: number; name: string } | null>(null);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,21 +69,21 @@ export default function MembersPage() {
     refetch();
   };
 
-  const handleRemove = async (memberId: number) => {
-    if (!confirm('Remove this member from the company?')) return;
-    setRemovingId(memberId);
+  const handleRemoveConfirmed = async () => {
+    if (!confirmRemove) return;
+    setRemovingId(confirmRemove.id);
     setActionError(null);
     setSuccess(null);
 
     const formData = new FormData();
-    formData.set('memberId', String(memberId));
+    formData.set('memberId', String(confirmRemove.id));
 
     const res = await removeCompanyMember({}, formData);
 
     setRemovingId(null);
     if (res && 'error' in res && res.error) {
       setActionError(res.error);
-      return;
+      throw new Error(res.error);
     }
     setSuccess('Member removed');
     refetch();
@@ -141,10 +143,26 @@ export default function MembersPage() {
         members={members}
         canRemove={canRemoveMembers(role)}
         removingId={removingId}
-        onRemove={handleRemove}
+        onRemove={(m) =>
+          setConfirmRemove({ id: m.id, name: m.user.name || m.user.email })
+        }
       />
 
       <PendingInvitationsTable invitations={pendingInvitations} />
+
+      <ConfirmDialog
+        open={confirmRemove !== null}
+        onOpenChange={(open) => !open && setConfirmRemove(null)}
+        title="Remove member?"
+        description={
+          confirmRemove
+            ? `${confirmRemove.name} will lose access to this company. You can invite them back later.`
+            : undefined
+        }
+        confirmText="Remove member"
+        variant="destructive"
+        onConfirm={handleRemoveConfirmed}
+      />
     </PageShell>
   );
 }

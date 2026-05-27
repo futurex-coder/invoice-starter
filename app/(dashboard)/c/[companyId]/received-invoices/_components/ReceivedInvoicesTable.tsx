@@ -24,8 +24,8 @@ interface RowProps {
   onMarkPayment: (id: number, status: PaymentStatus) => void;
   onMarkAccounting: (id: number, status: AccountingStatus) => void;
   onArchive: (id: number, archived: boolean) => void;
-  onDiscard: (id: number) => void;
-  onHardDelete: (id: number) => void;
+  onDiscard: (item: ReceivedInvoiceListItem) => void;
+  onHardDelete: (item: ReceivedInvoiceListItem) => void;
 }
 
 function Row(props: RowProps) {
@@ -114,8 +114,8 @@ interface TableProps {
   onMarkPayment: (id: number, status: PaymentStatus) => void;
   onMarkAccounting: (id: number, status: AccountingStatus) => void;
   onArchive: (id: number, archived: boolean) => void;
-  onDiscard: (id: number) => void;
-  onHardDelete: (id: number) => void;
+  onDiscard: (item: ReceivedInvoiceListItem) => void;
+  onHardDelete: (item: ReceivedInvoiceListItem) => void;
 }
 
 const HEADER_CELL_CLASS =

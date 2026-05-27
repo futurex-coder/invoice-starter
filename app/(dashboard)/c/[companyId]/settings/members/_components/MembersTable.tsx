@@ -16,7 +16,7 @@ interface Props {
   members: Member[];
   canRemove: boolean;
   removingId: number | null;
-  onRemove: (memberId: number) => void;
+  onRemove: (member: Member) => void;
 }
 
 export function MembersTable({ members, canRemove, removingId, onRemove }: Props) {
@@ -90,7 +90,7 @@ export function MembersTable({ members, canRemove, removingId, onRemove }: Props
                         size="sm"
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         disabled={removingId === m.id}
-                        onClick={() => onRemove(m.id)}
+                        onClick={() => onRemove(m)}
                       >
                         {removingId === m.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

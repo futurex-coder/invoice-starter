@@ -31,7 +31,10 @@ import { Pagination } from '@/components/list-page/Pagination';
 import { ReceivedInvoiceFilters } from './_components/ReceivedInvoiceFilters';
 import { PendingReviewBanner } from './_components/PendingReviewBanner';
 import { ReceivedInvoicesTable } from './_components/ReceivedInvoicesTable';
+import { supplierName } from './_components/utils';
+import type { ReceivedInvoiceListItem } from '@/src/features/received-invoices/actions';
 import { PageShell } from '@/components/page-shell';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export default function ReceivedInvoicesPage() {
   const router = useRouter();
@@ -47,6 +50,9 @@ export default function ReceivedInvoicesPage() {
   const [searchInput, setSearchInput] = useState('');
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
+
+  type ConfirmTarget = { item: ReceivedInvoiceListItem; mode: 'discard' | 'hardDelete' };
+  const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
 
   const {
     data,
@@ -101,20 +107,33 @@ export default function ReceivedInvoicesPage() {
   const handleArchive = (id: number, archived: boolean) =>
     runMutation(id, () => setReceivedInvoiceArchived(id, archived));
 
-  const handleDiscard = (id: number) => {
-    if (!confirm('Discard this draft? It will not count in any totals.')) return;
-    runMutation(id, () => discardReceivedInvoice(id));
+  const handleConfirmAction = async () => {
+    if (!confirmTarget) return;
+    const { item, mode } = confirmTarget;
+    setPendingId(item.id);
+    setActionError(null);
+    const res =
+      mode === 'discard'
+        ? await discardReceivedInvoice(item.id)
+        : await hardDeleteDiscardedReceivedInvoice(item.id);
+    setPendingId(null);
+    if (res.error) {
+      setActionError(res.error);
+      throw new Error(res.error);
+    }
+    refetch();
   };
 
-  const handleHardDelete = (id: number) => {
-    if (
-      !confirm(
-        'Permanently delete this discarded invoice? The original file will also be removed. This cannot be undone.'
-      )
-    ) {
-      return;
+  const buildDescription = (target: ConfirmTarget | null): string | undefined => {
+    if (!target) return undefined;
+    const numberPart = target.item.invoiceNumber
+      ? `№ ${target.item.invoiceNumber}`
+      : `#${target.item.id}`;
+    const supplier = supplierName(target.item);
+    if (target.mode === 'discard') {
+      return `Draft ${numberPart} from ${supplier} will not count in any totals. You can still find it under the Discarded filter.`;
     }
-    runMutation(id, () => hardDeleteDiscardedReceivedInvoice(id));
+    return `${numberPart} from ${supplier} and the original file will be permanently removed. This cannot be undone.`;
   };
 
   return (
@@ -185,8 +204,8 @@ export default function ReceivedInvoicesPage() {
               onMarkPayment={handlePayment}
               onMarkAccounting={handleAccounting}
               onArchive={handleArchive}
-              onDiscard={handleDiscard}
-              onHardDelete={handleHardDelete}
+              onDiscard={(item) => setConfirmTarget({ item, mode: 'discard' })}
+              onHardDelete={(item) => setConfirmTarget({ item, mode: 'hardDelete' })}
             />
           )}
           {data && (
@@ -199,6 +218,22 @@ export default function ReceivedInvoicesPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        onOpenChange={(open) => !open && setConfirmTarget(null)}
+        title={
+          confirmTarget?.mode === 'hardDelete'
+            ? 'Permanently delete invoice?'
+            : 'Discard draft?'
+        }
+        description={buildDescription(confirmTarget)}
+        confirmText={
+          confirmTarget?.mode === 'hardDelete' ? 'Permanently delete' : 'Discard'
+        }
+        variant="destructive"
+        onConfirm={handleConfirmAction}
+      />
     </PageShell>
   );
 }

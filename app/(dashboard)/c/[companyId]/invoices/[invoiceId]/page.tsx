@@ -23,6 +23,7 @@ import { InvoicePrintPreview } from './InvoicePrintPreview';
 import { requireStringParam } from '@/lib/route-params';
 import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
 import { PageShell } from '@/components/page-shell';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -44,6 +45,7 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const { data: currentUser } = useSWR<SafeUser>('/api/user', fetcher);
 
   useEffect(() => {
@@ -74,14 +76,16 @@ export default function InvoiceDetailPage() {
     else if (res.data) setInvoice(res.data);
   };
 
-  const handleCancel = async () => {
-    if (!confirm('Cancel this invoice? This cannot be undone.')) return;
+  const handleCancelConfirmed = async () => {
     setActionLoading(true);
     setError(null);
     const res = await cancelInvoice(id);
     setActionLoading(false);
-    if (res.error) setError(res.error);
-    else if (res.data) setInvoice(res.data);
+    if (res.error) {
+      setError(res.error);
+      throw new Error(res.error);
+    }
+    if (res.data) setInvoice(res.data);
   };
 
   const handlePrint = () => {
@@ -185,7 +189,7 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
           {!isDraft && !isCancelled && (
-            <Button variant="outline" size="sm" onClick={handleCancel} disabled={actionLoading}>
+            <Button variant="outline" size="sm" onClick={() => setConfirmCancelOpen(true)} disabled={actionLoading}>
               <XCircle className="mr-2 h-4 w-4" />
               Cancel invoice
             </Button>
@@ -280,6 +284,21 @@ export default function InvoiceDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmCancelOpen}
+        onOpenChange={setConfirmCancelOpen}
+        title="Cancel invoice?"
+        description={
+          invoice.number != null
+            ? `Invoice № ${formatInvoiceNumber(invoice.number)} will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.`
+            : 'This invoice will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.'
+        }
+        confirmText="Cancel invoice"
+        cancelText="Keep invoice"
+        variant="destructive"
+        onConfirm={handleCancelConfirmed}
+      />
     </PageShell>
   );
 }

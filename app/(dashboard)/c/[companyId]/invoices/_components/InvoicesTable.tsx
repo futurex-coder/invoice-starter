@@ -36,7 +36,7 @@ interface RowProps {
   onView: (id: number) => void;
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
-  onCancel: (id: number) => void;
+  onCancel: (invoice: Invoice) => void;
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
@@ -73,7 +73,7 @@ function InvoiceRow({
     { icon: Printer, label: 'Print / Preview', onClick: () => onPrint(invoice.id) },
     ...(!isCancelled && isIssued
       ? [
-          { icon: XCircle, label: 'Cancel', onClick: () => onCancel(invoice.id) },
+          { icon: XCircle, label: 'Cancel', onClick: () => onCancel(invoice) },
           { icon: Copy, label: 'Copy', onClick: () => onCopy(invoice.id) },
           { icon: FileDown, label: 'Create credit note', onClick: () => onCreditNote(invoice.id) },
           { icon: FileUp, label: 'Create debit note', onClick: () => onDebitNote(invoice.id) },
@@ -134,7 +134,7 @@ interface TableProps {
   onView: (id: number) => void;
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
-  onCancel: (id: number) => void;
+  onCancel: (invoice: Invoice) => void;
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;

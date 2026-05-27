@@ -270,30 +270,28 @@ export default function CompanySettingsPage() {
         onDeleteClick={() => setShowDeleteConfirm(true)}
       />
 
-      {showTransferModal && (
-        <TransferOwnershipModal
-          otherMembers={otherMembers}
-          selectedMemberId={transferTargetId}
-          onSelectMember={setTransferTargetId}
-          loading={dangerLoading}
-          onCancel={() => setShowTransferModal(false)}
-          onConfirm={handleTransfer}
-        />
-      )}
+      <TransferOwnershipModal
+        open={showTransferModal}
+        onOpenChange={setShowTransferModal}
+        otherMembers={otherMembers}
+        selectedMemberId={transferTargetId}
+        onSelectMember={setTransferTargetId}
+        loading={dangerLoading}
+        onConfirm={handleTransfer}
+      />
 
-      {showDeleteConfirm && (
-        <DeleteCompanyModal
-          companyName={company.legalName}
-          confirmText={deleteConfirmText}
-          onConfirmTextChange={setDeleteConfirmText}
-          loading={dangerLoading}
-          onCancel={() => {
-            setShowDeleteConfirm(false);
-            setDeleteConfirmText('');
-          }}
-          onConfirm={handleDelete}
-        />
-      )}
+      <DeleteCompanyModal
+        open={showDeleteConfirm}
+        onOpenChange={(open) => {
+          setShowDeleteConfirm(open);
+          if (!open) setDeleteConfirmText('');
+        }}
+        companyName={company.legalName}
+        confirmText={deleteConfirmText}
+        onConfirmTextChange={setDeleteConfirmText}
+        loading={dangerLoading}
+        onConfirm={handleDelete}
+      />
     </PageShell>
   );
 }

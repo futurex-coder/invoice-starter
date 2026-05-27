@@ -38,8 +38,8 @@ interface Props {
   onMarkPayment: (id: number, status: PaymentStatus) => void;
   onMarkAccounting: (id: number, status: AccountingStatus) => void;
   onArchive: (id: number, archived: boolean) => void;
-  onDiscard: (id: number) => void;
-  onHardDelete: (id: number) => void;
+  onDiscard: (item: ReceivedInvoiceListItem) => void;
+  onHardDelete: (item: ReceivedInvoiceListItem) => void;
 }
 
 export function ReceivedInvoiceRowActions({
@@ -87,7 +87,7 @@ export function ReceivedInvoiceRowActions({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => onDiscard(item.id)}
+              onClick={() => onDiscard(item)}
               className="text-red-700 focus:text-red-700"
             >
               <XCircle className="mr-2 h-4 w-4" />
@@ -186,7 +186,7 @@ export function ReceivedInvoiceRowActions({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              onClick={() => onHardDelete(item.id)}
+              onClick={() => onHardDelete(item)}
               className="text-red-700 focus:text-red-700"
             >
               <Trash2 className="mr-2 h-4 w-4" />

@@ -11,12 +11,15 @@ import {
   createDebitNoteFromInvoice,
   type ListInvoicesFilters,
 } from '@/src/features/bulgarian-invoicing/actions';
+import { formatInvoiceNumber } from '@/src/features/bulgarian-invoicing/formatter';
+import type { Invoice } from '@/lib/db/schema';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { requireStringParam } from '@/lib/route-params';
 import { Plus } from 'lucide-react';
 import { ListPageHeader } from '@/components/list-page/ListPageHeader';
 import { ListCard } from '@/components/list-page/ListCard';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
 import { InvoiceFilters } from './_components/InvoiceFilters';
 import { InvoicesTable } from './_components/InvoicesTable';
@@ -42,6 +45,8 @@ export default function InvoicesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const error = actionError ?? (fetchError ? fetchError.message : null);
 
+  const [confirmCancel, setConfirmCancel] = useState<{ id: number; label: string } | null>(null);
+
   const handleFiltersChange = (patch: Partial<ListInvoicesFilters>) => {
     setFilters((f) => ({ ...f, ...patch }));
   };
@@ -50,11 +55,23 @@ export default function InvoicesPage() {
     setFilters((f) => ({ ...f, search: searchInput || undefined, page: 1 }));
   };
 
-  const handleCancel = async (id: number) => {
-    if (!confirm('Cancel this invoice? This cannot be undone.')) return;
-    const res = await cancelInvoice(id);
-    if (res.error) setActionError(res.error);
-    else refetch();
+  const handleCancelClick = (invoice: Invoice) => {
+    const label =
+      invoice.number != null
+        ? `№ ${formatInvoiceNumber(invoice.number)}`
+        : `#${invoice.id}`;
+    setConfirmCancel({ id: invoice.id, label });
+  };
+
+  const handleCancelConfirmed = async () => {
+    if (!confirmCancel) return;
+    setActionError(null);
+    const res = await cancelInvoice(confirmCancel.id);
+    if (res.error) {
+      setActionError(res.error);
+      throw new Error(res.error);
+    }
+    refetch();
   };
 
   const handleCreditNote = async (id: number) => {
@@ -111,12 +128,27 @@ export default function InvoicesPage() {
           onView={(id) => router.push(`/c/${companyId}/invoices/${id}`)}
           onEdit={(id) => router.push(`/c/${companyId}/invoices/new?edit=${id}`)}
           onPrint={(id) => router.push(`/c/${companyId}/invoices/${id}?print=1`)}
-          onCancel={handleCancel}
+          onCancel={handleCancelClick}
           onCopy={() => {}}
           onCreditNote={handleCreditNote}
           onDebitNote={handleDebitNote}
         />
       </ListCard>
+
+      <ConfirmDialog
+        open={confirmCancel !== null}
+        onOpenChange={(open) => !open && setConfirmCancel(null)}
+        title="Cancel invoice?"
+        description={
+          confirmCancel
+            ? `Invoice ${confirmCancel.label} will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.`
+            : undefined
+        }
+        confirmText="Cancel invoice"
+        cancelText="Keep invoice"
+        variant="destructive"
+        onConfirm={handleCancelConfirmed}
+      />
     </PageShell>
   );
 }

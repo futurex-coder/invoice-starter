@@ -10,7 +10,7 @@ import {
 } from '@/src/features/invoicing/actions';
 import type { CreateArticleInput } from '@/src/features/invoicing/schemas';
 import type { Article } from '@/lib/db/schema';
-import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { useListPageState } from '@/lib/swr/use-list-page-state';
 import { Plus } from 'lucide-react';
 import { ListPageHeader } from '@/components/list-page/ListPageHeader';
 import { SearchBar } from '@/components/list-page/SearchBar';
@@ -51,26 +51,15 @@ function formToInput(f: ArticleForm): CreateArticleInput {
 }
 
 export default function ArticlesPage() {
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const list = useListPageState({
+    swrKey: 'articles',
+    defaults: { search: '' },
+    action: ({ search, page, pageSize }) =>
+      listArticles({ search: search || undefined, page, pageSize }),
+  });
 
-  const {
-    data: result,
-    isLoading: loading,
-    error: fetchError,
-    mutate: refetch,
-  } = useActionSWR(
-    ['articles', search, page],
-    () => listArticles({ search: search || undefined, page, pageSize })
-  );
-
-  const items = result?.items ?? [];
-  const total = result?.total ?? 0;
-
-  const [actionError, setActionError] = useState<string | null>(null);
-  const error = actionError ?? (fetchError ? fetchError.message : null);
+  const items = list.result?.items ?? [];
+  const total = list.result?.total ?? 0;
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -82,23 +71,18 @@ export default function ArticlesPage() {
     setForm((f) => ({ ...f, ...patch }));
   };
 
-  const applySearch = () => {
-    setSearch(searchInput);
-    setPage(1);
-  };
-
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyArticleForm);
     setShowForm(true);
-    setActionError(null);
+    list.setActionError(null);
   };
 
   const openEdit = (a: Article) => {
     setEditingId(a.id);
     setForm(articleToForm(a));
     setShowForm(true);
-    setActionError(null);
+    list.setActionError(null);
   };
 
   const closeForm = () => {
@@ -109,38 +93,24 @@ export default function ArticlesPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    setActionError(null);
-    const input = formToInput(form);
-
-    if (editingId) {
-      const res = await updateArticle(editingId, input);
-      setSaving(false);
-      if (res.error) {
-        setActionError(res.error);
-        return;
+    try {
+      const input = formToInput(form);
+      if (editingId) {
+        await list.runMutation(() => updateArticle(editingId, input));
+      } else {
+        await list.runMutation(() => createArticle(input));
       }
-    } else {
-      const res = await createArticle(input);
+      closeForm();
+    } catch {
+      // runMutation already set actionError; keep the form open
+    } finally {
       setSaving(false);
-      if (res.error) {
-        setActionError(res.error);
-        return;
-      }
     }
-
-    closeForm();
-    refetch();
   };
 
   const handleDeleteConfirmed = async () => {
     if (!confirmDelete) return;
-    setActionError(null);
-    const res = await deleteArticle(confirmDelete.id);
-    if (res.error) {
-      setActionError(res.error);
-      throw new Error(res.error);
-    }
-    refetch();
+    await list.runMutation(() => deleteArticle(confirmDelete.id));
   };
 
   return (
@@ -155,7 +125,7 @@ export default function ArticlesPage() {
         }
       />
 
-      <ErrorAlert message={error} className="mb-4" />
+      <ErrorAlert message={list.error} className="mb-4" />
 
       {showForm && (
         <ArticleFormCard
@@ -171,9 +141,9 @@ export default function ArticlesPage() {
       <Card className="mb-6">
         <CardContent className="pt-6">
           <SearchBar
-            value={searchInput}
-            onChange={setSearchInput}
-            onSubmit={applySearch}
+            value={list.searchInput}
+            onChange={list.setSearchInput}
+            onSubmit={list.commitSearch}
             placeholder="Search by name..."
           />
         </CardContent>
@@ -182,13 +152,13 @@ export default function ArticlesPage() {
       <ListCard
         title="Article list"
         count={total}
-        loading={loading}
+        loading={list.loading}
         isEmpty={!items.length}
         emptyMessage='No articles found. Add one with "Add article".'
-        page={page}
-        pageSize={pageSize}
+        page={list.page}
+        pageSize={list.pageSize}
         total={total}
-        onPageChange={setPage}
+        onPageChange={list.setPage}
       >
         <ArticlesTable
           articles={items}

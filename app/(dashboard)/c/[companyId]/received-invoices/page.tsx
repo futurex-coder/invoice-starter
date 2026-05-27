@@ -22,8 +22,9 @@ import {
 import type {
   AccountingStatus,
   PaymentStatus,
+  ReceivedInvoiceLifecycleStatus,
 } from '@/src/features/received-invoices/types';
-import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { useListPageState } from '@/lib/swr/use-list-page-state';
 import { requireStringParam } from '@/lib/route-params';
 import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
@@ -36,39 +37,125 @@ import type { ReceivedInvoiceListItem } from '@/src/features/received-invoices/a
 import { PageShell } from '@/components/page-shell';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
+// String-typed filters owned by useListPageState (URL-safe).
+type ReceivedInvoicesFilterState = {
+  search: string;
+  status: string;
+  paymentStatus: string;
+  dateFrom: string;
+  dateTo: string;
+  archived: string;
+};
+
+const RECEIVED_INVOICES_DEFAULTS: ReceivedInvoicesFilterState = {
+  search: '',
+  // Default: hide drafts. Drafts are surfaced via the pending banner above.
+  status: 'confirmed',
+  paymentStatus: 'all',
+  dateFrom: '',
+  dateTo: '',
+  archived: 'false',
+};
+
+function isLifecycleStatus(value: string): value is ReceivedInvoiceLifecycleStatus {
+  return value === 'draft' || value === 'confirmed' || value === 'discarded';
+}
+function isPaymentStatus(value: string): value is PaymentStatus {
+  return value === 'unpaid' || value === 'partial' || value === 'paid';
+}
+
+/**
+ * Build the action-input shape (`ListReceivedInvoicesFilters`) from the
+ * hook's string-typed filter state.
+ */
+function buildActionFilters(
+  f: ReceivedInvoicesFilterState,
+  page: number,
+  pageSize: number
+): ListReceivedInvoicesFilters {
+  return {
+    page,
+    pageSize,
+    status: isLifecycleStatus(f.status) ? f.status : undefined,
+    paymentStatus: isPaymentStatus(f.paymentStatus) ? f.paymentStatus : undefined,
+    dateFrom: f.dateFrom || undefined,
+    dateTo: f.dateTo || undefined,
+    includeArchived: f.archived === 'true',
+    search: f.search || undefined,
+  };
+}
+
+/**
+ * Build the props shape the existing `ReceivedInvoiceFilters` component
+ * expects from the string-typed filter state. (The component reads
+ * `filters.status ?? 'all'`, etc. — so `undefined` means "all".)
+ */
+function buildFilterProps(
+  f: ReceivedInvoicesFilterState
+): ListReceivedInvoicesFilters {
+  return {
+    status:
+      f.status === 'all'
+        ? undefined
+        : isLifecycleStatus(f.status)
+          ? f.status
+          : undefined,
+    paymentStatus:
+      f.paymentStatus === 'all'
+        ? undefined
+        : isPaymentStatus(f.paymentStatus)
+          ? f.paymentStatus
+          : undefined,
+    dateFrom: f.dateFrom || undefined,
+    dateTo: f.dateTo || undefined,
+    includeArchived: f.archived === 'true',
+  };
+}
+
 export default function ReceivedInvoicesPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = requireStringParam(params, 'companyId');
 
-  // Default: hide drafts. Drafts are surfaced via the pending banner above.
-  const [filters, setFilters] = useState<ListReceivedInvoicesFilters>({
-    page: 1,
-    pageSize: 20,
-    status: 'confirmed',
+  const list = useListPageState<ReceivedInvoicesFilterState, {
+    items: ReceivedInvoiceListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+    pendingCount: number;
+  }>({
+    swrKey: 'received-invoices',
+    defaults: RECEIVED_INVOICES_DEFAULTS,
+    action: ({ page, pageSize, ...f }) =>
+      listReceivedInvoices(buildActionFilters(f, page, pageSize)),
   });
-  const [searchInput, setSearchInput] = useState('');
-  const [actionError, setActionError] = useState<string | null>(null);
+
+  const data = list.result;
+
   const [pendingId, setPendingId] = useState<number | null>(null);
 
   type ConfirmTarget = { item: ReceivedInvoiceListItem; mode: 'discard' | 'hardDelete' };
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
 
-  const {
-    data,
-    isLoading: loading,
-    error: fetchError,
-    mutate: refetch,
-  } = useActionSWR(['receivedInvoices', filters], () => listReceivedInvoices(filters));
-
-  const error = actionError ?? (fetchError ? fetchError.message : null);
-
-  const updateFilters = (patch: Partial<ListReceivedInvoicesFilters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
-  };
-
-  const applySearch = () => {
-    setFilters((f) => ({ ...f, search: searchInput || undefined, page: 1 }));
+  // Adapter: the existing ReceivedInvoiceFilters component sends a
+  // `Partial<ListReceivedInvoicesFilters>` patch. Thread each known key into
+  // `setFilter` on the hook (which itself resets page to 1).
+  const handleFiltersChange = (patch: Partial<ListReceivedInvoicesFilters>) => {
+    if ('status' in patch) {
+      list.setFilter('status', patch.status ?? 'all');
+    }
+    if ('paymentStatus' in patch) {
+      list.setFilter('paymentStatus', patch.paymentStatus ?? 'all');
+    }
+    if ('dateFrom' in patch) {
+      list.setFilter('dateFrom', patch.dateFrom ?? '');
+    }
+    if ('dateTo' in patch) {
+      list.setFilter('dateTo', patch.dateTo ?? '');
+    }
+    if ('includeArchived' in patch) {
+      list.setFilter('archived', patch.includeArchived ? 'true' : 'false');
+    }
   };
 
   const goView = (id: number) =>
@@ -85,43 +172,43 @@ export default function ReceivedInvoicesPage() {
       return;
     }
     // No draft on current view (likely filtered out) — switch the filter to draft.
-    setFilters((f) => ({ ...f, status: 'draft', page: 1 }));
+    list.setFilter('status', 'draft');
   };
 
-  const runMutation = async (
+  const runItemMutation = async (
     id: number,
-    mutator: () => Promise<{ error?: string; data?: unknown }>
+    mutator: () => ReturnType<typeof setReceivedInvoicePaymentStatus>
   ) => {
     setPendingId(id);
-    setActionError(null);
-    const res = await mutator();
-    setPendingId(null);
-    if (res.error) setActionError(res.error);
-    else refetch();
+    try {
+      await list.runMutation(mutator);
+    } catch {
+      // runMutation set actionError already.
+    } finally {
+      setPendingId(null);
+    }
   };
 
   const handlePayment = (id: number, status: PaymentStatus) =>
-    runMutation(id, () => setReceivedInvoicePaymentStatus(id, status));
+    runItemMutation(id, () => setReceivedInvoicePaymentStatus(id, status));
   const handleAccounting = (id: number, status: AccountingStatus) =>
-    runMutation(id, () => setReceivedInvoiceAccountingStatus(id, status));
+    runItemMutation(id, () => setReceivedInvoiceAccountingStatus(id, status));
   const handleArchive = (id: number, archived: boolean) =>
-    runMutation(id, () => setReceivedInvoiceArchived(id, archived));
+    runItemMutation(id, () => setReceivedInvoiceArchived(id, archived));
 
   const handleConfirmAction = async () => {
     if (!confirmTarget) return;
     const { item, mode } = confirmTarget;
     setPendingId(item.id);
-    setActionError(null);
-    const res =
-      mode === 'discard'
-        ? await discardReceivedInvoice(item.id)
-        : await hardDeleteDiscardedReceivedInvoice(item.id);
-    setPendingId(null);
-    if (res.error) {
-      setActionError(res.error);
-      throw new Error(res.error);
+    try {
+      await list.runMutation(() =>
+        mode === 'discard'
+          ? discardReceivedInvoice(item.id)
+          : hardDeleteDiscardedReceivedInvoice(item.id)
+      );
+    } finally {
+      setPendingId(null);
     }
-    refetch();
   };
 
   const buildDescription = (target: ConfirmTarget | null): string | undefined => {
@@ -174,21 +261,21 @@ export default function ReceivedInvoicesPage() {
       )}
 
       <ReceivedInvoiceFilters
-        filters={filters}
-        onFiltersChange={updateFilters}
-        searchInput={searchInput}
-        onSearchInputChange={setSearchInput}
-        onSearchSubmit={applySearch}
+        filters={buildFilterProps(list.filters)}
+        onFiltersChange={handleFiltersChange}
+        searchInput={list.searchInput}
+        onSearchInputChange={list.setSearchInput}
+        onSearchSubmit={list.commitSearch}
       />
 
-      <ErrorAlert message={error} className="mb-4" />
+      <ErrorAlert message={list.error} className="mb-4" />
 
       <Card>
         <CardHeader>
           <CardTitle>Received invoice list</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          {loading ? (
+          {list.loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
@@ -219,7 +306,7 @@ export default function ReceivedInvoicesPage() {
               page={data.page}
               pageSize={data.pageSize}
               total={data.total}
-              onPageChange={(p) => updateFilters({ page: p })}
+              onPageChange={list.setPage}
             />
           )}
         </CardContent>

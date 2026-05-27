@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { useListPageState } from '@/lib/swr/use-list-page-state';
 import { Button } from '@/components/ui/button';
 import {
   listPartners,
@@ -60,26 +60,16 @@ function formToInput(f: PartnerForm): CreatePartnerInput {
 
 export default function PartnersPage() {
   const { company } = useCompany();
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
 
-  const {
-    data: result,
-    isLoading: loading,
-    error: fetchError,
-    mutate: refetch,
-  } = useActionSWR(
-    ['partners', search, page],
-    () => listPartners({ search: search || undefined, page, pageSize })
-  );
+  const list = useListPageState({
+    swrKey: 'partners',
+    defaults: { search: '' },
+    action: ({ search, page, pageSize }) =>
+      listPartners({ search: search || undefined, page, pageSize }),
+  });
 
-  const items = result?.items ?? [];
-  const total = result?.total ?? 0;
-
-  const [actionError, setActionError] = useState<string | null>(null);
-  const error = actionError ?? (fetchError ? fetchError.message : null);
+  const items = list.result?.items ?? [];
+  const total = list.result?.total ?? 0;
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -147,18 +137,13 @@ export default function PartnersPage() {
     setForm((f) => ({ ...f, ...patch }));
   };
 
-  const applySearch = () => {
-    setSearch(searchInput);
-    setPage(1);
-  };
-
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyPartnerForm);
     setLinkedCompany(null);
     setSelfEikError(false);
     setShowForm(true);
-    setActionError(null);
+    list.setActionError(null);
   };
 
   const openEdit = (p: Partner) => {
@@ -167,7 +152,7 @@ export default function PartnersPage() {
     setLinkedCompany(null);
     setSelfEikError(false);
     setShowForm(true);
-    setActionError(null);
+    list.setActionError(null);
   };
 
   const closeForm = () => {
@@ -181,38 +166,24 @@ export default function PartnersPage() {
   const handleSave = async () => {
     if (selfEikError) return;
     setSaving(true);
-    setActionError(null);
-    const input = formToInput(form);
-
-    if (editingId) {
-      const res = await updatePartner(editingId, input);
-      setSaving(false);
-      if (res.error) {
-        setActionError(res.error);
-        return;
+    try {
+      const input = formToInput(form);
+      if (editingId) {
+        await list.runMutation(() => updatePartner(editingId, input));
+      } else {
+        await list.runMutation(() => createPartner(input));
       }
-    } else {
-      const res = await createPartner(input);
+      closeForm();
+    } catch {
+      // runMutation already set actionError; keep the form open
+    } finally {
       setSaving(false);
-      if (res.error) {
-        setActionError(res.error);
-        return;
-      }
     }
-
-    closeForm();
-    refetch();
   };
 
   const handleDeleteConfirmed = async () => {
     if (!confirmDelete) return;
-    setActionError(null);
-    const res = await deletePartner(confirmDelete.id);
-    if (res.error) {
-      setActionError(res.error);
-      throw new Error(res.error);
-    }
-    refetch();
+    await list.runMutation(() => deletePartner(confirmDelete.id));
   };
 
   return (
@@ -227,7 +198,7 @@ export default function PartnersPage() {
         }
       />
 
-      <ErrorAlert message={error} className="mb-4" />
+      <ErrorAlert message={list.error} className="mb-4" />
 
       {showForm && (
         <PartnerFormCard
@@ -247,9 +218,9 @@ export default function PartnersPage() {
       <Card className="mb-6">
         <CardContent className="pt-6">
           <SearchBar
-            value={searchInput}
-            onChange={setSearchInput}
-            onSubmit={applySearch}
+            value={list.searchInput}
+            onChange={list.setSearchInput}
+            onSubmit={list.commitSearch}
             placeholder="Search by name or EIK..."
           />
         </CardContent>
@@ -258,13 +229,13 @@ export default function PartnersPage() {
       <ListCard
         title="Partner list"
         count={total}
-        loading={loading}
+        loading={list.loading}
         isEmpty={!items.length}
         emptyMessage='No partners found. Add one with "Add partner".'
-        page={page}
-        pageSize={pageSize}
+        page={list.page}
+        pageSize={list.pageSize}
         total={total}
-        onPageChange={setPage}
+        onPageChange={list.setPage}
       >
         <PartnersTable
           partners={items}

@@ -71,6 +71,8 @@ export interface ListPageState<
    */
   searchInput: string;
   setSearchInput(value: string): void;
+  /** Cancel any pending debounce and apply the current `searchInput` now. */
+  commitSearch(): void;
 
   /** Whether SWR is currently loading. */
   loading: boolean;
@@ -188,14 +190,18 @@ export function useListPageState<
 
   // If urlSync, keep local state in sync when the URL changes externally
   // (e.g. browser back/forward, or another component changes the URL).
+  // `set-state-in-effect` is intentional here — we're mirroring an external
+  // source (the URL) into local state.
   useEffect(() => {
     if (!urlSync) return;
     const { filters: urlFilters, page: urlPage } = readStateFromUrl(
       new URLSearchParams(searchParams.toString()),
       defaults
     );
+    /* eslint-disable react-hooks/set-state-in-effect */
     setFiltersState(urlFilters);
     setPageState(urlPage);
+    /* eslint-enable react-hooks/set-state-in-effect */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, urlSync]);
 
@@ -242,27 +248,44 @@ export function useListPageState<
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep searchInput in sync if filters.search changes externally (URL).
+  // `set-state-in-effect` is intentional — mirroring an external source.
   useEffect(() => {
     if (filters.search !== undefined && filters.search !== searchInput) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearchInputState(filters.search);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.search]);
+
+  const applySearch = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      const next = { ...filters, search: trimmed } as TFilters;
+      setFiltersState(next);
+      setPageState(1);
+      pushUrl(next, 1);
+    },
+    [filters, pushUrl]
+  );
 
   const setSearchInput = useCallback(
     (value: string) => {
       setSearchInputState(value);
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       debounceTimer.current = setTimeout(() => {
-        const trimmed = value.trim();
-        const next = { ...filters, search: trimmed } as TFilters;
-        setFiltersState(next);
-        setPageState(1);
-        pushUrl(next, 1);
+        applySearch(value);
       }, searchDebounceMs);
     },
-    [filters, pushUrl, searchDebounceMs]
+    [applySearch, searchDebounceMs]
   );
+
+  const commitSearch = useCallback(() => {
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    }
+    applySearch(searchInput);
+  }, [applySearch, searchInput]);
 
   // Clean up any pending debounce on unmount.
   useEffect(() => {
@@ -325,6 +348,7 @@ export function useListPageState<
     pageSize,
     searchInput,
     setSearchInput,
+    commitSearch,
     loading,
     result,
     error,

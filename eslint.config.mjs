@@ -41,7 +41,9 @@ const config = [
     },
   },
   {
-    files: ['**/seed.ts', '**/migrations/**/*.ts'],
+    // CLI scripts run via `tsx` — these print human-readable progress to
+    // stdout, so the console restrictions don't apply.
+    files: ['**/seed.ts', '**/setup.ts', '**/migrations/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'off',

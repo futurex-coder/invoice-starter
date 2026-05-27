@@ -24,6 +24,7 @@ import { requireStringParam } from '@/lib/route-params';
 import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
 import { PageShell } from '@/components/page-shell';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Alert } from '@/components/ui/alert';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -198,9 +199,9 @@ export default function InvoiceDetailPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
+        <Alert variant="error" className="mb-4">
           {error}
-        </div>
+        </Alert>
       )}
 
       <Card className="mb-6">

@@ -33,6 +33,7 @@ import { PaymentCard } from './_components/PaymentCard';
 import { NotesCard } from './_components/NotesCard';
 import { ActionsBar } from './_components/ActionsBar';
 import { useInvoiceForm } from './_components/use-invoice-form';
+import { Alert } from '@/components/ui/alert';
 import { makeInitialFormState } from './_components/form-state';
 import { invoiceToFormState } from './_components/hydrate';
 import { PageShell } from '@/components/page-shell';
@@ -254,9 +255,9 @@ export default function NewInvoicePage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
+        <Alert variant="error" className="mb-4">
           {error}
-        </div>
+        </Alert>
       )}
       {validationErrors.length > 0 && (
         <ul className="mb-4 list-disc list-inside text-sm text-red-700">

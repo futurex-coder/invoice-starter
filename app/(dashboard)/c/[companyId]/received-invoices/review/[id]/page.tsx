@@ -24,6 +24,7 @@ import {
 import { ReviewForm } from '@/components/received-invoices/ReviewForm';
 import { PreviewPane } from '@/components/received-invoices/PreviewPane';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { Alert } from '@/components/ui/alert';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ReviewHeader } from './_components/ReviewHeader';
 import { DuplicatesWarning } from './_components/DuplicatesWarning';
@@ -151,9 +152,9 @@ export default function ReviewReceivedInvoicePage() {
 
       <ErrorAlert message={error} className="mb-4" />
       {actionMessage && (
-        <div className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-700">
+        <Alert variant="success" className="mb-4">
           {actionMessage}
-        </div>
+        </Alert>
       )}
       <DuplicatesWarning duplicates={duplicates} companyId={companyId} />
 

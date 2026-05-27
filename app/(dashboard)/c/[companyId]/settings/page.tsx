@@ -15,7 +15,8 @@ import { canEditCompanySettings } from '@/lib/auth/permissions';
 import { useCompany } from '@/lib/context/company-context';
 import type { UpsertCompanyProfileInput } from '@/src/features/invoicing/schemas';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
-import { Loader2, Save, Building2, CheckCircle, ShieldAlert } from 'lucide-react';
+import { Loader2, Save, Building2, ShieldAlert } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { IdentityCard } from './_components/IdentityCard';
 import { AddressCard } from '@/components/company-form/AddressCard';
 import { BankDetailsCard } from '@/components/company-form/BankDetailsCard';
@@ -180,23 +181,22 @@ export default function CompanySettingsPage() {
       </div>
 
       {!profile && (
-        <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+        <Alert variant="warning" className="mb-6">
           You need to complete your company profile before you can create
           invoices. This data is used as the Supplier (Доставчик) on every
           invoice.
-        </div>
+        </Alert>
       )}
 
       {error && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
+        <Alert variant="error" className="mb-4">
           {error}
-        </div>
+        </Alert>
       )}
       {success && (
-        <div className="mb-4 p-3 rounded-md bg-green-50 text-green-700 text-sm flex items-center gap-2">
-          <CheckCircle className="h-4 w-4" />
+        <Alert variant="success" className="mb-4">
           {success}
-        </div>
+        </Alert>
       )}
 
       <IdentityCard

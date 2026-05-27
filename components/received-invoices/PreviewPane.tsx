@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
 
 interface Props {
   receivedInvoiceId: number;
@@ -73,9 +74,12 @@ export function PreviewPane({
 
   if (error || !url) {
     return (
-      <div className="flex h-full min-h-[400px] w-full items-center justify-center rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <Alert
+        variant="error"
+        className="flex h-full min-h-[400px] w-full items-center justify-center"
+      >
         {error ?? 'Preview unavailable'}
-      </div>
+      </Alert>
     );
   }
 

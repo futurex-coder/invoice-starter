@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card';
 import type { Company } from '@/lib/db/schema';
 import { X, Loader2, Link2 } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 
 export interface PartnerForm {
   name: string;
@@ -73,15 +74,14 @@ export function PartnerFormCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {linkedCompany && (
-          <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-            <Link2 className="inline h-4 w-4 mr-1 -mt-0.5" />
+          <Alert variant="info" icon={Link2}>
             This partner is a registered company in the system. Fields pre-filled from their profile.
-          </div>
+          </Alert>
         )}
         {selfEikError && (
-          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <Alert variant="error">
             You cannot add yourself as a partner.
-          </div>
+          </Alert>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

@@ -10,6 +10,7 @@ import {
   restoreCompanyAction,
 } from '@/src/features/invoicing/actions';
 import { Loader2, Plus, Inbox } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { SummaryGrid } from './_components/SummaryGrid';
 import { CompaniesGrid } from './_components/CompaniesGrid';
@@ -116,23 +117,22 @@ export default function DashboardPage() {
       </div>
 
       {totals.pendingReviewCount > 0 && (
-        <div className="mb-6 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
-          <div className="flex items-center gap-2 text-amber-900">
-            <Inbox className="h-4 w-4" />
+        <Alert variant="warning" icon={Inbox} className="mb-6 items-center">
+          <div className="flex items-center justify-between gap-3">
             <span>
               <strong>{totals.pendingReviewCount}</strong> received{' '}
               {totals.pendingReviewCount === 1 ? 'invoice' : 'invoices'}{' '}
               awaiting review across your companies
             </span>
+            {pendingReviewTarget && (
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/c/${pendingReviewTarget.companyId}/received-invoices`}>
+                  Review
+                </Link>
+              </Button>
+            )}
           </div>
-          {pendingReviewTarget && (
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/c/${pendingReviewTarget.companyId}/received-invoices`}>
-                Review
-              </Link>
-            </Button>
-          )}
-        </div>
+        </Alert>
       )}
 
       <SummaryGrid totals={totals} />

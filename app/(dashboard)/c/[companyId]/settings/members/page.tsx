@@ -13,7 +13,8 @@ import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { ListPageHeader } from '@/components/list-page/ListPageHeader';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { CheckCircle, Loader2, UserPlus } from 'lucide-react';
+import { Loader2, UserPlus } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import {
   InviteMemberForm,
   type InviteRole,
@@ -120,10 +121,9 @@ export default function MembersPage() {
 
       <ErrorAlert message={error} className="mb-4" />
       {success && (
-        <div className="mb-4 p-3 rounded-md bg-green-50 text-green-700 text-sm flex items-center gap-2">
-          <CheckCircle className="h-4 w-4" />
+        <Alert variant="success" className="mb-4">
           {success}
-        </div>
+        </Alert>
       )}
 
       {showInvite && (

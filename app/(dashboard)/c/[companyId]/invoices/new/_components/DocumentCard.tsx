@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DOC_TYPES } from '@/src/features/bulgarian-invoicing/types';
 import { formatDocTypeLabel } from '@/src/features/bulgarian-invoicing/formatter';
 import { LANGUAGES, CURRENCIES } from './types';
+import { Alert } from '@/components/ui/alert';
 
 interface Props {
   docType: string;
@@ -63,12 +64,12 @@ export function DocumentCard({
           </RadioGroup>
         </div>
         {!isEditing && nextInvoiceNumber != null && (
-          <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-sm">
-            <span className="text-blue-800">
+          <Alert variant="info">
+            <span>
               Next invoice number: <strong>{String(nextInvoiceNumber).padStart(10, '0')}</strong>
             </span>
             <span className="ml-2 text-blue-600 text-xs">(assigned automatically on save)</span>
-          </div>
+          </Alert>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

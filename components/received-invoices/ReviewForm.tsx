@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Trash2, Plus, AlertCircle, Info } from 'lucide-react';
+import { Trash2, Plus, Info } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -281,24 +282,21 @@ export function ReviewForm({
         </CardHeader>
         <CardContent className="space-y-4">
           {partnerSuggestion && !partnerId && (
-            <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-              <div className="flex-1">
-                <p className="text-blue-900">
-                  EIK matches existing partner{' '}
-                  <strong>{partnerSuggestion.matchedPartnerName}</strong>.
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="link"
-                  className="h-auto p-0 text-blue-700"
-                  onClick={linkSuggestedPartner}
-                >
-                  Link this invoice to that partner
-                </Button>
-              </div>
-            </div>
+            <Alert variant="info">
+              <p className="text-blue-900">
+                EIK matches existing partner{' '}
+                <strong>{partnerSuggestion.matchedPartnerName}</strong>.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="link"
+                className="h-auto p-0 text-blue-700"
+                onClick={linkSuggestedPartner}
+              >
+                Link this invoice to that partner
+              </Button>
+            </Alert>
           )}
 
           {partnerId && (

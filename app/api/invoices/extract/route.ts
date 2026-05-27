@@ -4,8 +4,16 @@ import {
   isAllowedExtractMimeType,
   InvoiceExtractionError,
 } from '@/lib/ai/extract-invoice';
+import { getUser } from '@/lib/db/queries';
 
 export async function POST(request: NextRequest) {
+  // Auth gate — this endpoint calls Anthropic and burns credits per request.
+  // Unauthenticated callers must be rejected before any work is done.
+  const user = await getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get('file');

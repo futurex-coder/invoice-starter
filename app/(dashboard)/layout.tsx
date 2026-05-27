@@ -13,7 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { signOut } from '@/app/(login)/actions';
 import { useRouter } from 'next/navigation';
-import { User } from '@/lib/db/schema';
+import type { SafeUser } from '@/lib/db/schema';
 import useSWR, { mutate } from 'swr';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -21,7 +21,7 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 function UserMenu() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { data: user } = useSWR<User>('/api/user', fetcher);
+  const { data: user } = useSWR<SafeUser>('/api/user', fetcher);
   const router = useRouter();
 
   useEffect(() => {

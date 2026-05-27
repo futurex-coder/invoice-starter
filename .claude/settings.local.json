@@ -28,7 +28,21 @@
       "Bash(gh pr *)",
       "PowerShell(Get-Command gh -ErrorAction SilentlyContinue; \\(Get-ChildItem \"C:\\\\Program Files\\\\GitHub CLI\", \"$env:LOCALAPPDATA\\\\GitHubCLI\", \"$env:ProgramFiles\\(x86\\)\\\\GitHub CLI\" -ErrorAction SilentlyContinue -Filter \"gh.exe\" -Recurse | Select-Object -First 3 -ExpandProperty FullName\\) 2>&1)",
       "PowerShell(Test-Path \"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\"; Test-Path \"$env:LOCALAPPDATA\\\\GitHubCLI\\\\gh.exe\"; Test-Path \"${env:ProgramFiles\\(x86\\)}\\\\GitHub CLI\\\\gh.exe\"; where.exe gh 2>&1)",
-      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__execute_sql"
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__execute_sql",
+      "Bash(grep -n 'InvoiceStatus\\\\|ReceivedInvoice =\\\\|Invoice =\\\\|export type.*$inferSelect' /d/Work/invoice-starter/lib/db/schema.ts)",
+      "Bash(grep -nB1 \": Promise<ActionResult<Invoice>>\" /d/Work/invoice-starter/src/features/bulgarian-invoicing/actions.ts)",
+      "Bash(grep -nE \"Promise<ActionResult<ReceivedInvoice|ReceivedInvoice[^L].*\\\\\\\\[\\\\\\\\]>\" /d/Work/invoice-starter/src/features/received-invoices/actions.ts)",
+      "Bash(grep -rn \"getCompanyProfile\\\\\\(\\\\\\)\\\\|getCompanyProfile\\(\\)\\\\$\" /d/Work/invoice-starter/app /d/Work/invoice-starter/src --include=\"*.tsx\" --include=\"*.ts\")",
+      "Bash(npx eslint *)",
+      "PowerShell(Invoke-RestMethod -Uri \"https://api.github.com/repos/futurex-coder/invoice-starter/pulls?head=futurex-coder:claude-run-1.2&state=all\" -ErrorAction SilentlyContinue | ForEach-Object { \"PR #$\\($_.number\\): $\\($_.title\\) — $\\($_.html_url\\) [$\\($_.state\\)]\" })",
+      "PowerShell($response = Invoke-WebRequest -Uri \"https://api.github.com/repos/futurex-coder/invoice-starter/pulls?head=futurex-coder:claude-run-1.2&state=all\" -ErrorAction SilentlyContinue; $response.StatusCode; $response.Content)",
+      "Bash(git config *)",
+      "Bash(git credential *)",
+      "Bash(rm -f /d/Work/invoice-starter/.claude/pr-body.md && git status --short)",
+      "Bash(git fetch *)",
+      "PowerShell(Get-ChildItem \"D:\\\\Work\\\\invoice-starter\\\\app\" -Recurse -Include \"page.tsx\",\"layout.tsx\" | ForEach-Object { $lines = \\(Get-Content $_.FullName | Measure-Object -Line\\).Lines; \"$lines`t$\\($_.FullName.Substring\\(28\\)\\)\" } | Sort-Object {[int]\\($_ -split \"`t\"\\)[0]} -Descending)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(npm test *)"
     ]
   }
 }

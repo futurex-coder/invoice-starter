@@ -16,6 +16,19 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Guard for module-scope `'use server'` actions in this file.
+ *
+ * The page already redirects away in production (see `DebugPage` below), but
+ * Next.js still registers each `'use server'` function with an action ID that
+ * a client could POST to directly. We must reject those calls server-side too.
+ */
+function assertDevOnly() {
+  if (process.env.NODE_ENV !== 'development') {
+    throw new Error('Debug actions are not available in production');
+  }
+}
+
 async function getInvoiceCountsByStatus(companyId: number) {
   const rows = await db
     .select({
@@ -31,6 +44,7 @@ async function getInvoiceCountsByStatus(companyId: number) {
 
 async function createTestDraft(companyId: number, userId: number) {
   'use server';
+  assertDevOnly();
 
   const nextNum = await getNextInvoiceNumber(companyId, 'INV');
   const company = await db
@@ -76,6 +90,7 @@ async function createTestCreditNote(
   parentNumber: number
 ) {
   'use server';
+  assertDevOnly();
 
   const [cn] = await db
     .insert(invoices)
@@ -151,12 +166,14 @@ export default async function DebugPage() {
 
   const createDraftAction = async () => {
     'use server';
+    assertDevOnly();
     if (!activeCompanyId) return;
     await createTestDraft(activeCompanyId, user.id);
   };
 
   const createCNAction = async () => {
     'use server';
+    assertDevOnly();
     if (!activeCompanyId || !firstFinalizedInvoice) return;
     await createTestCreditNote(
       activeCompanyId,

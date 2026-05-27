@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -25,15 +24,13 @@ import {
   parsePartySnapshotStrict,
 } from '@/src/features/bulgarian-invoicing/parsers';
 import type { Invoice } from '@/lib/db/schema';
-import type { SafeUser } from '@/lib/db/schema';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
 import { requireStringParam } from '@/lib/route-params';
 import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
 import { PageShell } from '@/components/page-shell';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert } from '@/components/ui/alert';
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { useCurrentUser } from '@/lib/swr/use-current-user';
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
@@ -54,7 +51,7 @@ export default function InvoiceDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
-  const { data: currentUser } = useSWR<SafeUser>('/api/user', fetcher);
+  const { data: currentUser } = useCurrentUser();
 
   useEffect(() => {
     let cancelled = false;

@@ -29,7 +29,7 @@ import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { Pagination } from '@/components/list-page/Pagination';
 import { ReceivedInvoiceFilters } from './_components/ReceivedInvoiceFilters';
-import { PendingReviewBanner } from './_components/PendingReviewBanner';
+import { PendingReviewBanner } from '@/components/received-invoices/PendingReviewBanner';
 import { ReceivedInvoicesTable } from './_components/ReceivedInvoicesTable';
 import { supplierName } from './_components/utils';
 import type { ReceivedInvoiceListItem } from '@/src/features/received-invoices/actions';
@@ -163,7 +163,13 @@ export default function ReceivedInvoicesPage() {
       {data && (
         <PendingReviewBanner
           count={data.pendingCount}
-          onReviewNext={reviewNextPending}
+          description=" — drafts aren't shown in the list below."
+          className="mb-4 items-center"
+          action={
+            <Button size="sm" variant="outline" onClick={reviewNextPending}>
+              Review next
+            </Button>
+          }
         />
       )}
 

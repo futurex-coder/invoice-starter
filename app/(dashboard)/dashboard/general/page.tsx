@@ -7,12 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { updateAccount } from '@/app/(login)/actions';
-import type { SafeUser } from '@/lib/db/schema';
-import useSWR from 'swr';
+import { useCurrentUser } from '@/lib/swr/use-current-user';
 import { Suspense } from 'react';
 import { PageShell } from '@/components/page-shell';
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 type ActionState = {
   name?: string;
@@ -63,7 +60,7 @@ function AccountForm({
 }
 
 function AccountFormWithData({ state }: { state: ActionState }) {
-  const { data: user } = useSWR<SafeUser>('/api/user', fetcher);
+  const { data: user } = useCurrentUser();
   return (
     <AccountForm
       state={state}

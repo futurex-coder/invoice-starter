@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
-import { getUser, verifyCompanyAccess, getCompaniesForUser } from '@/lib/db/queries';
+import { verifyCompanyAccess, getCompaniesForUser } from '@/lib/db/queries';
+import { requireUserOrRedirect } from '@/lib/auth/guards';
 import { CompanyProvider } from '@/lib/context/company-context';
 import { CompanyLayoutShell } from './company-layout-shell';
 
@@ -17,10 +18,7 @@ export default async function CompanyLayout({
     redirect('/dashboard');
   }
 
-  const user = await getUser();
-  if (!user) {
-    redirect('/sign-in');
-  }
+  const user = await requireUserOrRedirect();
 
   const membership = await verifyCompanyAccess(user.id, companyId);
   if (!membership) {

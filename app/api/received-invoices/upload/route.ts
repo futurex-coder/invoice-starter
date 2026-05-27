@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createHash, randomUUID } from 'crypto';
 import {
   extractInvoiceFromBytes,
@@ -12,39 +12,13 @@ import {
   RECEIVED_INVOICES_BUCKET,
   deleteFromBucket,
 } from '@/lib/supabase/storage';
-import {
-  getUser,
-  getActiveCompanyId,
-  verifyCompanyAccess,
-} from '@/lib/db/queries';
+import { withApiCompanyAuth } from '@/lib/auth/guards';
 import { createDraftFromUpload } from '@/src/features/received-invoices/actions';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
-export async function POST(request: NextRequest) {
+export const POST = withApiCompanyAuth(async ({ companyId }, request) => {
   try {
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
-    }
-    const companyId = await getActiveCompanyId();
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'No active company selected' },
-        { status: 400 }
-      );
-    }
-    const membership = await verifyCompanyAccess(user.id, companyId);
-    if (!membership) {
-      return NextResponse.json(
-        { error: 'No access to this company' },
-        { status: 403 }
-      );
-    }
-
     const formData = await request.formData();
     const file = formData.get('file');
     if (!(file instanceof File)) {
@@ -147,4 +121,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
+});

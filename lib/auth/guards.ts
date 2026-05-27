@@ -92,83 +92,112 @@ export async function requireCompanyAccess(): Promise<CompanyAccessContext> {
 // API-route wrappers
 // ---------------------------------------------------------------------------
 
-type ApiErrorBody = { error: string };
+/**
+ * Trailing args forwarded to the route handler by Next.js.
+ *
+ * For static routes this is `[]`. For dynamic routes Next.js passes a
+ * context arg like `{ params: Promise<{ id: string }> }`. The wrappers below
+ * are generic over `Rest` so they forward any trailing args untouched —
+ * callers type the dynamic-segment shape at the handler signature.
+ *
+ * The body shape of `NextResponse` is intentionally not constrained — real
+ * handlers return a union of shapes (success data / 400 / 404 / etc.) and
+ * forcing a single `T` causes TS to pin it to the first arm.
+ */
+type ApiRest = unknown[];
 
-type ApiHandler<T> = (
+type ApiHandler<Rest extends ApiRest> = (
   user: User,
-  req: NextRequest
-) => Promise<NextResponse<T>>;
+  req: NextRequest,
+  ...rest: Rest
+) => Promise<NextResponse>;
 
-type ApiAuthHandler<T> = (
-  req: NextRequest
-) => Promise<NextResponse<T> | NextResponse<ApiErrorBody>>;
+type ApiAuthHandler<Rest extends ApiRest> = (
+  req: NextRequest,
+  ...rest: Rest
+) => Promise<NextResponse>;
 
 /**
  * Wrap a Next.js route handler with a session check.
  * Returns 401 JSON (`{ error: 'Unauthorized' }`) if no session; otherwise
- * delegates to `handler` with the resolved `user`.
+ * delegates to `handler` with the resolved `user`. Forwards any trailing
+ * args (e.g. `{ params }` for dynamic routes).
  *
- * @example
+ * @example Static route
  *   export const POST = withApiAuth(async (user, req) => {
  *     const body = await req.json();
  *     return NextResponse.json({ data: { greeting: `hi ${user.email}` } });
  *   });
+ *
+ * @example Dynamic route
+ *   export const GET = withApiAuth(async (
+ *     user,
+ *     req,
+ *     { params }: { params: Promise<{ id: string }> }
+ *   ) => {
+ *     const { id } = await params;
+ *     return NextResponse.json({ data: { id } });
+ *   });
  */
-export function withApiAuth<T>(handler: ApiHandler<T>): ApiAuthHandler<T> {
-  return async (req: NextRequest) => {
+export function withApiAuth<Rest extends ApiRest = []>(
+  handler: ApiHandler<Rest>
+): ApiAuthHandler<Rest> {
+  return async (req: NextRequest, ...rest: Rest) => {
     const user = await getUser();
     if (!user) {
-      return NextResponse.json<ApiErrorBody>(
+      return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
-    return handler(user, req);
+    return handler(user, req, ...rest);
   };
 }
 
-type ApiCompanyHandler<T> = (
+type ApiCompanyHandler<Rest extends ApiRest> = (
   ctx: CompanyAccessContext,
-  req: NextRequest
-) => Promise<NextResponse<T>>;
+  req: NextRequest,
+  ...rest: Rest
+) => Promise<NextResponse>;
 
 /**
  * Like {@link withApiAuth}, but also requires an active company + membership.
  *   - 401 if no session
  *   - 403 if no active company cookie
  *   - 403 if cookie set but user has no membership
+ *   - 500 if the stored role isn't a known {@link CompanyRole} (DB drift)
  */
-export function withApiCompanyAuth<T>(
-  handler: ApiCompanyHandler<T>
-): ApiAuthHandler<T> {
-  return async (req: NextRequest) => {
+export function withApiCompanyAuth<Rest extends ApiRest = []>(
+  handler: ApiCompanyHandler<Rest>
+): ApiAuthHandler<Rest> {
+  return async (req: NextRequest, ...rest: Rest) => {
     const user = await getUser();
     if (!user) {
-      return NextResponse.json<ApiErrorBody>(
+      return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
     const companyId = await getActiveCompanyId();
     if (!companyId) {
-      return NextResponse.json<ApiErrorBody>(
+      return NextResponse.json(
         { error: 'No active company' },
         { status: 403 }
       );
     }
     const membership = await verifyCompanyAccess(user.id, companyId);
     if (!membership) {
-      return NextResponse.json<ApiErrorBody>(
+      return NextResponse.json(
         { error: 'No access to this company' },
         { status: 403 }
       );
     }
     if (!isCompanyRole(membership.role)) {
-      return NextResponse.json<ApiErrorBody>(
+      return NextResponse.json(
         { error: `Invalid role stored for membership: ${membership.role}` },
         { status: 500 }
       );
     }
-    return handler({ user, companyId, role: membership.role }, req);
+    return handler({ user, companyId, role: membership.role }, req, ...rest);
   };
 }

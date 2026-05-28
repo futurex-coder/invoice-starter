@@ -72,6 +72,7 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | N16 | `invoices/page.tsx` → `useListPageState` | URL-syncs 5 filters |
 | N17 | `payments/page.tsx` → `useListPageState` | URL-syncs date range |
 | N9 | `<FormField>` primitive + form validation feedback | PartnerForm + ArticleForm + InviteMember + settings cards + create-company |
+| N14 | RTL + jsdom + jest-dom setup + 33 smoke tests | Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField |
 
 ---
 
@@ -146,7 +147,7 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — found in scans, 5 done, 16 still pending
+### N-tier — found in scans, 6 done, 15 still pending
 - [ ] **N2** `next@canary` pinned in package.json — unpin to stable
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [ ] **N4** Split `lib/db/queries.ts` (755 lines) into per-feature files
@@ -159,7 +160,7 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **N11** `invoices/[invoiceId]/page.tsx` — last page on raw `useState/useEffect/fetch`; migrate to `useActionSWR`
 - [ ] **N12** Icon-only buttons missing `aria-label` (a11y sweep)
 - [ ] **N13** `useToast()` ergonomic wrapper — 15 min
-- [ ] **N14** `@testing-library/react` setup + smoke tests for the new primitives (Dialog, Select, Alert, Toast, EntityPicker, PageShell, ConfirmDialog)
+- [ ] **N14** `@testing-library/react` setup + smoke tests — *partial*: RTL + jsdom + jest-dom installed; vitest.config.ts → jsdom env + setup; 33 tests for Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField. Still TODO: Toast, PageShell (low-value — mostly markup).
 - [ ] **N15** Integration tests for `createInvoiceDraft → finalize → credit-note` flow — *after N14*
 - [ ] **N18** `settings/members/page.tsx` → `useListPageState` (no pagination — small consistency win)
 - [ ] **N19** i18n layer — BG-EN mix; defer until shipping beyond BG
@@ -352,7 +353,7 @@ grep -rn "window\\.confirm\\|^\\s*if\\s*(!confirm(" app/
 
 # Test count baseline
 npm test 2>&1 | grep -E "Tests +\\d+ passed"
-# Expected: 168 passed (12 files)
+# Expected: 201 passed (18 files)
 ```
 
 ---

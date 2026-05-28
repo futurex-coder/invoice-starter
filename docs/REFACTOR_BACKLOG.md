@@ -80,6 +80,7 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | N6 | composite `idx_activity_logs_company_ts` | migration 0001 |
 | N2 | next 15-canary → 16.2.6 stable | PPR follow-up: N22 |
 | A7 | `cn()` adoption sweep | 38 sites, 24 files |
+| N5 | member-management actions moved from (login) → invoicing feature | requireCompanyAccess collapses the 2-step auth check |
 
 ---
 
@@ -154,11 +155,11 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — found in scans, 12 done, 10 still pending
+### N-tier — found in scans, 13 done, 9 still pending
 - [x] **N2** `next@canary` → `next@16.2.6` stable — also removed `experimental.clientSegmentCache` (gone in 16) and disabled `experimental.ppr` (now opt-in via `cacheComponents`, needs a separate route-config sweep). See N22.
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [ ] **N4** Split `lib/db/queries.ts` (755 lines) into per-feature files
-- [ ] **N5** Move `removeCompanyMember`/`inviteCompanyMember`/`acceptInvitation` from `app/(login)/actions.ts` → `src/features/invoicing/actions.ts`
+- [x] **N5** `removeCompanyMember` + `inviteCompanyMember` moved to `src/features/invoicing/actions.ts` (J section). `acceptInvitation` stays — its logic is woven into `signUp` (auth flow), not a separate action. Both relocated actions now use `requireCompanyAccess()` instead of the old `getActiveCompanyId + verifyCompanyAccess` 2-step.
 - [x] **N6** Composite index on `activity_log(companyId, timestamp DESC)` — migration `0001_shocking_tombstone.sql`
 - [x] **N7** Drizzle connection pool — `max: 10` set in `lib/db/drizzle.ts`
 - [ ] **N8** Structured logger — replace 71 `console.*` sites; wire into `error.tsx` boundaries (3 TODOs already in code)

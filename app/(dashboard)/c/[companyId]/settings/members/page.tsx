@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { toast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
-import { getCompanyMembersAction } from '@/src/features/invoicing/actions';
 import {
+  getCompanyMembersAction,
   inviteCompanyMember,
   removeCompanyMember,
-} from '@/app/(login)/actions';
+} from '@/src/features/invoicing/actions';
 import type { ValidationIssue } from '@/lib/actions/result';
 import { canInviteMembers, canRemoveMembers } from '@/lib/auth/permissions';
 import { useCompany } from '@/lib/context/company-context';

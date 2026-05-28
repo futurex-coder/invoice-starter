@@ -5,6 +5,7 @@ import { setSession } from '@/lib/auth/session';
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/payments/stripe';
 import Stripe from 'stripe';
+import { logger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
     await setSession(foundUser);
     return NextResponse.redirect(new URL('/dashboard', request.url));
   } catch (error) {
-    console.error('Error handling successful checkout:', error);
+    logger.error('Error handling successful checkout', { err: error });
     return NextResponse.redirect(new URL('/error', request.url));
   }
 }

@@ -4,6 +4,7 @@ import { db } from '@/lib/db/drizzle';
 import { receivedInvoices } from '@/lib/db/schema';
 import { createSignedUrl } from '@/lib/supabase/storage';
 import { withApiCompanyAuth } from '@/lib/auth/guards';
+import { logger } from '@/lib/logger';
 
 export const GET = withApiCompanyAuth(async (
   { companyId },
@@ -48,7 +49,7 @@ export const GET = withApiCompanyAuth(async (
 
     return NextResponse.json({ url, expiresIn: 600 });
   } catch (error) {
-    console.error('received-invoices file route error:', error);
+    logger.error('received-invoices file route error', { err: error });
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Unexpected error',

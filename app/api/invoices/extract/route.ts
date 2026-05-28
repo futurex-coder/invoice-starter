@@ -5,6 +5,7 @@ import {
   InvoiceExtractionError,
 } from '@/lib/ai/extract-invoice';
 import { withApiAuth } from '@/lib/auth/guards';
+import { logger } from '@/lib/logger';
 
 // Auth gate via `withApiAuth` — this endpoint calls Anthropic and burns
 // credits per request. Unauthenticated callers receive 401 before any
@@ -39,7 +40,7 @@ export const POST = withApiAuth(async (_user, request) => {
         { status: error.statusCode }
       );
     }
-    console.error('extract invoice error:', error);
+    logger.error('extract invoice error', { err: error });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unexpected error' },
       { status: 500 }

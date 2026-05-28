@@ -14,10 +14,12 @@ import {
 } from '@/lib/supabase/storage';
 import { withApiCompanyAuth } from '@/lib/auth/guards';
 import { createDraftFromUpload } from '@/src/features/received-invoices/actions';
+import { logger } from '@/lib/logger';
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 export const POST = withApiCompanyAuth(async ({ companyId }, request) => {
+  const log = logger.child({ route: '/api/received-invoices/upload', companyId });
   try {
     const formData = await request.formData();
     const file = formData.get('file');
@@ -74,7 +76,7 @@ export const POST = withApiCompanyAuth(async ({ companyId }, request) => {
           path: objectKey,
         });
       } catch (cleanupError) {
-        console.warn('cleanup after extraction failure:', cleanupError);
+        log.warn('cleanup after extraction failure', { err: cleanupError });
       }
       if (error instanceof InvoiceExtractionError) {
         return NextResponse.json(
@@ -103,7 +105,7 @@ export const POST = withApiCompanyAuth(async ({ companyId }, request) => {
           path: objectKey,
         });
       } catch (cleanupError) {
-        console.warn('cleanup after draft create failure:', cleanupError);
+        log.warn('cleanup after draft create failure', { err: cleanupError });
       }
       return NextResponse.json(
         { error: result.error ?? 'Failed to create draft' },
@@ -113,7 +115,7 @@ export const POST = withApiCompanyAuth(async ({ companyId }, request) => {
 
     return NextResponse.json({ data: result.data });
   } catch (error) {
-    console.error('received-invoices upload error:', error);
+    log.error('received-invoices upload error', { err: error });
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Unexpected error',

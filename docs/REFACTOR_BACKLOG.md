@@ -82,6 +82,7 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | A7 | `cn()` adoption sweep | 38 sites, 24 files |
 | N5 | member-management actions moved from (login) → invoicing feature | requireCompanyAccess collapses the 2-step auth check |
 | N4 | `lib/db/queries.ts` split into 8 per-feature files + barrel | no consumer changes |
+| N8 | `lib/logger.ts` + console.* sweep | dev pretty, prod JSON, child-bindings for request scope |
 
 ---
 
@@ -156,14 +157,14 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — found in scans, 14 done, 8 still pending
+### N-tier — found in scans, 15 done, 7 still pending
 - [x] **N2** `next@canary` → `next@16.2.6` stable — also removed `experimental.clientSegmentCache` (gone in 16) and disabled `experimental.ppr` (now opt-in via `cacheComponents`, needs a separate route-config sweep). See N22.
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [x] **N4** Split `lib/db/queries.ts` (768 lines) → `lib/db/queries/{auth,companies,subscriptions,activity,invoices,partners,articles,dashboard}.ts` + barrel `index.ts`. No public-API change; consumers still import from `@/lib/db/queries`. No cross-module circular deps.
 - [x] **N5** `removeCompanyMember` + `inviteCompanyMember` moved to `src/features/invoicing/actions.ts` (J section). `acceptInvitation` stays — its logic is woven into `signUp` (auth flow), not a separate action. Both relocated actions now use `requireCompanyAccess()` instead of the old `getActiveCompanyId + verifyCompanyAccess` 2-step.
 - [x] **N6** Composite index on `activity_log(companyId, timestamp DESC)` — migration `0001_shocking_tombstone.sql`
 - [x] **N7** Drizzle connection pool — `max: 10` set in `lib/db/drizzle.ts`
-- [ ] **N8** Structured logger — replace 71 `console.*` sites; wire into `error.tsx` boundaries (3 TODOs already in code)
+- [x] **N8** Structured logger `lib/logger.ts` — pretty-print in dev, JSON-per-line in prod. Replaced 12 live `console.*` calls across 9 files (api routes + lib + stripe). All 3 `error.tsx` boundaries wired up. CLI scripts (`db/seed.ts`, `db/setup.ts`) + `debug/page.tsx` intentionally kept on raw console — CLI UX / env-gated.
 - [x] **N9** Field-level form validation feedback — `<FormField>` primitive at `components/forms/form-field.tsx`; wired on PartnerForm + ArticleForm + InviteMemberForm + settings (Identity/Address/Bank/InvoiceDefaults) + create-company. `validatedAction` middleware extended to surface `validationErrors` alongside `error`. Onboarding steps still on raw labels — deferred.
 - [ ] **N10** `ReviewForm.tsx` (886 lines) → `useReducer` (matches pattern of `invoices/new/_components/form-state.ts`)
 - [x] **N11** `invoices/[invoiceId]/page.tsx` migrated to `useActionSWR` — useState/useEffect quartet removed, `mutate(data, {revalidate:false})` used after action returns updated invoice

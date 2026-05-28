@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -17,6 +16,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { X, Loader2 } from 'lucide-react';
+import { FormField } from '@/components/forms/form-field';
+import type { ValidationIssue } from '@/lib/actions/result';
 
 export type ArticleType = 'service' | 'goods';
 
@@ -49,6 +50,7 @@ interface Props {
   saving: boolean;
   onSave: () => void;
   onCancel: () => void;
+  validationErrors?: ValidationIssue[] | null;
 }
 
 export function ArticleFormCard({
@@ -58,41 +60,45 @@ export function ArticleFormCard({
   saving,
   onSave,
   onCancel,
+  validationErrors,
 }: Props) {
   return (
     <Card className="mb-6">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{isEditing ? 'Edit article' : 'New article'}</CardTitle>
-        <Button variant="ghost" size="icon" onClick={onCancel}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onCancel}
+          aria-label="Close form"
+        >
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="aName">Name *</Label>
+          <FormField name="name" label="Name" required errors={validationErrors}>
             <Input
-              id="aName"
               value={form.name}
               onChange={(e) => onFormChange({ name: e.target.value })}
               placeholder="Article name"
             />
-          </div>
-          <div>
-            <Label htmlFor="aUnit">Unit *</Label>
+          </FormField>
+          <FormField name="unit" label="Unit" required errors={validationErrors}>
             <Input
-              id="aUnit"
               value={form.unit}
               onChange={(e) => onFormChange({ unit: e.target.value })}
               placeholder="бр."
             />
-          </div>
+          </FormField>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <Label htmlFor="aPrice">Default price</Label>
+          <FormField
+            name="defaultUnitPrice"
+            label="Default price"
+            errors={validationErrors}
+          >
             <Input
-              id="aPrice"
               type="number"
               min="0"
               step="0.01"
@@ -100,14 +106,13 @@ export function ArticleFormCard({
               onChange={(e) => onFormChange({ defaultUnitPrice: e.target.value })}
               placeholder="0.00"
             />
-          </div>
-          <div>
-            <Label htmlFor="aCurrency">Currency</Label>
+          </FormField>
+          <FormField name="currency" label="Currency" errors={validationErrors}>
             <Select
               value={form.currency}
               onValueChange={(v) => onFormChange({ currency: v })}
             >
-              <SelectTrigger id="aCurrency" className="mt-1">
+              <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -115,16 +120,15 @@ export function ArticleFormCard({
                 <SelectItem value="BGN">BGN</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label htmlFor="aType">Type</Label>
+          </FormField>
+          <FormField name="type" label="Type" errors={validationErrors}>
             <Select
               value={form.type}
               onValueChange={(v) => {
                 if (isArticleType(v)) onFormChange({ type: v });
               }}
             >
-              <SelectTrigger id="aType" className="mt-1">
+              <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -132,17 +136,20 @@ export function ArticleFormCard({
                 <SelectItem value="goods">Goods</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
         </div>
-        <div>
-          <Label htmlFor="aTags">Tags</Label>
+        <FormField
+          name="tags"
+          label="Tags"
+          hint="comma-separated tags (optional)"
+          errors={validationErrors}
+        >
           <Input
-            id="aTags"
             value={form.tags}
             onChange={(e) => onFormChange({ tags: e.target.value })}
-            placeholder="comma-separated tags (optional)"
+            placeholder="comma-separated tags"
           />
-        </div>
+        </FormField>
         <div className="flex gap-2 pt-2">
           <Button onClick={onSave} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

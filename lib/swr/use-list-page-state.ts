@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useActionSWR } from './use-action-swr';
-import type { ActionResult } from '@/lib/actions/result';
+import type { ActionResult, ValidationIssue } from '@/lib/actions/result';
 
 const DEFAULT_PAGE_SIZE = 20;
 const DEFAULT_SEARCH_DEBOUNCE_MS = 300;
@@ -87,8 +87,16 @@ export interface ListPageState<
   actionError: string | null;
   setActionError(err: string | null): void;
   /**
-   * Run a mutation. Sets `actionError` on failure (and re-throws so callers
-   * inside ConfirmDialog can keep the dialog open). Refetches on success.
+   * Per-field validation issues from the most recent failed mutation.
+   * Pass to a `<FormField errors={…}>` to surface inline errors. Cleared
+   * at the start of every `runMutation` call.
+   */
+  actionValidationErrors: ValidationIssue[] | null;
+  setActionValidationErrors(errors: ValidationIssue[] | null): void;
+  /**
+   * Run a mutation. Sets `actionError` and `actionValidationErrors` on
+   * failure (and re-throws so callers inside ConfirmDialog can keep the
+   * dialog open). Refetches on success.
    */
   runMutation<T>(fn: () => Promise<ActionResult<T>>): Promise<ActionResult<T>>;
 }
@@ -321,14 +329,21 @@ export function useListPageState<
   // -----------------------------------------------------------------------
 
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionValidationErrors, setActionValidationErrors] = useState<
+    ValidationIssue[] | null
+  >(null);
   const error = actionError ?? (fetchError ? fetchError.message : null);
 
   const runMutation = useCallback(
     async <T,>(fn: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> => {
       setActionError(null);
+      setActionValidationErrors(null);
       const res = await fn();
       if (res.error) {
         setActionError(res.error);
+        if (res.validationErrors && res.validationErrors.length > 0) {
+          setActionValidationErrors(res.validationErrors);
+        }
         // Re-throw so callers inside <ConfirmDialog onConfirm={...}> keep
         // the dialog open on failure.
         throw new Error(res.error);
@@ -355,6 +370,8 @@ export function useListPageState<
     refetch,
     actionError,
     setActionError,
+    actionValidationErrors,
+    setActionValidationErrors,
     runMutation,
   };
 }

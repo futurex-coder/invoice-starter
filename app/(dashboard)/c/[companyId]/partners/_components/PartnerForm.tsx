@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -12,6 +11,8 @@ import {
 import type { Company } from '@/lib/db/schema';
 import { X, Loader2, Link2 } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
+import { FormField } from '@/components/forms/form-field';
+import type { ValidationIssue } from '@/lib/actions/result';
 
 export interface PartnerForm {
   name: string;
@@ -50,6 +51,7 @@ interface Props {
   saving: boolean;
   onSave: () => void;
   onCancel: () => void;
+  validationErrors?: ValidationIssue[] | null;
 }
 
 export function PartnerFormCard({
@@ -63,12 +65,18 @@ export function PartnerFormCard({
   saving,
   onSave,
   onCancel,
+  validationErrors,
 }: Props) {
   return (
     <Card className="mb-6">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>{isEditing ? 'Edit partner' : 'New partner'}</CardTitle>
-        <Button variant="ghost" size="icon" onClick={onCancel}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onCancel}
+          aria-label="Close form"
+        >
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
@@ -84,20 +92,16 @@ export function PartnerFormCard({
           </Alert>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="pName">Name *</Label>
+          <FormField name="name" label="Name" required errors={validationErrors}>
             <Input
-              id="pName"
               value={form.name}
               onChange={(e) => onFormChange({ name: e.target.value })}
               placeholder="Legal name"
             />
-          </div>
-          <div>
-            <Label htmlFor="pEik">EIK *</Label>
+          </FormField>
+          <FormField name="eik" label="EIK" required errors={validationErrors}>
             <div className="relative">
               <Input
-                id="pEik"
                 value={form.eik}
                 onChange={(e) => onEikChange(e.target.value)}
                 placeholder="9 or 10 digits"
@@ -107,68 +111,61 @@ export function PartnerFormCard({
                 <Loader2 className="absolute right-2 top-2 h-4 w-4 animate-spin text-gray-400" />
               )}
             </div>
-          </div>
+          </FormField>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="pCity">City *</Label>
+          <FormField name="city" label="City" required errors={validationErrors}>
             <Input
-              id="pCity"
               value={form.city}
               onChange={(e) => onFormChange({ city: e.target.value })}
               placeholder="City"
             />
-          </div>
-          <div>
-            <Label htmlFor="pStreet">Street *</Label>
+          </FormField>
+          <FormField name="street" label="Street" required errors={validationErrors}>
             <Input
-              id="pStreet"
               value={form.street}
               onChange={(e) => onFormChange({ street: e.target.value })}
               placeholder="Street address"
             />
-          </div>
+          </FormField>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <Label htmlFor="pPostCode">Post code</Label>
+          <FormField name="postCode" label="Post code" errors={validationErrors}>
             <Input
-              id="pPostCode"
               value={form.postCode}
               onChange={(e) => onFormChange({ postCode: e.target.value })}
               placeholder="1000"
             />
-          </div>
-          <div>
-            <Label htmlFor="pCountry">Country</Label>
+          </FormField>
+          <FormField name="country" label="Country" errors={validationErrors}>
             <Input
-              id="pCountry"
               value={form.country}
               onChange={(e) => onFormChange({ country: e.target.value })}
               placeholder="BG"
               maxLength={2}
             />
-          </div>
-          <div>
-            <Label htmlFor="pVat">VAT number</Label>
+          </FormField>
+          <FormField
+            name="vatNumber"
+            label="VAT number"
+            errors={validationErrors}
+            hint="Format: BG followed by 9 or 10 digits"
+          >
             <Input
-              id="pVat"
               value={form.vatNumber}
               onChange={(e) => onFormChange({ vatNumber: e.target.value })}
               placeholder="BG123456789"
             />
-          </div>
+          </FormField>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="pMol">MOL</Label>
+          <FormField name="mol" label="MOL" errors={validationErrors}>
             <Input
-              id="pMol"
               value={form.mol}
               onChange={(e) => onFormChange({ mol: e.target.value })}
               placeholder="Representative"
             />
-          </div>
+          </FormField>
           <div className="flex items-end">
             <label className="flex items-center gap-2 cursor-pointer h-9">
               <input

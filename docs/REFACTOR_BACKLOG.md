@@ -71,6 +71,7 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | N1 | Fixed silent error swallowing on mutations | 2 pages (received-invoices/[id], payments) |
 | N16 | `invoices/page.tsx` → `useListPageState` | URL-syncs 5 filters |
 | N17 | `payments/page.tsx` → `useListPageState` | URL-syncs date range |
+| N9 | `<FormField>` primitive + form validation feedback | PartnerForm + ArticleForm + InviteMember + settings cards + create-company |
 
 ---
 
@@ -145,7 +146,7 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — found in scans, 4 done, 17 still pending
+### N-tier — found in scans, 5 done, 16 still pending
 - [ ] **N2** `next@canary` pinned in package.json — unpin to stable
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [ ] **N4** Split `lib/db/queries.ts` (755 lines) into per-feature files
@@ -153,7 +154,7 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **N6** Composite index on `activity_log(companyId, timestamp DESC)`
 - [ ] **N7** Drizzle connection pool config (`max: 10`)
 - [ ] **N8** Structured logger — replace 71 `console.*` sites; wire into `error.tsx` boundaries (3 TODOs already in code)
-- [ ] **N9** Field-level form validation feedback — `aria-invalid` + inline error per field
+- [x] **N9** Field-level form validation feedback — `<FormField>` primitive at `components/forms/form-field.tsx`; wired on PartnerForm + ArticleForm + InviteMemberForm + settings (Identity/Address/Bank/InvoiceDefaults) + create-company. `validatedAction` middleware extended to surface `validationErrors` alongside `error`. Onboarding steps still on raw labels — deferred.
 - [ ] **N10** `ReviewForm.tsx` (886 lines) → `useReducer` (matches pattern of `invoices/new/_components/form-state.ts`)
 - [ ] **N11** `invoices/[invoiceId]/page.tsx` — last page on raw `useState/useEffect/fetch`; migrate to `useActionSWR`
 - [ ] **N12** Icon-only buttons missing `aria-label` (a11y sweep)

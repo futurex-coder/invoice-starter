@@ -2,9 +2,11 @@ import { z } from 'zod';
 import { User } from '@/lib/db/schema';
 import { getUser } from '@/lib/db/queries';
 import { redirect } from 'next/navigation';
+import { zodToValidationIssues, type ValidationIssue } from '@/lib/actions/result';
 
 export type ActionState = {
   error?: string;
+  validationErrors?: ValidationIssue[];
   success?: string;
   email?: string;
   password?: string;
@@ -22,7 +24,10 @@ export function validatedAction<S extends z.ZodTypeAny, T>(
   return async (prevState: ActionState, formData: FormData) => {
     const result = schema.safeParse(Object.fromEntries(formData));
     if (!result.success) {
-      return { error: result.error.errors[0]?.message ?? 'Invalid input' };
+      return {
+        error: result.error.errors[0]?.message ?? 'Invalid input',
+        validationErrors: zodToValidationIssues(result.error),
+      };
     }
 
     return action(result.data, formData);
@@ -47,7 +52,10 @@ export function validatedActionWithUser<S extends z.ZodTypeAny, T>(
 
     const result = schema.safeParse(Object.fromEntries(formData));
     if (!result.success) {
-      return { error: result.error.errors[0]?.message ?? 'Invalid input' };
+      return {
+        error: result.error.errors[0]?.message ?? 'Invalid input',
+        validationErrors: zodToValidationIssues(result.error),
+      };
     }
 
     return action(result.data, formData, user);

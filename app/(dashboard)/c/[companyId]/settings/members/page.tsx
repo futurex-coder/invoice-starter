@@ -8,6 +8,7 @@ import {
   inviteCompanyMember,
   removeCompanyMember,
 } from '@/app/(login)/actions';
+import type { ValidationIssue } from '@/lib/actions/result';
 import { canInviteMembers, canRemoveMembers } from '@/lib/auth/permissions';
 import { useCompany } from '@/lib/context/company-context';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
@@ -34,6 +35,9 @@ export default function MembersPage() {
   } = useActionSWR('companyMembers', getCompanyMembersAction);
 
   const [actionError, setActionError] = useState<string | null>(null);
+  const [inviteValidationErrors, setInviteValidationErrors] = useState<
+    ValidationIssue[] | null
+  >(null);
   const error = actionError ?? (fetchError ? fetchError.message : null);
 
   // Invite form state
@@ -50,6 +54,7 @@ export default function MembersPage() {
     if (!inviteEmail.trim()) return;
     setInviting(true);
     setActionError(null);
+    setInviteValidationErrors(null);
 
     const formData = new FormData();
     formData.set('email', inviteEmail.trim());
@@ -60,6 +65,13 @@ export default function MembersPage() {
     setInviting(false);
     if (res && 'error' in res && res.error) {
       setActionError(res.error);
+      if (
+        'validationErrors' in res &&
+        res.validationErrors &&
+        res.validationErrors.length > 0
+      ) {
+        setInviteValidationErrors(res.validationErrors);
+      }
       return;
     }
     toast.success('Invitation sent successfully');
@@ -127,7 +139,11 @@ export default function MembersPage() {
           inviting={inviting}
           showOwnerOption={isOwner}
           onSubmit={handleInvite}
-          onCancel={() => setShowInvite(false)}
+          onCancel={() => {
+            setShowInvite(false);
+            setInviteValidationErrors(null);
+          }}
+          validationErrors={inviteValidationErrors}
         />
       )}
 

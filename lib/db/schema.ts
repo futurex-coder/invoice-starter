@@ -837,6 +837,16 @@ export enum ActivityType {
   ACCEPT_INVITATION = 'ACCEPT_INVITATION',
   REMOVE_MEMBER = 'REMOVE_MEMBER',
 
+  // Partners (CRUD on a company's partner list)
+  CREATE_PARTNER = 'CREATE_PARTNER',
+  UPDATE_PARTNER = 'UPDATE_PARTNER',
+  DELETE_PARTNER = 'DELETE_PARTNER',
+
+  // Articles (CRUD on a company's product/service catalog)
+  CREATE_ARTICLE = 'CREATE_ARTICLE',
+  UPDATE_ARTICLE = 'UPDATE_ARTICLE',
+  DELETE_ARTICLE = 'DELETE_ARTICLE',
+
   // Invoicing (outgoing)
   CREATE_INVOICE = 'CREATE_INVOICE',
   UPDATE_INVOICE = 'UPDATE_INVOICE',

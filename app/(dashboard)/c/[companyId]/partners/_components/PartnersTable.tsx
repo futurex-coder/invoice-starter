@@ -8,7 +8,7 @@ import { Pencil, Trash2, Link2 } from 'lucide-react';
 interface Props {
   partners: Partner[];
   onEdit: (partner: Partner) => void;
-  onDelete: (id: number) => void;
+  onDelete: (partner: Partner) => void;
 }
 
 export function PartnersTable({ partners, onEdit, onDelete }: Props) {
@@ -52,7 +52,7 @@ export function PartnersTable({ partners, onEdit, onDelete }: Props) {
               <RowActionsMenu
                 actions={[
                   { icon: Pencil, label: 'Edit', onClick: () => onEdit(p) },
-                  { icon: Trash2, label: 'Delete', onClick: () => onDelete(p.id), destructive: true },
+                  { icon: Trash2, label: 'Delete', onClick: () => onDelete(p), destructive: true },
                 ]}
               />
             </td>

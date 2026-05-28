@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import type { Invoice } from '@/lib/db/schema';
 import { formatDocTypeLabel, formatInvoiceNumber, formatMoney, formatDateBg } from '@/src/features/bulgarian-invoicing/formatter';
+import {
+  parseInvoiceTotalsStrict,
+  parsePartySnapshotStrict,
+} from '@/src/features/bulgarian-invoicing/parsers';
 import { DataTableHead, DATA_ROW_CLASS } from '@/components/list-page/DataTableHead';
 import { RowActionsMenu, type RowAction } from '@/components/list-page/RowActionsMenu';
 import {
@@ -32,7 +36,7 @@ interface RowProps {
   onView: (id: number) => void;
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
-  onCancel: (id: number) => void;
+  onCancel: (invoice: Invoice) => void;
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
@@ -49,8 +53,8 @@ function InvoiceRow({
   onCreditNote,
   onDebitNote,
 }: RowProps) {
-  const totals = (invoice.totals ?? { grossAmount: 0 }) as { grossAmount: number };
-  const recipient = (invoice.recipientSnapshot ?? {}) as { legalName?: string };
+  const totals = parseInvoiceTotalsStrict(invoice.totals);
+  const recipient = parsePartySnapshotStrict(invoice.recipientSnapshot);
   const isDraft = invoice.status === 'draft';
   const isIssued = invoice.status === 'finalized';
   const isCancelled = invoice.status === 'cancelled';
@@ -69,7 +73,7 @@ function InvoiceRow({
     { icon: Printer, label: 'Print / Preview', onClick: () => onPrint(invoice.id) },
     ...(!isCancelled && isIssued
       ? [
-          { icon: XCircle, label: 'Cancel', onClick: () => onCancel(invoice.id) },
+          { icon: XCircle, label: 'Cancel', onClick: () => onCancel(invoice) },
           { icon: Copy, label: 'Copy', onClick: () => onCopy(invoice.id) },
           { icon: FileDown, label: 'Create credit note', onClick: () => onCreditNote(invoice.id) },
           { icon: FileUp, label: 'Create debit note', onClick: () => onDebitNote(invoice.id) },
@@ -130,7 +134,7 @@ interface TableProps {
   onView: (id: number) => void;
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
-  onCancel: (id: number) => void;
+  onCancel: (invoice: Invoice) => void;
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;

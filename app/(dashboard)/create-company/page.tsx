@@ -20,6 +20,7 @@ import {
   type CreateCompanyFormState,
   type EikStatus,
 } from './_components/form-state';
+import { PageShell } from '@/components/page-shell';
 
 export default function CreateCompanyPage() {
   const router = useRouter();
@@ -96,9 +97,9 @@ export default function CreateCompanyPage() {
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8 max-w-2xl mx-auto">
+    <PageShell maxWidth="2xl" className="mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Building2 className="h-6 w-6 text-orange-500" />
+        <Building2 className="h-6 w-6 text-primary" />
         <h1 className="text-lg lg:text-2xl font-medium">Create Company</h1>
       </div>
 
@@ -160,7 +161,7 @@ export default function CreateCompanyPage() {
         <Button
           type="submit"
           disabled={!canSubmit}
-          className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+          className="w-full bg-primary hover:bg-primary/90 text-white"
         >
           {saving ? (
             <>
@@ -175,6 +176,6 @@ export default function CreateCompanyPage() {
           )}
         </Button>
       </form>
-    </section>
+    </PageShell>
   );
 }

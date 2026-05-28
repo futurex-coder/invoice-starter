@@ -11,69 +11,127 @@ import {
   createDebitNoteFromInvoice,
   type ListInvoicesFilters,
 } from '@/src/features/bulgarian-invoicing/actions';
-import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { formatInvoiceNumber } from '@/src/features/bulgarian-invoicing/formatter';
+import type { Invoice, InvoiceStatus } from '@/lib/db/schema';
+import { useListPageState } from '@/lib/swr/use-list-page-state';
 import { requireStringParam } from '@/lib/route-params';
 import { Plus } from 'lucide-react';
 import { ListPageHeader } from '@/components/list-page/ListPageHeader';
 import { ListCard } from '@/components/list-page/ListCard';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
 import { InvoiceFilters } from './_components/InvoiceFilters';
 import { InvoicesTable } from './_components/InvoicesTable';
+import { PageShell } from '@/components/page-shell';
+
+// String-typed filters owned by useListPageState (URL-safe).
+type InvoicesFilterState = {
+  search: string;
+  status: string;
+  paymentStatus: string;
+  dateFrom: string;
+  dateTo: string;
+};
+
+const INVOICES_DEFAULTS: InvoicesFilterState = {
+  search: '',
+  status: 'all',
+  paymentStatus: 'all',
+  dateFrom: '',
+  dateTo: '',
+};
+
+function isInvoiceStatusEnum(value: string): value is InvoiceStatus {
+  return value === 'draft' || value === 'finalized' || value === 'cancelled';
+}
+
+function buildActionFilters(
+  f: InvoicesFilterState,
+  page: number,
+  pageSize: number
+): ListInvoicesFilters {
+  return {
+    page,
+    pageSize,
+    status: f.status === 'all' || !isInvoiceStatusEnum(f.status) ? undefined : f.status,
+    paymentStatus: f.paymentStatus === 'all' ? undefined : f.paymentStatus,
+    dateFrom: f.dateFrom || undefined,
+    dateTo: f.dateTo || undefined,
+    search: f.search || undefined,
+  };
+}
+
+function buildFilterProps(f: InvoicesFilterState): ListInvoicesFilters {
+  return {
+    status:
+      f.status === 'all'
+        ? undefined
+        : isInvoiceStatusEnum(f.status)
+          ? f.status
+          : undefined,
+    paymentStatus: f.paymentStatus === 'all' ? undefined : f.paymentStatus,
+    dateFrom: f.dateFrom || undefined,
+    dateTo: f.dateTo || undefined,
+  };
+}
 
 export default function InvoicesPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = requireStringParam(params, 'companyId');
-  const [filters, setFilters] = useState<ListInvoicesFilters>({
-    page: 1,
-    pageSize: 20,
+
+  const list = useListPageState({
+    swrKey: 'invoices',
+    defaults: INVOICES_DEFAULTS,
+    action: ({ page, pageSize, ...f }) =>
+      listInvoices(buildActionFilters(f, page, pageSize)),
   });
-  const [searchInput, setSearchInput] = useState('');
 
-  const {
-    data: result,
-    isLoading: loading,
-    error: fetchError,
-    mutate: refetch,
-  } = useActionSWR(['invoices', filters], () => listInvoices(filters));
+  const result = list.result;
 
-  const [actionError, setActionError] = useState<string | null>(null);
-  const error = actionError ?? (fetchError ? fetchError.message : null);
+  const [confirmCancel, setConfirmCancel] = useState<{ id: number; label: string } | null>(null);
 
   const handleFiltersChange = (patch: Partial<ListInvoicesFilters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
+    if ('status' in patch) list.setFilter('status', patch.status ?? 'all');
+    if ('paymentStatus' in patch) {
+      list.setFilter('paymentStatus', patch.paymentStatus ?? 'all');
+    }
+    if ('dateFrom' in patch) list.setFilter('dateFrom', patch.dateFrom ?? '');
+    if ('dateTo' in patch) list.setFilter('dateTo', patch.dateTo ?? '');
   };
 
-  const applySearch = () => {
-    setFilters((f) => ({ ...f, search: searchInput || undefined, page: 1 }));
+  const handleCancelClick = (invoice: Invoice) => {
+    const label =
+      invoice.number != null
+        ? `№ ${formatInvoiceNumber(invoice.number)}`
+        : `#${invoice.id}`;
+    setConfirmCancel({ id: invoice.id, label });
   };
 
-  const handleCancel = async (id: number) => {
-    if (!confirm('Cancel this invoice? This cannot be undone.')) return;
-    const res = await cancelInvoice(id);
-    if (res.error) setActionError(res.error);
-    else refetch();
+  const handleCancelConfirmed = async () => {
+    if (!confirmCancel) return;
+    await list.runMutation(() => cancelInvoice(confirmCancel.id));
   };
 
   const handleCreditNote = async (id: number) => {
     const res = await createCreditNoteFromInvoice(id);
-    if (res.error) setActionError(res.error);
+    if (res.error) list.setActionError(res.error);
     else if (res.data) router.push(`/c/${companyId}/invoices/${res.data.id}`);
   };
 
   const handleDebitNote = async (id: number) => {
     const res = await createDebitNoteFromInvoice(id);
-    if (res.error) setActionError(res.error);
+    if (res.error) list.setActionError(res.error);
     else if (res.data) router.push(`/c/${companyId}/invoices/${res.data.id}`);
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <ListPageHeader
         title="Invoices"
         action={
-          <Button asChild className="bg-orange-500 hover:bg-orange-600">
+          <Button asChild className="bg-primary hover:bg-primary/90">
             <Link href={`/c/${companyId}/invoices/new`}>
               <Plus className="mr-2 h-4 w-4" />
               New invoice
@@ -85,24 +143,24 @@ export default function InvoicesPage() {
       <InvoicesTabsNav companyId={companyId} active="outgoing" />
 
       <InvoiceFilters
-        filters={filters}
+        filters={buildFilterProps(list.filters)}
         onFiltersChange={handleFiltersChange}
-        searchInput={searchInput}
-        onSearchInputChange={setSearchInput}
-        onSearchSubmit={applySearch}
+        searchInput={list.searchInput}
+        onSearchInputChange={list.setSearchInput}
+        onSearchSubmit={list.commitSearch}
       />
 
-      <ErrorAlert message={error} className="mb-4" />
+      <ErrorAlert message={list.error} className="mb-4" />
 
       <ListCard
         title="Invoice list"
-        loading={loading}
+        loading={list.loading}
         isEmpty={!result?.invoices.length}
         emptyMessage='No invoices found. Create one with "New invoice".'
-        page={result?.page}
-        pageSize={result?.pageSize}
+        page={list.page}
+        pageSize={list.pageSize}
         total={result?.total}
-        onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))}
+        onPageChange={list.setPage}
       >
         <InvoicesTable
           invoices={result?.invoices ?? []}
@@ -110,12 +168,27 @@ export default function InvoicesPage() {
           onView={(id) => router.push(`/c/${companyId}/invoices/${id}`)}
           onEdit={(id) => router.push(`/c/${companyId}/invoices/new?edit=${id}`)}
           onPrint={(id) => router.push(`/c/${companyId}/invoices/${id}?print=1`)}
-          onCancel={handleCancel}
+          onCancel={handleCancelClick}
           onCopy={() => {}}
           onCreditNote={handleCreditNote}
           onDebitNote={handleDebitNote}
         />
       </ListCard>
-    </section>
+
+      <ConfirmDialog
+        open={confirmCancel !== null}
+        onOpenChange={(open) => !open && setConfirmCancel(null)}
+        title="Cancel invoice?"
+        description={
+          confirmCancel
+            ? `Invoice ${confirmCancel.label} will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.`
+            : undefined
+        }
+        confirmText="Cancel invoice"
+        cancelText="Keep invoice"
+        variant="destructive"
+        onConfirm={handleCancelConfirmed}
+      />
+    </PageShell>
   );
 }

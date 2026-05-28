@@ -7,7 +7,6 @@ import {
   companyMembers,
   partners,
   articles,
-  activityLogs,
   invoices,
   ActivityType,
   type Company,
@@ -17,6 +16,7 @@ import {
   type NewPartner,
   type NewArticle,
 } from '@/lib/db/schema';
+import { logActivity } from '@/lib/db/activity';
 import {
   findCompanyByEik,
   getCompanyWithMembers,
@@ -77,24 +77,6 @@ function isUniqueViolation(e: unknown): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Activity log
-// ---------------------------------------------------------------------------
-
-async function logActivity(
-  companyId: number,
-  userId: number,
-  action: string,
-  ipAddress?: string
-) {
-  await db.insert(activityLogs).values({
-    companyId,
-    userId,
-    action,
-    ipAddress: ipAddress ?? '',
-  });
-}
-
-// ---------------------------------------------------------------------------
 // A) Company Profile
 // ---------------------------------------------------------------------------
 
@@ -150,7 +132,7 @@ export async function upsertCompanyProfile(
       .where(eq(companies.id, companyId))
       .returning();
 
-    await logActivity(companyId, user.id, 'company_profile.update');
+    await logActivity(companyId, user.id, ActivityType.UPDATE_COMPANY);
     return parseCompanyRow(updated);
   });
 }
@@ -192,7 +174,7 @@ export async function createPartner(
     }
 
     if (!created) throw new Error('Failed to create partner');
-    await logActivity(companyId, user.id, 'partner.create');
+    await logActivity(companyId, user.id, ActivityType.CREATE_PARTNER);
     return created;
   });
 }
@@ -241,7 +223,7 @@ export async function updatePartner(
     }
 
     if (!updated) throw new Error('Failed to update partner');
-    await logActivity(companyId, user.id, 'partner.update');
+    await logActivity(companyId, user.id, ActivityType.UPDATE_PARTNER);
     return updated;
   });
 }
@@ -261,7 +243,7 @@ export async function deletePartner(id: number): Promise<ActionResult<void>> {
     await db
       .delete(partners)
       .where(and(eq(partners.id, id), eq(partners.companyId, companyId)));
-    await logActivity(companyId, user.id, 'partner.delete');
+    await logActivity(companyId, user.id, ActivityType.DELETE_PARTNER);
   });
 }
 
@@ -344,7 +326,7 @@ export async function createArticle(
       .returning();
 
     if (!created) throw new Error('Failed to create article');
-    await logActivity(companyId, user.id, 'article.create');
+    await logActivity(companyId, user.id, ActivityType.CREATE_ARTICLE);
     return created;
   });
 }
@@ -381,7 +363,7 @@ export async function updateArticle(
       .returning();
 
     if (!updated) throw new Error('Failed to update article');
-    await logActivity(companyId, user.id, 'article.update');
+    await logActivity(companyId, user.id, ActivityType.UPDATE_ARTICLE);
     return updated;
   });
 }
@@ -401,7 +383,7 @@ export async function deleteArticle(id: number): Promise<ActionResult<void>> {
     await db
       .delete(articles)
       .where(and(eq(articles.id, id), eq(articles.companyId, companyId)));
-    await logActivity(companyId, user.id, 'article.delete');
+    await logActivity(companyId, user.id, ActivityType.DELETE_ARTICLE);
   });
 }
 

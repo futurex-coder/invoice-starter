@@ -33,8 +33,10 @@ import { PaymentCard } from './_components/PaymentCard';
 import { NotesCard } from './_components/NotesCard';
 import { ActionsBar } from './_components/ActionsBar';
 import { useInvoiceForm } from './_components/use-invoice-form';
+import { Alert } from '@/components/ui/alert';
 import { makeInitialFormState } from './_components/form-state';
 import { invoiceToFormState } from './_components/hydrate';
+import { PageShell } from '@/components/page-shell';
 
 function buildSupplierSnapshot(profile: Company): PartySnapshot {
   const address = [profile.street, [profile.postCode, profile.city].filter(Boolean).join(' '), profile.country].filter(Boolean).join(', ');
@@ -233,14 +235,14 @@ export default function NewInvoicePage() {
 
   if (loading) {
     return (
-      <section className="flex-1 p-4 lg:p-8 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-      </section>
+      </PageShell>
     );
   }
 
   return (
-    <section className="flex-1 p-4 lg:p-8 max-w-4xl mx-auto">
+    <PageShell maxWidth="4xl" className="mx-auto">
       <div className="flex items-center gap-4 mb-6">
         <Button variant="ghost" size="icon" asChild>
           <Link href={`/c/${companyId}/invoices`}>
@@ -253,9 +255,9 @@ export default function NewInvoicePage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
+        <Alert variant="error" className="mb-4">
           {error}
-        </div>
+        </Alert>
       )}
       {validationErrors.length > 0 && (
         <ul className="mb-4 list-disc list-inside text-sm text-red-700">
@@ -336,6 +338,6 @@ export default function NewInvoicePage() {
         onPreview={handlePreview}
         onFinalize={handleFinalize}
       />
-    </section>
+    </PageShell>
   );
 }

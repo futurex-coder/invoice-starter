@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -11,15 +10,27 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { getInvoice, finalizeInvoice, cancelInvoice, updateInvoicePaymentInfo } from '@/src/features/bulgarian-invoicing/actions';
 import { formatDocTypeLabel, formatInvoiceNumber, formatDateBg, formatMoney } from '@/src/features/bulgarian-invoicing/formatter';
+import {
+  parseInvoiceTotalsStrict,
+  parsePartySnapshotStrict,
+} from '@/src/features/bulgarian-invoicing/parsers';
 import type { Invoice } from '@/lib/db/schema';
-import type { SafeUser } from '@/lib/db/schema';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
 import { requireStringParam } from '@/lib/route-params';
 import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { PageShell } from '@/components/page-shell';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Alert } from '@/components/ui/alert';
+import { useCurrentUser } from '@/lib/swr/use-current-user';
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
@@ -39,7 +50,8 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const { data: currentUser } = useSWR<SafeUser>('/api/user', fetcher);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const { data: currentUser } = useCurrentUser();
 
   useEffect(() => {
     let cancelled = false;
@@ -69,14 +81,16 @@ export default function InvoiceDetailPage() {
     else if (res.data) setInvoice(res.data);
   };
 
-  const handleCancel = async () => {
-    if (!confirm('Cancel this invoice? This cannot be undone.')) return;
+  const handleCancelConfirmed = async () => {
     setActionLoading(true);
     setError(null);
     const res = await cancelInvoice(id);
     setActionLoading(false);
-    if (res.error) setError(res.error);
-    else if (res.data) setInvoice(res.data);
+    if (res.error) {
+      setError(res.error);
+      throw new Error(res.error);
+    }
+    if (res.data) setInvoice(res.data);
   };
 
   const handlePrint = () => {
@@ -85,25 +99,25 @@ export default function InvoiceDetailPage() {
 
   if (loading) {
     return (
-      <section className="flex-1 p-4 lg:p-8 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-      </section>
+      </PageShell>
     );
   }
 
   if (error || !invoice) {
     return (
-      <section className="flex-1 p-4 lg:p-8">
+      <PageShell>
         <p className="text-red-600">{error ?? 'Invoice not found'}</p>
         <Button variant="outline" className="mt-4" asChild>
           <Link href={`/c/${companyId}/invoices`}>Back to list</Link>
         </Button>
-      </section>
+      </PageShell>
     );
   }
 
-  const totals = (invoice.totals ?? { grossAmount: 0, netAmount: 0, vatAmount: 0 }) as { grossAmount: number; netAmount: number; vatAmount: number };
-  const recipient = (invoice.recipientSnapshot ?? {}) as { legalName?: string };
+  const totals = parseInvoiceTotalsStrict(invoice.totals);
+  const recipient = parsePartySnapshotStrict(invoice.recipientSnapshot);
   const isDraft = invoice.status === 'draft';
   const isCancelled = invoice.status === 'cancelled';
 
@@ -125,7 +139,7 @@ export default function InvoiceDetailPage() {
   }
 
   return (
-    <section className="flex-1 p-4 lg:p-8 max-w-4xl mx-auto">
+    <PageShell maxWidth="4xl" className="mx-auto">
       <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
@@ -180,7 +194,7 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
           {!isDraft && !isCancelled && (
-            <Button variant="outline" size="sm" onClick={handleCancel} disabled={actionLoading}>
+            <Button variant="outline" size="sm" onClick={() => setConfirmCancelOpen(true)} disabled={actionLoading}>
               <XCircle className="mr-2 h-4 w-4" />
               Cancel invoice
             </Button>
@@ -189,9 +203,9 @@ export default function InvoiceDetailPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
+        <Alert variant="error" className="mb-4">
           {error}
-        </div>
+        </Alert>
       )}
 
       <Card className="mb-6">
@@ -210,23 +224,27 @@ export default function InvoiceDetailPage() {
           <div className="flex justify-between items-center">
             <span className="text-gray-600">Payment status</span>
             {!isCancelled ? (
-              <select
-                className="h-8 rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+              <Select
                 value={invoice.paymentStatus ?? 'unpaid'}
                 disabled={actionLoading}
-                onChange={async (e) => {
+                onValueChange={async (v) => {
                   setActionLoading(true);
                   setError(null);
-                  const res = await updateInvoicePaymentInfo(id, { paymentStatus: e.target.value });
+                  const res = await updateInvoicePaymentInfo(id, { paymentStatus: v });
                   setActionLoading(false);
                   if (res.error) setError(res.error);
                   else if (res.data) setInvoice(res.data);
                 }}
               >
-                <option value="unpaid">Unpaid</option>
-                <option value="partial">Partial</option>
-                <option value="paid">Paid</option>
-              </select>
+                <SelectTrigger className="h-8 w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unpaid">Unpaid</SelectItem>
+                  <SelectItem value="partial">Partial</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                </SelectContent>
+              </Select>
             ) : (
               <span>{invoice.paymentStatus}</span>
             )}
@@ -275,6 +293,21 @@ export default function InvoiceDetailPage() {
           </div>
         </CardContent>
       </Card>
-    </section>
+
+      <ConfirmDialog
+        open={confirmCancelOpen}
+        onOpenChange={setConfirmCancelOpen}
+        title="Cancel invoice?"
+        description={
+          invoice.number != null
+            ? `Invoice № ${formatInvoiceNumber(invoice.number)} will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.`
+            : 'This invoice will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.'
+        }
+        confirmText="Cancel invoice"
+        cancelText="Keep invoice"
+        variant="destructive"
+        onConfirm={handleCancelConfirmed}
+      />
+    </PageShell>
   );
 }

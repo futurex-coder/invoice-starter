@@ -10,6 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Loader2, Check, Plus, X } from 'lucide-react';
 import { UNITS, type ArticleRow } from './types';
 
@@ -59,18 +66,21 @@ export function ArticlesStep({
             </div>
             <div>
               <Label htmlFor={`ob-art-unit-${i}`}>{i === 0 ? 'Unit' : ''}</Label>
-              <select
-                id={`ob-art-unit-${i}`}
-                className="block w-full h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+              <Select
                 value={row.unit}
-                onChange={(e) => onUpdateRow(i, 'unit', e.target.value)}
+                onValueChange={(v) => onUpdateRow(i, 'unit', v)}
               >
-                {UNITS.map((u) => (
-                  <option key={u} value={u}>
-                    {u}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id={`ob-art-unit-${i}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {UNITS.map((u) => (
+                    <SelectItem key={u} value={u}>
+                      {u}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor={`ob-art-price-${i}`}>{i === 0 ? 'Price' : ''}</Label>
@@ -115,7 +125,7 @@ export function ArticlesStep({
           <Button
             onClick={onSave}
             disabled={saving}
-            className="bg-orange-500 hover:bg-orange-600 text-white"
+            className="bg-primary hover:bg-primary/90 text-white"
           >
             {saving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

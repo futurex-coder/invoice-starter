@@ -13,7 +13,7 @@ const TYPE_LABELS: Record<string, string> = {
 interface Props {
   articles: Article[];
   onEdit: (article: Article) => void;
-  onDelete: (id: number) => void;
+  onDelete: (article: Article) => void;
 }
 
 export function ArticlesTable({ articles, onEdit, onDelete }: Props) {
@@ -50,7 +50,7 @@ export function ArticlesTable({ articles, onEdit, onDelete }: Props) {
               <RowActionsMenu
                 actions={[
                   { icon: Pencil, label: 'Edit', onClick: () => onEdit(a) },
-                  { icon: Trash2, label: 'Delete', onClick: () => onDelete(a.id), destructive: true },
+                  { icon: Trash2, label: 'Delete', onClick: () => onDelete(a), destructive: true },
                 ]}
               />
             </td>

@@ -15,7 +15,7 @@ import {
   setReceivedInvoicePaymentStatus,
 } from '@/src/features/received-invoices/actions';
 import type { PaymentStatus } from '@/src/features/received-invoices/types';
-import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { useListPageState } from '@/lib/swr/use-list-page-state';
 import { requireStringParam } from '@/lib/route-params';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { PaymentKpiGrid } from './_components/PaymentKpiGrid';
@@ -26,28 +26,37 @@ import {
   PaymentEmptyRow,
 } from './_components/PaymentSectionStates';
 import { isOverdue, ninetyDaysAgo } from './_components/utils';
+import { PageShell } from '@/components/page-shell';
+
+// Date filters owned by useListPageState (URL-string-typed).
+type PaymentsFilterState = {
+  paidFromDate: string;
+  paidToDate: string;
+};
 
 export default function PaymentsPage() {
   const params = useParams();
   const companyId = requireStringParam(params, 'companyId');
 
-  const [paidFromDate, setPaidFromDate] = useState(ninetyDaysAgo());
-  const [paidToDate, setPaidToDate] = useState('');
-  const [pendingId, setPendingId] = useState<number | null>(null);
-
-  const {
-    data,
-    isLoading: loading,
-    error: fetchError,
-    mutate: refetch,
-  } = useActionSWR(['paymentsOverview', paidFromDate, paidToDate], () =>
-    getPaymentsOverview({
-      paidFromDate: paidFromDate || undefined,
-      paidToDate: paidToDate || undefined,
-    })
+  // ninetyDaysAgo() is computed once at mount via the lazy defaults object.
+  const defaults = useMemo<PaymentsFilterState>(
+    () => ({ paidFromDate: ninetyDaysAgo(), paidToDate: '' }),
+    []
   );
 
-  const error = fetchError ? fetchError.message : null;
+  const list = useListPageState({
+    swrKey: 'paymentsOverview',
+    defaults,
+    action: ({ paidFromDate, paidToDate }) =>
+      getPaymentsOverview({
+        paidFromDate: paidFromDate || undefined,
+        paidToDate: paidToDate || undefined,
+      }),
+  });
+
+  const data = list.result;
+
+  const [pendingId, setPendingId] = useState<number | null>(null);
 
   const overdueIds = useMemo(
     () => new Set((data?.toPay ?? []).filter((r) => isOverdue(r.dueDate)).map((r) => r.id)),
@@ -56,13 +65,17 @@ export default function PaymentsPage() {
 
   const setStatus = async (id: number, value: PaymentStatus) => {
     setPendingId(id);
-    await setReceivedInvoicePaymentStatus(id, value);
-    setPendingId(null);
-    refetch();
+    try {
+      await list.runMutation(() => setReceivedInvoicePaymentStatus(id, value));
+    } catch {
+      // list.runMutation already set actionError.
+    } finally {
+      setPendingId(null);
+    }
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <div className="mb-6">
         <h1 className="flex items-center gap-2 text-lg font-medium lg:text-2xl">
           <CreditCard className="h-5 w-5" />
@@ -73,7 +86,7 @@ export default function PaymentsPage() {
           invoices count here — drafts are still in{' '}
           <Link
             href={`/c/${companyId}/received-invoices`}
-            className="text-orange-600 hover:underline"
+            className="text-primary/90 hover:underline"
           >
             received invoices
           </Link>
@@ -81,9 +94,9 @@ export default function PaymentsPage() {
         </p>
       </div>
 
-      <ErrorAlert message={error} className="mb-4" />
+      <ErrorAlert message={list.error} className="mb-4" />
 
-      <PaymentKpiGrid totals={data?.totals} loading={loading} />
+      <PaymentKpiGrid totals={data?.totals} loading={list.loading} />
 
       <Card className="mb-6">
         <CardHeader>
@@ -98,7 +111,7 @@ export default function PaymentsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          {loading ? (
+          {list.loading ? (
             <PaymentLoadingRow />
           ) : !data?.toPay.length ? (
             <PaymentEmptyRow text="Nothing to pay. You're all caught up." accent="green" />
@@ -127,18 +140,18 @@ export default function PaymentsPage() {
             )}
           </CardTitle>
           <PaymentDateFilters
-            fromDate={paidFromDate}
-            onFromDateChange={setPaidFromDate}
-            toDate={paidToDate}
-            onToDateChange={setPaidToDate}
+            fromDate={list.filters.paidFromDate}
+            onFromDateChange={(v) => list.setFilter('paidFromDate', v)}
+            toDate={list.filters.paidToDate}
+            onToDateChange={(v) => list.setFilter('paidToDate', v)}
             onClear={() => {
-              setPaidFromDate('');
-              setPaidToDate('');
+              list.setFilter('paidFromDate', '');
+              list.setFilter('paidToDate', '');
             }}
           />
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          {loading ? (
+          {list.loading ? (
             <PaymentLoadingRow />
           ) : !data?.paid.length ? (
             <PaymentEmptyRow text="No paid invoices in this date range." accent="gray" />
@@ -154,6 +167,6 @@ export default function PaymentsPage() {
           )}
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

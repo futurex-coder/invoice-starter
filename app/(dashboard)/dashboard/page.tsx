@@ -10,6 +10,7 @@ import {
   restoreCompanyAction,
 } from '@/src/features/invoicing/actions';
 import { Loader2, Plus, Inbox } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { SummaryGrid } from './_components/SummaryGrid';
 import { CompaniesGrid } from './_components/CompaniesGrid';
@@ -17,6 +18,7 @@ import { ActivityFeed } from './_components/ActivityFeed';
 import { DeletedCompaniesCard } from './_components/DeletedCompaniesCard';
 import { ManageSubscription } from './_components/ManageSubscription';
 import { EmptyDashboard } from './_components/EmptyDashboard';
+import { PageShell } from '@/components/page-shell';
 
 const EMPTY_TOTALS = {
   revenue: 0,
@@ -71,9 +73,9 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <section className="flex-1 p-4 lg:p-8 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-      </section>
+      </PageShell>
     );
   }
 
@@ -82,7 +84,7 @@ export default function DashboardPage() {
 
   if (companies.length === 0) {
     return (
-      <section className="flex-1 p-4 lg:p-8">
+      <PageShell>
         <h1 className="text-lg lg:text-2xl font-medium mb-6">Dashboard</h1>
         <EmptyDashboard />
         <DeletedCompaniesCard
@@ -94,18 +96,18 @@ export default function DashboardPage() {
         <div className="mt-6">
           <ManageSubscription />
         </div>
-      </section>
+      </PageShell>
     );
   }
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <h1 className="text-lg lg:text-2xl font-medium">Dashboard</h1>
         <Button
           asChild
           size="sm"
-          className="bg-orange-500 hover:bg-orange-600 text-white"
+          className="bg-primary hover:bg-primary/90 text-white"
         >
           <Link href="/create-company">
             <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -115,23 +117,22 @@ export default function DashboardPage() {
       </div>
 
       {totals.pendingReviewCount > 0 && (
-        <div className="mb-6 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
-          <div className="flex items-center gap-2 text-amber-900">
-            <Inbox className="h-4 w-4" />
+        <Alert variant="warning" icon={Inbox} className="mb-6 items-center">
+          <div className="flex items-center justify-between gap-3">
             <span>
               <strong>{totals.pendingReviewCount}</strong> received{' '}
               {totals.pendingReviewCount === 1 ? 'invoice' : 'invoices'}{' '}
               awaiting review across your companies
             </span>
+            {pendingReviewTarget && (
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/c/${pendingReviewTarget.companyId}/received-invoices`}>
+                  Review
+                </Link>
+              </Button>
+            )}
           </div>
-          {pendingReviewTarget && (
-            <Button asChild size="sm" variant="outline">
-              <Link href={`/c/${pendingReviewTarget.companyId}/received-invoices`}>
-                Review
-              </Link>
-            </Button>
-          )}
-        </div>
+        </Alert>
       )}
 
       <SummaryGrid totals={totals} />
@@ -154,6 +155,6 @@ export default function DashboardPage() {
       />
 
       <ManageSubscription />
-    </section>
+    </PageShell>
   );
 }

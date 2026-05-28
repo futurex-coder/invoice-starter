@@ -4,9 +4,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { DOC_TYPES } from '@/src/features/bulgarian-invoicing/types';
 import { formatDocTypeLabel } from '@/src/features/bulgarian-invoicing/formatter';
 import { LANGUAGES, CURRENCIES } from './types';
+import { Alert } from '@/components/ui/alert';
 
 interface Props {
   docType: string;
@@ -63,12 +71,12 @@ export function DocumentCard({
           </RadioGroup>
         </div>
         {!isEditing && nextInvoiceNumber != null && (
-          <div className="rounded-md bg-blue-50 border border-blue-200 p-3 text-sm">
-            <span className="text-blue-800">
+          <Alert variant="info">
+            <span>
               Next invoice number: <strong>{String(nextInvoiceNumber).padStart(10, '0')}</strong>
             </span>
             <span className="ml-2 text-blue-600 text-xs">(assigned automatically on save)</span>
-          </div>
+          </Alert>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -93,27 +101,29 @@ export function DocumentCard({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>Language</Label>
-            <select
-              className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-              value={language}
-              onChange={(e) => onLanguageChange(e.target.value)}
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
+            <Select value={language} onValueChange={onLanguageChange}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGES.map((l) => (
+                  <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Currency</Label>
-            <select
-              className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-              value={currency}
-              onChange={(e) => onCurrencyChange(e.target.value)}
-            >
-              {CURRENCIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
+            <Select value={currency} onValueChange={onCurrencyChange}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         {currency === 'EUR' && (

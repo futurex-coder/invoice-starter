@@ -22,46 +22,140 @@ import {
 import type {
   AccountingStatus,
   PaymentStatus,
+  ReceivedInvoiceLifecycleStatus,
 } from '@/src/features/received-invoices/types';
-import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { useListPageState } from '@/lib/swr/use-list-page-state';
 import { requireStringParam } from '@/lib/route-params';
 import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { Pagination } from '@/components/list-page/Pagination';
 import { ReceivedInvoiceFilters } from './_components/ReceivedInvoiceFilters';
-import { PendingReviewBanner } from './_components/PendingReviewBanner';
+import { PendingReviewBanner } from '@/components/received-invoices/PendingReviewBanner';
 import { ReceivedInvoicesTable } from './_components/ReceivedInvoicesTable';
+import { supplierName } from './_components/utils';
+import type { ReceivedInvoiceListItem } from '@/src/features/received-invoices/actions';
+import { PageShell } from '@/components/page-shell';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+
+// String-typed filters owned by useListPageState (URL-safe).
+type ReceivedInvoicesFilterState = {
+  search: string;
+  status: string;
+  paymentStatus: string;
+  dateFrom: string;
+  dateTo: string;
+  archived: string;
+};
+
+const RECEIVED_INVOICES_DEFAULTS: ReceivedInvoicesFilterState = {
+  search: '',
+  // Default: hide drafts. Drafts are surfaced via the pending banner above.
+  status: 'confirmed',
+  paymentStatus: 'all',
+  dateFrom: '',
+  dateTo: '',
+  archived: 'false',
+};
+
+function isLifecycleStatus(value: string): value is ReceivedInvoiceLifecycleStatus {
+  return value === 'draft' || value === 'confirmed' || value === 'discarded';
+}
+function isPaymentStatus(value: string): value is PaymentStatus {
+  return value === 'unpaid' || value === 'partial' || value === 'paid';
+}
+
+/**
+ * Build the action-input shape (`ListReceivedInvoicesFilters`) from the
+ * hook's string-typed filter state.
+ */
+function buildActionFilters(
+  f: ReceivedInvoicesFilterState,
+  page: number,
+  pageSize: number
+): ListReceivedInvoicesFilters {
+  return {
+    page,
+    pageSize,
+    status: isLifecycleStatus(f.status) ? f.status : undefined,
+    paymentStatus: isPaymentStatus(f.paymentStatus) ? f.paymentStatus : undefined,
+    dateFrom: f.dateFrom || undefined,
+    dateTo: f.dateTo || undefined,
+    includeArchived: f.archived === 'true',
+    search: f.search || undefined,
+  };
+}
+
+/**
+ * Build the props shape the existing `ReceivedInvoiceFilters` component
+ * expects from the string-typed filter state. (The component reads
+ * `filters.status ?? 'all'`, etc. — so `undefined` means "all".)
+ */
+function buildFilterProps(
+  f: ReceivedInvoicesFilterState
+): ListReceivedInvoicesFilters {
+  return {
+    status:
+      f.status === 'all'
+        ? undefined
+        : isLifecycleStatus(f.status)
+          ? f.status
+          : undefined,
+    paymentStatus:
+      f.paymentStatus === 'all'
+        ? undefined
+        : isPaymentStatus(f.paymentStatus)
+          ? f.paymentStatus
+          : undefined,
+    dateFrom: f.dateFrom || undefined,
+    dateTo: f.dateTo || undefined,
+    includeArchived: f.archived === 'true',
+  };
+}
 
 export default function ReceivedInvoicesPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = requireStringParam(params, 'companyId');
 
-  // Default: hide drafts. Drafts are surfaced via the pending banner above.
-  const [filters, setFilters] = useState<ListReceivedInvoicesFilters>({
-    page: 1,
-    pageSize: 20,
-    status: 'confirmed',
+  const list = useListPageState<ReceivedInvoicesFilterState, {
+    items: ReceivedInvoiceListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+    pendingCount: number;
+  }>({
+    swrKey: 'received-invoices',
+    defaults: RECEIVED_INVOICES_DEFAULTS,
+    action: ({ page, pageSize, ...f }) =>
+      listReceivedInvoices(buildActionFilters(f, page, pageSize)),
   });
-  const [searchInput, setSearchInput] = useState('');
-  const [actionError, setActionError] = useState<string | null>(null);
+
+  const data = list.result;
+
   const [pendingId, setPendingId] = useState<number | null>(null);
 
-  const {
-    data,
-    isLoading: loading,
-    error: fetchError,
-    mutate: refetch,
-  } = useActionSWR(['receivedInvoices', filters], () => listReceivedInvoices(filters));
+  type ConfirmTarget = { item: ReceivedInvoiceListItem; mode: 'discard' | 'hardDelete' };
+  const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
 
-  const error = actionError ?? (fetchError ? fetchError.message : null);
-
-  const updateFilters = (patch: Partial<ListReceivedInvoicesFilters>) => {
-    setFilters((f) => ({ ...f, ...patch }));
-  };
-
-  const applySearch = () => {
-    setFilters((f) => ({ ...f, search: searchInput || undefined, page: 1 }));
+  // Adapter: the existing ReceivedInvoiceFilters component sends a
+  // `Partial<ListReceivedInvoicesFilters>` patch. Thread each known key into
+  // `setFilter` on the hook (which itself resets page to 1).
+  const handleFiltersChange = (patch: Partial<ListReceivedInvoicesFilters>) => {
+    if ('status' in patch) {
+      list.setFilter('status', patch.status ?? 'all');
+    }
+    if ('paymentStatus' in patch) {
+      list.setFilter('paymentStatus', patch.paymentStatus ?? 'all');
+    }
+    if ('dateFrom' in patch) {
+      list.setFilter('dateFrom', patch.dateFrom ?? '');
+    }
+    if ('dateTo' in patch) {
+      list.setFilter('dateTo', patch.dateTo ?? '');
+    }
+    if ('includeArchived' in patch) {
+      list.setFilter('archived', patch.includeArchived ? 'true' : 'false');
+    }
   };
 
   const goView = (id: number) =>
@@ -78,46 +172,59 @@ export default function ReceivedInvoicesPage() {
       return;
     }
     // No draft on current view (likely filtered out) — switch the filter to draft.
-    setFilters((f) => ({ ...f, status: 'draft', page: 1 }));
+    list.setFilter('status', 'draft');
   };
 
-  const runMutation = async (
+  const runItemMutation = async (
     id: number,
-    mutator: () => Promise<{ error?: string; data?: unknown }>
+    mutator: () => ReturnType<typeof setReceivedInvoicePaymentStatus>
   ) => {
     setPendingId(id);
-    setActionError(null);
-    const res = await mutator();
-    setPendingId(null);
-    if (res.error) setActionError(res.error);
-    else refetch();
+    try {
+      await list.runMutation(mutator);
+    } catch {
+      // runMutation set actionError already.
+    } finally {
+      setPendingId(null);
+    }
   };
 
   const handlePayment = (id: number, status: PaymentStatus) =>
-    runMutation(id, () => setReceivedInvoicePaymentStatus(id, status));
+    runItemMutation(id, () => setReceivedInvoicePaymentStatus(id, status));
   const handleAccounting = (id: number, status: AccountingStatus) =>
-    runMutation(id, () => setReceivedInvoiceAccountingStatus(id, status));
+    runItemMutation(id, () => setReceivedInvoiceAccountingStatus(id, status));
   const handleArchive = (id: number, archived: boolean) =>
-    runMutation(id, () => setReceivedInvoiceArchived(id, archived));
+    runItemMutation(id, () => setReceivedInvoiceArchived(id, archived));
 
-  const handleDiscard = (id: number) => {
-    if (!confirm('Discard this draft? It will not count in any totals.')) return;
-    runMutation(id, () => discardReceivedInvoice(id));
+  const handleConfirmAction = async () => {
+    if (!confirmTarget) return;
+    const { item, mode } = confirmTarget;
+    setPendingId(item.id);
+    try {
+      await list.runMutation(() =>
+        mode === 'discard'
+          ? discardReceivedInvoice(item.id)
+          : hardDeleteDiscardedReceivedInvoice(item.id)
+      );
+    } finally {
+      setPendingId(null);
+    }
   };
 
-  const handleHardDelete = (id: number) => {
-    if (
-      !confirm(
-        'Permanently delete this discarded invoice? The original file will also be removed. This cannot be undone.'
-      )
-    ) {
-      return;
+  const buildDescription = (target: ConfirmTarget | null): string | undefined => {
+    if (!target) return undefined;
+    const numberPart = target.item.invoiceNumber
+      ? `№ ${target.item.invoiceNumber}`
+      : `#${target.item.id}`;
+    const supplier = supplierName(target.item);
+    if (target.mode === 'discard') {
+      return `Draft ${numberPart} from ${supplier} will not count in any totals. You can still find it under the Discarded filter.`;
     }
-    runMutation(id, () => hardDeleteDiscardedReceivedInvoice(id));
+    return `${numberPart} from ${supplier} and the original file will be permanently removed. This cannot be undone.`;
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-lg font-medium lg:text-2xl">
@@ -128,7 +235,7 @@ export default function ReceivedInvoicesPage() {
             Invoices your partners sent — what you have paid and what you owe.
           </p>
         </div>
-        <Button onClick={goUpload} className="bg-orange-500 hover:bg-orange-600">
+        <Button onClick={goUpload} className="bg-primary hover:bg-primary/90">
           <Plus className="mr-2 h-4 w-4" />
           Upload invoices
         </Button>
@@ -143,26 +250,32 @@ export default function ReceivedInvoicesPage() {
       {data && (
         <PendingReviewBanner
           count={data.pendingCount}
-          onReviewNext={reviewNextPending}
+          description=" — drafts aren't shown in the list below."
+          className="mb-4 items-center"
+          action={
+            <Button size="sm" variant="outline" onClick={reviewNextPending}>
+              Review next
+            </Button>
+          }
         />
       )}
 
       <ReceivedInvoiceFilters
-        filters={filters}
-        onFiltersChange={updateFilters}
-        searchInput={searchInput}
-        onSearchInputChange={setSearchInput}
-        onSearchSubmit={applySearch}
+        filters={buildFilterProps(list.filters)}
+        onFiltersChange={handleFiltersChange}
+        searchInput={list.searchInput}
+        onSearchInputChange={list.setSearchInput}
+        onSearchSubmit={list.commitSearch}
       />
 
-      <ErrorAlert message={error} className="mb-4" />
+      <ErrorAlert message={list.error} className="mb-4" />
 
       <Card>
         <CardHeader>
           <CardTitle>Received invoice list</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
-          {loading ? (
+          {list.loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
             </div>
@@ -184,8 +297,8 @@ export default function ReceivedInvoicesPage() {
               onMarkPayment={handlePayment}
               onMarkAccounting={handleAccounting}
               onArchive={handleArchive}
-              onDiscard={handleDiscard}
-              onHardDelete={handleHardDelete}
+              onDiscard={(item) => setConfirmTarget({ item, mode: 'discard' })}
+              onHardDelete={(item) => setConfirmTarget({ item, mode: 'hardDelete' })}
             />
           )}
           {data && (
@@ -193,11 +306,27 @@ export default function ReceivedInvoicesPage() {
               page={data.page}
               pageSize={data.pageSize}
               total={data.total}
-              onPageChange={(p) => updateFilters({ page: p })}
+              onPageChange={list.setPage}
             />
           )}
         </CardContent>
       </Card>
-    </section>
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        onOpenChange={(open) => !open && setConfirmTarget(null)}
+        title={
+          confirmTarget?.mode === 'hardDelete'
+            ? 'Permanently delete invoice?'
+            : 'Discard draft?'
+        }
+        description={buildDescription(confirmTarget)}
+        confirmText={
+          confirmTarget?.mode === 'hardDelete' ? 'Permanently delete' : 'Discard'
+        }
+        variant="destructive"
+        onConfirm={handleConfirmAction}
+      />
+    </PageShell>
   );
 }

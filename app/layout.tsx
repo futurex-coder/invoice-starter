@@ -4,6 +4,7 @@ import { Manrope } from 'next/font/google';
 import { getUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
 import { Analytics } from "@vercel/analytics/next"
+import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'Invoicly',
@@ -37,6 +38,7 @@ export default function RootLayout({
         >
           {children}
         </SWRConfig>
+        <Toaster />
       </body>
     </html>
   );

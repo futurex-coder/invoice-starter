@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { EntityPicker } from '@/components/forms/entity-picker';
 import type { Partner } from '@/lib/db/schema';
 import type { RecipientForm } from './types';
 
@@ -29,19 +30,21 @@ export function RecipientCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label>Select partner (optional)</Label>
-          <select
-            className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-            value={selectedPartnerId}
-            onChange={(e) => onPartnerSelect(e.target.value ? Number(e.target.value) : '')}
-          >
-            <option value="">— Manual entry —</option>
-            {partners.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.eik})
-              </option>
-            ))}
-          </select>
+          <Label htmlFor="partner-picker">Select partner (optional)</Label>
+          <EntityPicker
+            id="partner-picker"
+            className="mt-1"
+            items={partners}
+            value={selectedPartnerId === '' ? null : selectedPartnerId}
+            onChange={(v) => onPartnerSelect(v ?? '')}
+            getKey={(p) => p.id}
+            getLabel={(p) => p.name}
+            getSecondary={(p) => `EIK ${p.eik}`}
+            getSearchText={(p) => `${p.name} ${p.eik}`}
+            placeholder="— Manual entry —"
+            clearLabel="— Manual entry —"
+            emptyMessage="No partners match"
+          />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>

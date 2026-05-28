@@ -7,11 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { updateAccount } from '@/app/(login)/actions';
-import type { SafeUser } from '@/lib/db/schema';
-import useSWR from 'swr';
+import { useCurrentUser } from '@/lib/swr/use-current-user';
 import { Suspense } from 'react';
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { PageShell } from '@/components/page-shell';
 
 type ActionState = {
   name?: string;
@@ -62,7 +60,7 @@ function AccountForm({
 }
 
 function AccountFormWithData({ state }: { state: ActionState }) {
-  const { data: user } = useSWR<SafeUser>('/api/user', fetcher);
+  const { data: user } = useCurrentUser();
   return (
     <AccountForm
       state={state}
@@ -79,7 +77,7 @@ export default function GeneralPage() {
   );
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
         General Settings
       </h1>
@@ -101,7 +99,7 @@ export default function GeneralPage() {
             )}
             <Button
               type="submit"
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className="bg-primary hover:bg-primary/90 text-white"
               disabled={isPending}
             >
               {isPending ? (
@@ -116,6 +114,6 @@ export default function GeneralPage() {
           </form>
         </CardContent>
       </Card>
-    </section>
+    </PageShell>
   );
 }

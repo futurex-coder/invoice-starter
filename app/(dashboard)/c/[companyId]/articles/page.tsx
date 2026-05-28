@@ -10,13 +10,14 @@ import {
 } from '@/src/features/invoicing/actions';
 import type { CreateArticleInput } from '@/src/features/invoicing/schemas';
 import type { Article } from '@/lib/db/schema';
-import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { useListPageState } from '@/lib/swr/use-list-page-state';
 import { Plus } from 'lucide-react';
 import { ListPageHeader } from '@/components/list-page/ListPageHeader';
 import { SearchBar } from '@/components/list-page/SearchBar';
 import { ListCard } from '@/components/list-page/ListCard';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { Card, CardContent } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   ArticleFormCard,
   emptyArticleForm,
@@ -24,6 +25,7 @@ import {
   type ArticleForm,
 } from './_components/ArticleForm';
 import { ArticlesTable } from './_components/ArticlesTable';
+import { PageShell } from '@/components/page-shell';
 
 function articleToForm(a: Article): ArticleForm {
   const rawType = a.type ?? 'service';
@@ -49,53 +51,38 @@ function formToInput(f: ArticleForm): CreateArticleInput {
 }
 
 export default function ArticlesPage() {
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const list = useListPageState({
+    swrKey: 'articles',
+    defaults: { search: '' },
+    action: ({ search, page, pageSize }) =>
+      listArticles({ search: search || undefined, page, pageSize }),
+  });
 
-  const {
-    data: result,
-    isLoading: loading,
-    error: fetchError,
-    mutate: refetch,
-  } = useActionSWR(
-    ['articles', search, page],
-    () => listArticles({ search: search || undefined, page, pageSize })
-  );
-
-  const items = result?.items ?? [];
-  const total = result?.total ?? 0;
-
-  const [actionError, setActionError] = useState<string | null>(null);
-  const error = actionError ?? (fetchError ? fetchError.message : null);
+  const items = list.result?.items ?? [];
+  const total = list.result?.total ?? 0;
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<ArticleForm>(emptyArticleForm);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
 
   const handleFormChange = (patch: Partial<ArticleForm>) => {
     setForm((f) => ({ ...f, ...patch }));
-  };
-
-  const applySearch = () => {
-    setSearch(searchInput);
-    setPage(1);
   };
 
   const openCreate = () => {
     setEditingId(null);
     setForm(emptyArticleForm);
     setShowForm(true);
-    setActionError(null);
+    list.setActionError(null);
   };
 
   const openEdit = (a: Article) => {
     setEditingId(a.id);
     setForm(articleToForm(a));
     setShowForm(true);
-    setActionError(null);
+    list.setActionError(null);
   };
 
   const closeForm = () => {
@@ -106,50 +93,39 @@ export default function ArticlesPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    setActionError(null);
-    const input = formToInput(form);
-
-    if (editingId) {
-      const res = await updateArticle(editingId, input);
-      setSaving(false);
-      if (res.error) {
-        setActionError(res.error);
-        return;
+    try {
+      const input = formToInput(form);
+      if (editingId) {
+        await list.runMutation(() => updateArticle(editingId, input));
+      } else {
+        await list.runMutation(() => createArticle(input));
       }
-    } else {
-      const res = await createArticle(input);
+      closeForm();
+    } catch {
+      // runMutation already set actionError; keep the form open
+    } finally {
       setSaving(false);
-      if (res.error) {
-        setActionError(res.error);
-        return;
-      }
     }
-
-    closeForm();
-    refetch();
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Delete this article? This cannot be undone.')) return;
-    setActionError(null);
-    const res = await deleteArticle(id);
-    if (res.error) setActionError(res.error);
-    else refetch();
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDelete) return;
+    await list.runMutation(() => deleteArticle(confirmDelete.id));
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <ListPageHeader
         title="Articles"
         action={
-          <Button className="bg-orange-500 hover:bg-orange-600" onClick={openCreate}>
+          <Button className="bg-primary hover:bg-primary/90" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
             Add article
           </Button>
         }
       />
 
-      <ErrorAlert message={error} className="mb-4" />
+      <ErrorAlert message={list.error} className="mb-4" />
 
       {showForm && (
         <ArticleFormCard
@@ -165,9 +141,9 @@ export default function ArticlesPage() {
       <Card className="mb-6">
         <CardContent className="pt-6">
           <SearchBar
-            value={searchInput}
-            onChange={setSearchInput}
-            onSubmit={applySearch}
+            value={list.searchInput}
+            onChange={list.setSearchInput}
+            onSubmit={list.commitSearch}
             placeholder="Search by name..."
           />
         </CardContent>
@@ -176,20 +152,34 @@ export default function ArticlesPage() {
       <ListCard
         title="Article list"
         count={total}
-        loading={loading}
+        loading={list.loading}
         isEmpty={!items.length}
         emptyMessage='No articles found. Add one with "Add article".'
-        page={page}
-        pageSize={pageSize}
+        page={list.page}
+        pageSize={list.pageSize}
         total={total}
-        onPageChange={setPage}
+        onPageChange={list.setPage}
       >
         <ArticlesTable
           articles={items}
           onEdit={openEdit}
-          onDelete={handleDelete}
+          onDelete={(a) => setConfirmDelete({ id: a.id, name: a.name })}
         />
       </ListCard>
-    </section>
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        title="Delete article?"
+        description={
+          confirmDelete
+            ? `${confirmDelete.name} will be permanently removed. This cannot be undone.`
+            : undefined
+        }
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDeleteConfirmed}
+      />
+    </PageShell>
   );
 }

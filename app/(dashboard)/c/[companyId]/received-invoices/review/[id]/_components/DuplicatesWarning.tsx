@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import type { DuplicateMatch } from '@/src/features/received-invoices/types';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface Props {
   duplicates: DuplicateMatch[];
@@ -10,12 +11,11 @@ interface Props {
 export function DuplicatesWarning({ duplicates, companyId }: Props) {
   if (duplicates.length === 0) return null;
   return (
-    <div className="mb-4 flex items-start gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm">
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-      <div className="flex-1">
-        <p className="font-medium text-amber-900">
-          Possible duplicate of another received invoice{duplicates.length > 1 ? 's' : ''}:
-        </p>
+    <Alert variant="warning" icon={AlertTriangle} className="mb-4">
+      <AlertTitle>
+        Possible duplicate of another received invoice{duplicates.length > 1 ? 's' : ''}:
+      </AlertTitle>
+      <AlertDescription>
         <ul className="mt-1 list-disc pl-5 text-xs text-amber-800">
           {duplicates.map((d) => (
             <li key={d.id}>
@@ -37,7 +37,7 @@ export function DuplicatesWarning({ duplicates, companyId }: Props) {
         <p className="mt-1 text-xs text-amber-700">
           You can still continue if this is intentional.
         </p>
-      </div>
-    </div>
+      </AlertDescription>
+    </Alert>
   );
 }

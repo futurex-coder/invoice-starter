@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useReducer, useCallback } from 'react';
+import { toast } from '@/lib/toast';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,7 +16,8 @@ import { canEditCompanySettings } from '@/lib/auth/permissions';
 import { useCompany } from '@/lib/context/company-context';
 import type { UpsertCompanyProfileInput } from '@/src/features/invoicing/schemas';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
-import { Loader2, Save, Building2, CheckCircle, ShieldAlert } from 'lucide-react';
+import { Loader2, Save, Building2, ShieldAlert } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { IdentityCard } from './_components/IdentityCard';
 import { AddressCard } from '@/components/company-form/AddressCard';
 import { BankDetailsCard } from '@/components/company-form/BankDetailsCard';
@@ -29,6 +31,7 @@ import {
   profileToFormState,
   settingsFormReducer,
 } from './_components/form-state';
+import { PageShell } from '@/components/page-shell';
 
 export default function CompanySettingsPage() {
   const router = useRouter();
@@ -48,7 +51,6 @@ export default function CompanySettingsPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -79,7 +81,6 @@ export default function CompanySettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    setSuccess(null);
 
     const input: UpsertCompanyProfileInput = {
       legalName: form.legalName,
@@ -109,7 +110,7 @@ export default function CompanySettingsPage() {
 
     if (res.data) {
       mutateProfile(res.data, { revalidate: false });
-      setSuccess('Company profile saved successfully.');
+      toast.success('Company profile saved successfully.');
     }
   };
 
@@ -147,7 +148,7 @@ export default function CompanySettingsPage() {
 
   if (!canEditCompanySettings(role)) {
     return (
-      <section className="flex-1 p-4 lg:p-8">
+      <PageShell>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <ShieldAlert className="h-12 w-12 text-gray-400 mb-4" />
@@ -157,47 +158,40 @@ export default function CompanySettingsPage() {
             </p>
           </CardContent>
         </Card>
-      </section>
+      </PageShell>
     );
   }
 
   if (loading) {
     return (
-      <section className="flex-1 p-4 lg:p-8 flex items-center justify-center">
+      <PageShell className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-      </section>
+      </PageShell>
     );
   }
 
   const otherMembers = members.filter((m) => m.role !== 'owner');
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <div className="flex items-center gap-3 mb-6">
-        <Building2 className="h-6 w-6 text-orange-500" />
+        <Building2 className="h-6 w-6 text-primary" />
         <h1 className="text-lg lg:text-2xl font-medium">Company Settings</h1>
       </div>
 
       {!profile && (
-        <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+        <Alert variant="warning" className="mb-6">
           You need to complete your company profile before you can create
           invoices. This data is used as the Supplier (Доставчик) on every
           invoice.
-        </div>
+        </Alert>
       )}
 
       {error && (
-        <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 text-sm">
+        <Alert variant="error" className="mb-4">
           {error}
-        </div>
+        </Alert>
       )}
-      {success && (
-        <div className="mb-4 p-3 rounded-md bg-green-50 text-green-700 text-sm flex items-center gap-2">
-          <CheckCircle className="h-4 w-4" />
-          {success}
-        </div>
-      )}
-
       <IdentityCard
         legalName={form.legalName}
         onLegalNameChange={(v) => updateForm({ legalName: v })}
@@ -248,7 +242,7 @@ export default function CompanySettingsPage() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
+          className="bg-primary hover:bg-primary/90 text-white"
         >
           {saving ? (
             <>
@@ -269,30 +263,28 @@ export default function CompanySettingsPage() {
         onDeleteClick={() => setShowDeleteConfirm(true)}
       />
 
-      {showTransferModal && (
-        <TransferOwnershipModal
-          otherMembers={otherMembers}
-          selectedMemberId={transferTargetId}
-          onSelectMember={setTransferTargetId}
-          loading={dangerLoading}
-          onCancel={() => setShowTransferModal(false)}
-          onConfirm={handleTransfer}
-        />
-      )}
+      <TransferOwnershipModal
+        open={showTransferModal}
+        onOpenChange={setShowTransferModal}
+        otherMembers={otherMembers}
+        selectedMemberId={transferTargetId}
+        onSelectMember={setTransferTargetId}
+        loading={dangerLoading}
+        onConfirm={handleTransfer}
+      />
 
-      {showDeleteConfirm && (
-        <DeleteCompanyModal
-          companyName={company.legalName}
-          confirmText={deleteConfirmText}
-          onConfirmTextChange={setDeleteConfirmText}
-          loading={dangerLoading}
-          onCancel={() => {
-            setShowDeleteConfirm(false);
-            setDeleteConfirmText('');
-          }}
-          onConfirm={handleDelete}
-        />
-      )}
-    </section>
+      <DeleteCompanyModal
+        open={showDeleteConfirm}
+        onOpenChange={(open) => {
+          setShowDeleteConfirm(open);
+          if (!open) setDeleteConfirmText('');
+        }}
+        companyName={company.legalName}
+        confirmText={deleteConfirmText}
+        onConfirmTextChange={setDeleteConfirmText}
+        loading={dangerLoading}
+        onConfirm={handleDelete}
+      />
+    </PageShell>
   );
 }

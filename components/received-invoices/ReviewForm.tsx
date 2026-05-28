@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Trash2, Plus, AlertCircle, Info } from 'lucide-react';
+import { Trash2, Plus, Info } from 'lucide-react';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +13,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { calculateReceivedInvoice } from '@/src/features/received-invoices/calculator';
 import type {
@@ -37,6 +45,12 @@ const PAYMENT_STATUSES: PaymentStatus[] = ['unpaid', 'partial', 'paid'];
 const ACCOUNTING_STATUSES: AccountingStatus[] = ['pending', 'accounted'];
 const CURRENCIES = ['EUR', 'BGN', 'USD'];
 const VAT_RATES: Array<0 | 9 | 20> = [0, 9, 20];
+
+function parseVatRate(value: string): 0 | 9 | 20 {
+  const n = Number(value);
+  if (n === 0 || n === 9 || n === 20) return n;
+  return 20;
+}
 
 const blankLine: ReceivedInvoiceLineInput = {
   description: '',
@@ -281,24 +295,21 @@ export function ReviewForm({
         </CardHeader>
         <CardContent className="space-y-4">
           {partnerSuggestion && !partnerId && (
-            <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-              <div className="flex-1">
-                <p className="text-blue-900">
-                  EIK matches existing partner{' '}
-                  <strong>{partnerSuggestion.matchedPartnerName}</strong>.
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="link"
-                  className="h-auto p-0 text-blue-700"
-                  onClick={linkSuggestedPartner}
-                >
-                  Link this invoice to that partner
-                </Button>
-              </div>
-            </div>
+            <Alert variant="info">
+              <p className="text-blue-900">
+                EIK matches existing partner{' '}
+                <strong>{partnerSuggestion.matchedPartnerName}</strong>.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="link"
+                className="h-auto p-0 text-blue-700"
+                onClick={linkSuggestedPartner}
+              >
+                Link this invoice to that partner
+              </Button>
+            </Alert>
           )}
 
           {partnerId && (
@@ -508,24 +519,30 @@ export function ReviewForm({
             </div>
             <div>
               <Label htmlFor="currency">Currency</Label>
-              <select
-                id="currency"
-                className={cn(
-                  'mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm',
-                  fieldRing(fieldMeta, 'currency', touched.has('currency'))
-                )}
+              <Select
                 value={currency}
-                onChange={(e) => {
+                onValueChange={(v) => {
                   markTouched('currency');
-                  setCurrency(e.target.value);
+                  setCurrency(v);
                 }}
               >
-                {CURRENCIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger
+                  id="currency"
+                  className={cn(
+                    'mt-1',
+                    fieldRing(fieldMeta, 'currency', touched.has('currency'))
+                  )}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FieldHint
                 meta={fieldMeta}
                 formKey="currency"
@@ -671,21 +688,23 @@ export function ReviewForm({
                         />
                       </td>
                       <td className="py-1">
-                        <select
-                          className="h-8 w-16 rounded border px-2 text-sm"
-                          value={line.vatRate}
-                          onChange={(e) =>
-                            updateLine(i, {
-                              vatRate: Number(e.target.value) as 0 | 9 | 20,
-                            })
+                        <Select
+                          value={String(line.vatRate)}
+                          onValueChange={(v) =>
+                            updateLine(i, { vatRate: parseVatRate(v) })
                           }
                         >
-                          {VAT_RATES.map((r) => (
-                            <option key={r} value={r}>
-                              {r}%
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="h-8 w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {VAT_RATES.map((r) => (
+                              <SelectItem key={r} value={String(r)}>
+                                {r}%
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="py-1">
                         <Input
@@ -784,37 +803,41 @@ export function ReviewForm({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="paymentStatus">Payment status</Label>
-              <select
-                id="paymentStatus"
-                className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+              <Select
                 value={paymentStatus}
-                onChange={(e) =>
-                  setPaymentStatus(parsePaymentStatus(e.target.value))
-                }
+                onValueChange={(v) => setPaymentStatus(parsePaymentStatus(v))}
               >
-                {PAYMENT_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="paymentStatus" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="accountingStatus">Accounting status</Label>
-              <select
-                id="accountingStatus"
-                className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+              <Select
                 value={accountingStatus}
-                onChange={(e) =>
-                  setAccountingStatus(parseAccountingStatus(e.target.value))
+                onValueChange={(v) =>
+                  setAccountingStatus(parseAccountingStatus(v))
                 }
               >
-                {ACCOUNTING_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="accountingStatus" className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ACCOUNTING_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>

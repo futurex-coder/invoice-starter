@@ -16,7 +16,7 @@ interface Props {
   members: Member[];
   canRemove: boolean;
   removingId: number | null;
-  onRemove: (memberId: number) => void;
+  onRemove: (member: Member) => void;
 }
 
 export function MembersTable({ members, canRemove, removingId, onRemove }: Props) {
@@ -75,7 +75,7 @@ export function MembersTable({ members, canRemove, removingId, onRemove }: Props
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
                         m.role === 'owner'
-                          ? 'bg-orange-100 text-orange-800'
+                          ? 'bg-primary/10 text-primary'
                           : 'bg-blue-50 text-blue-700'
                       }`}
                     >
@@ -90,7 +90,7 @@ export function MembersTable({ members, canRemove, removingId, onRemove }: Props
                         size="sm"
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         disabled={removingId === m.id}
-                        onClick={() => onRemove(m.id)}
+                        onClick={() => onRemove(m)}
                       >
                         {removingId === m.id ? (
                           <Loader2 className="h-4 w-4 animate-spin" />

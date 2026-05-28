@@ -1,6 +1,13 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type {
   AccountingStatus,
   PaymentStatus,
@@ -31,30 +38,38 @@ export function StatusControlsCard({
       <CardContent className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-gray-500">Accounting</label>
-          <select
-            className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+          <Select
             value={accountingStatus}
-            onChange={(e) => {
-              if (isAccountingStatus(e.target.value)) onAccountingChange(e.target.value);
+            onValueChange={(v) => {
+              if (isAccountingStatus(v)) onAccountingChange(v);
             }}
           >
-            <option value="pending">Pending</option>
-            <option value="accounted">Accounted</option>
-          </select>
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="accounted">Accounted</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <label className="text-xs text-gray-500">Payment</label>
-          <select
-            className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+          <Select
             value={paymentStatus}
-            onChange={(e) => {
-              if (isPaymentStatus(e.target.value)) onPaymentChange(e.target.value);
+            onValueChange={(v) => {
+              if (isPaymentStatus(v)) onPaymentChange(v);
             }}
           >
-            <option value="unpaid">Unpaid</option>
-            <option value="partial">Partial</option>
-            <option value="paid">Paid</option>
-          </select>
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unpaid">Unpaid</SelectItem>
+              <SelectItem value="partial">Partial</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </CardContent>
     </Card>

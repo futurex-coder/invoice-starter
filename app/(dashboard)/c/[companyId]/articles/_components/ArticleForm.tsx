@@ -9,6 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { X, Loader2 } from 'lucide-react';
 
 export type ArticleType = 'service' | 'goods';
@@ -96,29 +103,35 @@ export function ArticleFormCard({
           </div>
           <div>
             <Label htmlFor="aCurrency">Currency</Label>
-            <select
-              id="aCurrency"
-              className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            <Select
               value={form.currency}
-              onChange={(e) => onFormChange({ currency: e.target.value })}
+              onValueChange={(v) => onFormChange({ currency: v })}
             >
-              <option value="EUR">EUR</option>
-              <option value="BGN">BGN</option>
-            </select>
+              <SelectTrigger id="aCurrency" className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EUR">EUR</SelectItem>
+                <SelectItem value="BGN">BGN</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label htmlFor="aType">Type</Label>
-            <select
-              id="aType"
-              className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+            <Select
               value={form.type}
-              onChange={(e) => {
-                if (isArticleType(e.target.value)) onFormChange({ type: e.target.value });
+              onValueChange={(v) => {
+                if (isArticleType(v)) onFormChange({ type: v });
               }}
             >
-              <option value="service">Service</option>
-              <option value="goods">Goods</option>
-            </select>
+              <SelectTrigger id="aType" className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="service">Service</SelectItem>
+                <SelectItem value="goods">Goods</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div>

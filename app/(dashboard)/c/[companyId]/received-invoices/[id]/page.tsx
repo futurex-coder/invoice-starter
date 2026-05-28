@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
@@ -24,6 +25,7 @@ import { DocumentCard } from './_components/DocumentCard';
 import { LineItemsTable } from './_components/LineItemsTable';
 import { StatusControlsCard } from './_components/StatusControlsCard';
 import { NotesCard } from './_components/NotesCard';
+import { PageShell } from '@/components/page-shell';
 
 export default function ReceivedInvoiceDetailPage() {
   const router = useRouter();
@@ -38,6 +40,8 @@ export default function ReceivedInvoiceDetailPage() {
     mutate: refetch,
   } = useActionSWR(['receivedInvoice', id], () => getReceivedInvoice(id));
 
+  const [actionError, setActionError] = useState<string | null>(null);
+
   if (loading) {
     return (
       <section className="flex flex-1 items-center justify-center p-8">
@@ -48,7 +52,7 @@ export default function ReceivedInvoiceDetailPage() {
 
   if (fetchError || !data) {
     return (
-      <section className="flex-1 p-4 lg:p-8">
+      <PageShell>
         <ErrorAlert
           message={fetchError ? fetchError.message : 'Not found'}
           className="mb-4"
@@ -56,7 +60,7 @@ export default function ReceivedInvoiceDetailPage() {
         <Button variant="outline" asChild>
           <Link href={`/c/${companyId}/received-invoices`}>← Back to list</Link>
         </Button>
-      </section>
+      </PageShell>
     );
   }
 
@@ -72,15 +76,30 @@ export default function ReceivedInvoiceDetailPage() {
   const archived = row.archivedAt != null;
 
   const handleAccounting = async (value: AccountingStatus) => {
-    await setReceivedInvoiceAccountingStatus(id, value);
+    setActionError(null);
+    const res = await setReceivedInvoiceAccountingStatus(id, value);
+    if (res.error) {
+      setActionError(res.error);
+      return;
+    }
     refetch();
   };
   const handlePayment = async (value: PaymentStatus) => {
-    await setReceivedInvoicePaymentStatus(id, value);
+    setActionError(null);
+    const res = await setReceivedInvoicePaymentStatus(id, value);
+    if (res.error) {
+      setActionError(res.error);
+      return;
+    }
     refetch();
   };
   const handleArchive = async () => {
-    await setReceivedInvoiceArchived(id, !archived);
+    setActionError(null);
+    const res = await setReceivedInvoiceArchived(id, !archived);
+    if (res.error) {
+      setActionError(res.error);
+      return;
+    }
     refetch();
   };
   const handleEdit = () =>
@@ -96,6 +115,8 @@ export default function ReceivedInvoiceDetailPage() {
         onArchive={handleArchive}
         onEdit={handleEdit}
       />
+
+      <ErrorAlert message={actionError} className="mb-4" />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]">

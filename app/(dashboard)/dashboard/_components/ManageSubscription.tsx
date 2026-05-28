@@ -1,15 +1,12 @@
 'use client';
 
-import useSWR from 'swr';
+import { useCurrentUser } from '@/lib/swr/use-current-user';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { customerPortalAction } from '@/lib/payments/actions';
-import type { SafeUser } from '@/lib/db/schema';
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function ManageSubscription() {
-  const { data: user } = useSWR<SafeUser>('/api/user', fetcher);
+  const { data: user } = useCurrentUser();
 
   return (
     <Card>

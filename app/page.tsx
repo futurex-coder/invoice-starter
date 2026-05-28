@@ -26,7 +26,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2">
-            <CircleIcon className="h-6 w-6 text-orange-500" />
+            <CircleIcon className="h-6 w-6 text-primary" />
             <span className="text-xl font-semibold text-gray-900">
               Invoicly
             </span>
@@ -37,7 +37,7 @@ export default function LandingPage() {
             </Button>
             <Button
               size="sm"
-              className="bg-orange-500 hover:bg-orange-600 text-white"
+              className="bg-primary hover:bg-primary/90 text-white"
               asChild
             >
               <Link href="/sign-up">Get Started</Link>
@@ -54,7 +54,7 @@ export default function LandingPage() {
           <div className="text-center lg:text-left">
             <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
               Invoicing for Bulgarian businesses,{' '}
-              <span className="text-orange-500">simplified and compliant.</span>
+              <span className="text-primary">simplified and compliant.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-gray-600 sm:text-xl lg:mx-0 lg:max-w-xl">
               NRA-compliant 10-digit numbering, automatic VAT breakdown,
@@ -64,7 +64,7 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start justify-center">
               <Button
                 size="lg"
-                className="bg-orange-500 hover:bg-orange-600 text-white px-8 text-base"
+                className="bg-primary hover:bg-primary/90 text-white px-8 text-base"
                 asChild
               >
                 <Link href="/sign-up">
@@ -81,12 +81,12 @@ export default function LandingPage() {
           {/* Fake invoice card */}
           <div className="hidden lg:flex justify-center">
             <div className="relative">
-              <div className="absolute -inset-4 rounded-2xl bg-orange-100/40 blur-2xl" />
+              <div className="absolute -inset-4 rounded-2xl bg-primary/40 blur-2xl" />
               <Card className="relative w-[370px] rotate-1 border-gray-200 shadow-2xl">
                 <CardContent className="p-6">
                   <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-4">
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-widest text-orange-500">
+                      <p className="text-xs font-bold uppercase tracking-widest text-primary">
                         ФАКТУРА
                       </p>
                       <p className="mt-0.5 font-mono text-sm text-gray-500">
@@ -219,11 +219,11 @@ export default function LandingPage() {
 
           <div className="relative grid gap-12 lg:grid-cols-3 lg:gap-8">
             {/* Connector line — desktop only */}
-            <div className="pointer-events-none absolute left-0 right-0 top-14 hidden h-px bg-gradient-to-r from-transparent via-orange-200 to-transparent lg:block" />
+            <div className="pointer-events-none absolute left-0 right-0 top-14 hidden h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent lg:block" />
 
             {STEPS.map((s) => (
               <div key={s.num} className="relative text-center">
-                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 text-xl font-black text-orange-500">
+                <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-xl font-black text-primary">
                   {s.num}
                 </div>
                 <div className="mb-3 flex justify-center text-gray-400">
@@ -258,7 +258,7 @@ export default function LandingPage() {
       {/* ── Testimonial ─────────────────────────────────────────────── */}
       <section className="py-20 lg:py-24">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-          <Quote className="mx-auto mb-6 h-10 w-10 text-orange-200" />
+          <Quote className="mx-auto mb-6 h-10 w-10 text-primary/20" />
           <blockquote className="text-xl font-medium italic leading-relaxed text-gray-700 sm:text-2xl">
             &ldquo;Finally, an invoicing tool that understands Bulgarian
             accounting. The multi-company support alone saves me hours every
@@ -271,7 +271,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Final CTA ───────────────────────────────────────────────── */}
-      <section className="bg-gradient-to-b from-white to-orange-50 py-20 lg:py-28">
+      <section className="bg-gradient-to-b from-white to-primary/5 py-20 lg:py-28">
         <div className="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
             Ready to simplify your invoicing?
@@ -282,7 +282,7 @@ export default function LandingPage() {
           <div className="mt-10">
             <Button
               size="lg"
-              className="bg-orange-500 hover:bg-orange-600 text-white px-10 text-base"
+              className="bg-primary hover:bg-primary/90 text-white px-10 text-base"
               asChild
             >
               <Link href="/sign-up">
@@ -293,7 +293,7 @@ export default function LandingPage() {
           </div>
           <p className="mt-5 text-sm text-gray-400">
             Already have an account?{' '}
-            <Link href="/sign-in" className="font-medium text-orange-500 hover:text-orange-600">
+            <Link href="/sign-in" className="font-medium text-primary hover:text-primary/90">
               Sign in
             </Link>
           </p>
@@ -305,7 +305,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center gap-8 lg:flex-row lg:justify-between">
             <div className="flex items-center gap-2">
-              <CircleIcon className="h-5 w-5 text-orange-400" />
+              <CircleIcon className="h-5 w-5 text-primary/40" />
               <span className="font-semibold text-white">Invoicly</span>
               <span className="ml-2 text-sm text-gray-500">
                 Invoicing for Bulgarian businesses
@@ -346,8 +346,8 @@ const FEATURES = [
     title: 'Multi-Company',
     description:
       'Manage unlimited companies from one account. Each with its own partners, articles, bank details, and invoice sequences. Switch instantly.',
-    bg: 'bg-orange-100',
-    fg: 'text-orange-600',
+    bg: 'bg-primary/10',
+    fg: 'text-primary/90',
   },
   {
     icon: FileText,

@@ -9,6 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { ListInvoicesFilters } from '@/src/features/bulgarian-invoicing/actions';
 
 type InvoiceStatus = ListInvoicesFilters['status'];
@@ -40,42 +47,48 @@ export function InvoiceFilters({
       <CardContent className="flex flex-wrap gap-4 items-end">
         <div className="w-full sm:w-48">
           <Label htmlFor="status">Status</Label>
-          <select
-            id="status"
-            className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-            value={filters.status ?? ''}
-            onChange={(e) => {
-              const v = e.target.value;
+          <Select
+            value={filters.status ?? 'all'}
+            onValueChange={(v) => {
               onFiltersChange({
-                status: v === '' ? undefined : isInvoiceStatus(v) ? v : undefined,
+                status:
+                  v === 'all' ? undefined : isInvoiceStatus(v) ? v : undefined,
                 page: 1,
               });
             }}
           >
-            <option value="">All</option>
-            <option value="draft">Draft</option>
-            <option value="finalized">Finalized</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+            <SelectTrigger id="status" className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="finalized">Finalized</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="w-full sm:w-48">
           <Label htmlFor="paymentStatus">Payment</Label>
-          <select
-            id="paymentStatus"
-            className="mt-1 block w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
-            value={filters.paymentStatus ?? ''}
-            onChange={(e) =>
+          <Select
+            value={filters.paymentStatus ?? 'all'}
+            onValueChange={(v) =>
               onFiltersChange({
-                paymentStatus: e.target.value || undefined,
+                paymentStatus: v === 'all' ? undefined : v,
                 page: 1,
               })
             }
           >
-            <option value="">All</option>
-            <option value="unpaid">Unpaid</option>
-            <option value="paid">Paid</option>
-            <option value="partial">Partial</option>
-          </select>
+            <SelectTrigger id="paymentStatus" className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="unpaid">Unpaid</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="partial">Partial</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="w-full sm:w-40">
           <Label htmlFor="dateFrom">From date</Label>

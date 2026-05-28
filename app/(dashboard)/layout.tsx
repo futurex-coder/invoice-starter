@@ -13,15 +13,13 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { signOut } from '@/app/(login)/actions';
 import { useRouter } from 'next/navigation';
-import type { SafeUser } from '@/lib/db/schema';
-import useSWR, { mutate } from 'swr';
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { mutate } from 'swr';
+import { useCurrentUser } from '@/lib/swr/use-current-user';
 
 function UserMenu() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { data: user } = useSWR<SafeUser>('/api/user', fetcher);
+  const { data: user } = useCurrentUser();
   const router = useRouter();
 
   useEffect(() => {
@@ -93,7 +91,7 @@ function Header() {
     <header className="border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
         <Link href="/" className="flex items-center">
-          <CircleIcon className="h-6 w-6 text-orange-500" />
+          <CircleIcon className="h-6 w-6 text-primary" />
           <span className="ml-2 text-xl font-semibold text-gray-900">Invoicly</span>
         </Link>
         <div className="flex items-center space-x-4">

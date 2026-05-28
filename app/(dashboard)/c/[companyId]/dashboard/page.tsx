@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
@@ -12,13 +13,14 @@ import {
 import { requireUserOrRedirect } from '@/lib/auth/guards';
 import { FileText, Handshake, Inbox, Package, Settings } from 'lucide-react';
 import { CompanyHeader } from './_components/CompanyHeader';
-import { PendingReviewBanner } from './_components/PendingReviewBanner';
+import { PendingReviewBanner } from '@/components/received-invoices/PendingReviewBanner';
 import { MetricsSummary } from './_components/MetricsSummary';
 import { InvoiceBreakdownCard } from './_components/InvoiceBreakdownCard';
 import { ReceivedBreakdownCard } from './_components/ReceivedBreakdownCard';
 import { QuickLinksCard, type QuickLink } from './_components/QuickLinksCard';
 import { ActivityFeed } from './_components/ActivityFeed';
 import { getCompanyMetrics, getCompanyExpenseMetrics } from './_components/queries';
+import { PageShell } from '@/components/page-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,7 +109,7 @@ export default async function CompanyDashboardPage({
   ];
 
   return (
-    <section className="flex-1 p-4 lg:p-8">
+    <PageShell>
       <CompanyHeader
         legalName={company.legalName}
         eik={company.eik}
@@ -116,7 +118,14 @@ export default async function CompanyDashboardPage({
 
       <PendingReviewBanner
         count={expenseMetrics.pendingReviewCount}
-        reviewHref={`${base}/received-invoices`}
+        action={
+          <Link
+            href={`${base}/received-invoices`}
+            className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50"
+          >
+            Review →
+          </Link>
+        }
       />
 
       <MetricsSummary
@@ -139,6 +148,6 @@ export default async function CompanyDashboardPage({
       </div>
 
       <ActivityFeed activity={activity} />
-    </section>
+    </PageShell>
   );
 }

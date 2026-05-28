@@ -13,6 +13,7 @@ import {
   getActivityLogs,
 } from '@/lib/db/queries';
 import { requireUserOrRedirect } from '@/lib/auth/guards';
+import { PageShell } from '@/components/page-shell';
 
 export const dynamic = 'force-dynamic';
 
@@ -183,7 +184,7 @@ export default async function DebugPage() {
   };
 
   return (
-    <section className="flex-1 p-4 lg:p-8 max-w-4xl">
+    <PageShell maxWidth="4xl">
       <h1 className="text-2xl font-bold mb-1">Debug / Refactoring Checklist</h1>
       <p className="text-xs text-gray-400 mb-6">
         Development only — verifies the teams→companies refactoring.
@@ -234,7 +235,7 @@ export default async function DebugPage() {
                     <span
                       className={
                         m.role === 'owner'
-                          ? 'text-orange-700 font-medium'
+                          ? 'text-primary font-medium'
                           : 'text-blue-700'
                       }
                     >
@@ -320,7 +321,7 @@ export default async function DebugPage() {
             <form action={createDraftAction}>
               <button
                 type="submit"
-                className="px-3 py-1.5 bg-orange-500 text-white text-sm rounded hover:bg-orange-600"
+                className="px-3 py-1.5 bg-primary text-white text-sm rounded hover:bg-primary/90"
               >
                 Create test draft invoice (#{String(nextNumber).padStart(10, '0')})
               </button>
@@ -377,7 +378,7 @@ export default async function DebugPage() {
           )}
         </div>
       )}
-    </section>
+    </PageShell>
   );
 }
 

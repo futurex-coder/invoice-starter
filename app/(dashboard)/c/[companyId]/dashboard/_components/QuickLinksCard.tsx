@@ -27,10 +27,10 @@ export function QuickLinksCard({ links }: Props) {
             <Link
               key={link.href}
               href={link.href}
-              className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-orange-300 hover:bg-orange-50/50 transition-colors group"
+              className="flex items-center justify-between p-3 rounded-lg border border-gray-200 hover:border-primary/30 hover:bg-primary/50 transition-colors group"
             >
               <div className="flex items-center gap-3">
-                <Icon className="h-4 w-4 text-gray-400 group-hover:text-orange-500" />
+                <Icon className="h-4 w-4 text-gray-400 group-hover:text-primary" />
                 <span className="text-sm font-medium">{link.label}</span>
               </div>
               <div className="flex items-center gap-2">
@@ -42,7 +42,7 @@ export function QuickLinksCard({ links }: Props) {
                     {link.sub}
                   </span>
                 )}
-                <ArrowRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-orange-500" />
+                <ArrowRight className="h-3.5 w-3.5 text-gray-300 group-hover:text-primary" />
               </div>
             </Link>
           );

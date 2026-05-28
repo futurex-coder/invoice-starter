@@ -1,12 +1,35 @@
 /**
- * Activity-feed label mapping.
+ * Activity-feed presentation mapping — labels + icons.
  *
- * Canonical home for `ActivityType` → user-facing label strings used by
- * `<ActivityFeed>` and the dedicated `/activity` page. Previously
+ * Canonical home for `ActivityType` → user-facing string and icon. Used
+ * by `<ActivityFeed>` and the dedicated `/activity` page. Previously
  * duplicated in three places with diverging wording — keep edits here so
  * the feed reads consistently everywhere.
  */
 
+import {
+  Archive,
+  ArchiveRestore,
+  CheckCircle,
+  FileCheck,
+  FileMinus2,
+  FilePen,
+  FilePlus2,
+  FileText,
+  FileX,
+  Handshake,
+  Inbox,
+  Lock,
+  LogOut,
+  Mail,
+  Package,
+  Settings,
+  Trash2,
+  UserCog,
+  UserMinus,
+  UserPlus,
+  type LucideIcon,
+} from 'lucide-react';
 import { ActivityType } from '@/lib/db/schema';
 
 const ACTIVITY_TYPE_VALUES: ReadonlySet<string> = new Set(
@@ -36,6 +59,12 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   [ActivityType.INVITE_MEMBER]: 'Invited a member',
   [ActivityType.ACCEPT_INVITATION]: 'Accepted invitation',
   [ActivityType.REMOVE_MEMBER]: 'Removed a member',
+  [ActivityType.CREATE_PARTNER]: 'Added a partner',
+  [ActivityType.UPDATE_PARTNER]: 'Updated a partner',
+  [ActivityType.DELETE_PARTNER]: 'Removed a partner',
+  [ActivityType.CREATE_ARTICLE]: 'Added an article',
+  [ActivityType.UPDATE_ARTICLE]: 'Updated an article',
+  [ActivityType.DELETE_ARTICLE]: 'Removed an article',
   [ActivityType.CREATE_INVOICE]: 'Created an invoice',
   [ActivityType.UPDATE_INVOICE]: 'Updated an invoice',
   [ActivityType.FINALIZE_INVOICE]: 'Finalized an invoice',
@@ -60,3 +89,43 @@ export function formatActivityAction(action: string): string {
   if (!isActivityType(action)) return 'Unknown action';
   return ACTIVITY_LABELS[action];
 }
+
+/**
+ * `ActivityType` → Lucide icon component. Several activities deliberately
+ * share an icon (e.g. CREATE/UPDATE_PARTNER both use `Handshake`) — the
+ * label disambiguates them.
+ */
+export const ACTIVITY_ICONS: Record<ActivityType, LucideIcon> = {
+  [ActivityType.SIGN_UP]: UserPlus,
+  [ActivityType.SIGN_IN]: UserCog,
+  [ActivityType.SIGN_OUT]: LogOut,
+  [ActivityType.UPDATE_PASSWORD]: Lock,
+  [ActivityType.DELETE_ACCOUNT]: UserMinus,
+  [ActivityType.UPDATE_ACCOUNT]: Settings,
+  [ActivityType.CREATE_COMPANY]: UserPlus,
+  [ActivityType.UPDATE_COMPANY]: Settings,
+  [ActivityType.DELETE_COMPANY]: UserMinus,
+  [ActivityType.RESTORE_COMPANY]: CheckCircle,
+  [ActivityType.TRANSFER_OWNERSHIP]: UserCog,
+  [ActivityType.REMOVE_MEMBER]: UserMinus,
+  [ActivityType.INVITE_MEMBER]: Mail,
+  [ActivityType.ACCEPT_INVITATION]: CheckCircle,
+  [ActivityType.CREATE_PARTNER]: Handshake,
+  [ActivityType.UPDATE_PARTNER]: Handshake,
+  [ActivityType.DELETE_PARTNER]: Trash2,
+  [ActivityType.CREATE_ARTICLE]: Package,
+  [ActivityType.UPDATE_ARTICLE]: Package,
+  [ActivityType.DELETE_ARTICLE]: Trash2,
+  [ActivityType.CREATE_INVOICE]: FileText,
+  [ActivityType.UPDATE_INVOICE]: FilePen,
+  [ActivityType.FINALIZE_INVOICE]: FileCheck,
+  [ActivityType.CANCEL_INVOICE]: FileX,
+  [ActivityType.CREATE_CREDIT_NOTE]: FileMinus2,
+  [ActivityType.CREATE_DEBIT_NOTE]: FilePlus2,
+  [ActivityType.UPLOAD_RECEIVED_INVOICE]: Inbox,
+  [ActivityType.UPDATE_RECEIVED_INVOICE]: FilePen,
+  [ActivityType.CONFIRM_RECEIVED_INVOICE]: FileCheck,
+  [ActivityType.DISCARD_RECEIVED_INVOICE]: FileX,
+  [ActivityType.ARCHIVE_RECEIVED_INVOICE]: Archive,
+  [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: ArchiveRestore,
+};

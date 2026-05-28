@@ -1,6 +1,22 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import { invoices, receivedInvoices } from '@/lib/db/schema';
+import { requireUser } from '@/lib/auth/guards';
+import { verifyCompanyAccess } from '@/lib/db/queries';
+
+/**
+ * Verify the current user has access to `companyId`. Throws otherwise.
+ *
+ * Each query here re-checks rather than trusting the caller. Defense in
+ * depth: if `getCompanyMetrics(123)` were ever called from a page that
+ * forgot to verify access, the throw would surface immediately instead
+ * of silently leaking aggregate data from another company.
+ */
+async function ensureCompanyAccess(companyId: number): Promise<void> {
+  const user = await requireUser();
+  const membership = await verifyCompanyAccess(user.id, companyId);
+  if (!membership) throw new Error('No access to this company');
+}
 
 export interface CompanyMetrics {
   revenue: number;
@@ -15,6 +31,7 @@ export interface CompanyMetrics {
 }
 
 export async function getCompanyMetrics(companyId: number): Promise<CompanyMetrics> {
+  await ensureCompanyAccess(companyId);
   const [row] = await db
     .select({
       revenue: sql<string>`coalesce(sum(
@@ -77,6 +94,7 @@ export interface CompanyExpenseMetrics {
 export async function getCompanyExpenseMetrics(
   companyId: number
 ): Promise<CompanyExpenseMetrics> {
+  await ensureCompanyAccess(companyId);
   const [row] = await db
     .select({
       expensesPaid: sql<string>`coalesce(sum(

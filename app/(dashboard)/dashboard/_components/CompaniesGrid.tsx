@@ -15,16 +15,16 @@ export function CompaniesGrid({ companies }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {companies.map((c) => (
           <Link key={c.companyId} href={`/c/${c.companyId}/invoices`} className="group">
-            <Card className="h-full border-gray-200 hover:border-orange-300 hover:shadow-sm transition-all">
+            <Card className="h-full border-gray-200 hover:border-primary/30 hover:shadow-sm transition-all">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-medium group-hover:text-orange-600 transition-colors">
+                  <CardTitle className="text-sm font-medium group-hover:text-primary/90 transition-colors">
                     {c.companyName}
                   </CardTitle>
                   <span
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
                       c.role === 'owner'
-                        ? 'bg-orange-100 text-orange-800'
+                        ? 'bg-primary/10 text-primary'
                         : 'bg-blue-50 text-blue-700'
                     }`}
                   >
@@ -85,7 +85,7 @@ export function CompaniesGrid({ companies }: Props) {
                     </p>
                   </div>
                 </div>
-                <div className="mt-3 flex items-center justify-end text-xs text-muted-foreground group-hover:text-orange-500 transition-colors">
+                <div className="mt-3 flex items-center justify-end text-xs text-muted-foreground group-hover:text-primary transition-colors">
                   View invoices
                   <ArrowRight className="ml-1 h-3 w-3" />
                 </div>

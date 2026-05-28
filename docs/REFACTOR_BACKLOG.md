@@ -78,6 +78,7 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | N13 | `useToast()` ergonomic alias | added in `lib/toast.ts` |
 | N7 | Drizzle pool `max: 10` | conservative under Supabase pooler |
 | N6 | composite `idx_activity_logs_company_ts` | migration 0001 |
+| N2 | next 15-canary → 16.2.6 stable | PPR follow-up: N22 |
 
 ---
 
@@ -152,8 +153,8 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — found in scans, 11 done, 10 still pending
-- [ ] **N2** `next@canary` pinned in package.json — unpin to stable
+### N-tier — found in scans, 12 done, 10 still pending
+- [x] **N2** `next@canary` → `next@16.2.6` stable — also removed `experimental.clientSegmentCache` (gone in 16) and disabled `experimental.ppr` (now opt-in via `cacheComponents`, needs a separate route-config sweep). See N22.
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [ ] **N4** Split `lib/db/queries.ts` (755 lines) into per-feature files
 - [ ] **N5** Move `removeCompanyMember`/`inviteCompanyMember`/`acceptInvitation` from `app/(login)/actions.ts` → `src/features/invoicing/actions.ts`
@@ -171,6 +172,7 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **N19** i18n layer — BG-EN mix; defer until shipping beyond BG
 - [ ] **N20** `activity_logs.description` column — CANCEL_INVOICE reason currently dropped from feed (TODO in `bulgarian-invoicing/actions.ts`)
 - [ ] **N21** `debug/page.tsx` (399 lines) — env-gated correctly, fine as-is
+- [ ] **N22** Re-enable PPR via `cacheComponents: true` — Next 16 renamed `experimental.ppr` and made it opt-in caching. Blocks: 3 routes export `dynamic`/`revalidate` (`c/[companyId]/dashboard/page.tsx:25`, `debug/page.tsx:18`, `pricing/page.tsx:7`); migrate each to `'use cache'` + `cacheLife` semantics, plus middleware → proxy rename. Effort: M.
 
 ---
 

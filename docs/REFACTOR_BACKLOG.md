@@ -74,6 +74,7 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | N9 | `<FormField>` primitive + form validation feedback | PartnerForm + ArticleForm + InviteMember + settings cards + create-company |
 | N14 | RTL + jsdom + jest-dom setup + 33 smoke tests | Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField |
 | N11 | `invoices/[invoiceId]/page.tsx` → `useActionSWR` | last raw-useState page migrated |
+| N12 | icon-only button `aria-label` sweep | 8 sites |
 
 ---
 
@@ -148,7 +149,7 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — found in scans, 7 done, 14 still pending
+### N-tier — found in scans, 8 done, 13 still pending
 - [ ] **N2** `next@canary` pinned in package.json — unpin to stable
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [ ] **N4** Split `lib/db/queries.ts` (755 lines) into per-feature files
@@ -159,7 +160,7 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [x] **N9** Field-level form validation feedback — `<FormField>` primitive at `components/forms/form-field.tsx`; wired on PartnerForm + ArticleForm + InviteMemberForm + settings (Identity/Address/Bank/InvoiceDefaults) + create-company. `validatedAction` middleware extended to surface `validationErrors` alongside `error`. Onboarding steps still on raw labels — deferred.
 - [ ] **N10** `ReviewForm.tsx` (886 lines) → `useReducer` (matches pattern of `invoices/new/_components/form-state.ts`)
 - [x] **N11** `invoices/[invoiceId]/page.tsx` migrated to `useActionSWR` — useState/useEffect quartet removed, `mutate(data, {revalidate:false})` used after action returns updated invoice
-- [ ] **N12** Icon-only buttons missing `aria-label` (a11y sweep)
+- [x] **N12** Icon-only button `aria-label` sweep — added labels to ArticlesStep remove, upload back, new-invoice back, ReviewHeader back, DetailHeader back, LineItemsCard remove, ReviewForm remove, SearchBar search; ArticleForm/PartnerForm close + invoice-detail back already labeled in N9. RowActionsMenu / ReceivedInvoiceRowActions use `<span className="sr-only">Actions</span>` (canonical).
 - [ ] **N13** `useToast()` ergonomic wrapper — 15 min
 - [ ] **N14** `@testing-library/react` setup + smoke tests — *partial*: RTL + jsdom + jest-dom installed; vitest.config.ts → jsdom env + setup; 33 tests for Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField. Still TODO: Toast, PageShell (low-value — mostly markup).
 - [ ] **N15** Integration tests for `createInvoiceDraft → finalize → credit-note` flow — *after N14*

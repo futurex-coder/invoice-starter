@@ -101,6 +101,7 @@ export function ArticlesStep({
                   size="icon"
                   className="h-9 w-9 text-gray-400 hover:text-red-500"
                   onClick={() => onRemoveRow(i)}
+                  aria-label="Remove row"
                 >
                   <X className="h-4 w-4" />
                 </Button>

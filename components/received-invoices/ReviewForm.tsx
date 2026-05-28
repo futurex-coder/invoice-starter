@@ -731,6 +731,7 @@ export function ReviewForm({
                           size="sm"
                           onClick={() => removeLine(i)}
                           disabled={lineItems.length <= 1}
+                          aria-label="Remove line"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

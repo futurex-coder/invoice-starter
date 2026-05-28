@@ -21,7 +21,7 @@ export function SearchBar({ value, onChange, onSubmit, placeholder, className }:
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
       />
-      <Button variant="outline" onClick={onSubmit}>
+      <Button variant="outline" onClick={onSubmit} aria-label="Search">
         <Search className="h-4 w-4" />
       </Button>
     </div>

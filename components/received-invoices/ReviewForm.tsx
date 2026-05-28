@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useReducer, useState } from 'react';
 import { Trash2, Plus, Info } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,6 @@ import type {
   PaymentStatus,
   ReceivedInvoiceLineInput,
   ReceivedInvoiceReviewInput,
-  SupplierSnapshot,
 } from '@/src/features/received-invoices/types';
 import {
   parseAccountingStatus,
@@ -39,6 +38,7 @@ import type {
   ExtractedInvoice,
   FieldConfidence,
 } from '@/app/api/invoices/extract/schema';
+import { formReducer, makeInitialFormState } from './review-form-state';
 
 const PAYMENT_METHODS: PaymentMethod[] = ['bank', 'cash', 'barter'];
 const PAYMENT_STATUSES: PaymentStatus[] = ['unpaid', 'partial', 'paid'];
@@ -51,15 +51,6 @@ function parseVatRate(value: string): 0 | 9 | 20 {
   if (n === 0 || n === 9 || n === 20) return n;
   return 20;
 }
-
-const blankLine: ReceivedInvoiceLineInput = {
-  description: '',
-  quantity: 1,
-  unit: 'бр.',
-  unitPrice: 0,
-  vatRate: 20,
-  discountPercent: 0,
-};
 
 // Map of UI field key → { confidence, reason } sourced from the raw extraction.
 type FieldMeta = { confidence: FieldConfidence; reason?: string | null };
@@ -191,32 +182,27 @@ export function ReviewForm({
   onDiscard,
   saving,
 }: Props) {
-  const [partnerId, setPartnerId] = useState<number | null>(
-    initial.partnerId ?? null
+  const [state, dispatch] = useReducer(
+    formReducer,
+    undefined,
+    () => makeInitialFormState(initial)
   );
-  const [supplier, setSupplier] = useState<SupplierSnapshot>(initial.supplier);
-  const [createPartnerOnConfirm, setCreatePartnerOnConfirm] = useState(
-    initial.createPartnerOnConfirm
-  );
-  const [invoiceNumber, setInvoiceNumber] = useState(initial.invoiceNumber ?? '');
-  const [issueDate, setIssueDate] = useState(initial.issueDate ?? '');
-  const [supplyDate, setSupplyDate] = useState(initial.supplyDate ?? '');
-  const [dueDate, setDueDate] = useState(initial.dueDate ?? '');
-  const [currency, setCurrency] = useState(initial.currency);
-  const [fxRate, setFxRate] = useState(initial.fxRate);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
-    initial.paymentMethod
-  );
-  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(
-    initial.paymentStatus
-  );
-  const [accountingStatus, setAccountingStatus] = useState<AccountingStatus>(
-    initial.accountingStatus
-  );
-  const [lineItems, setLineItems] = useState<ReceivedInvoiceLineInput[]>(
-    initial.lineItems.length > 0 ? initial.lineItems : [{ ...blankLine }]
-  );
-  const [notes, setNotes] = useState(initial.notes ?? '');
+  const {
+    partnerId,
+    supplier,
+    createPartnerOnConfirm,
+    invoiceNumber,
+    issueDate,
+    supplyDate,
+    dueDate,
+    currency,
+    fxRate,
+    paymentMethod,
+    paymentStatus,
+    accountingStatus,
+    lineItems,
+    notes,
+  } = state;
   const [touched, setTouched] = useState<Set<string>>(new Set());
 
   const fieldMeta = useMemo(
@@ -231,22 +217,18 @@ export function ReviewForm({
 
   const updateLine = (i: number, patch: Partial<ReceivedInvoiceLineInput>) => {
     markTouched('lineItems');
-    setLineItems((prev) => {
-      const next = [...prev];
-      next[i] = { ...next[i], ...patch };
-      return next;
-    });
+    dispatch({ type: 'UPDATE_LINE', index: i, patch });
   };
 
   const addLine = () => {
     markTouched('lineItems');
-    setLineItems((prev) => [...prev, { ...blankLine }]);
+    dispatch({ type: 'ADD_LINE' });
   };
 
   const removeLine = (i: number) => {
     if (lineItems.length <= 1) return;
     markTouched('lineItems');
-    setLineItems((prev) => prev.filter((_, idx) => idx !== i));
+    dispatch({ type: 'REMOVE_LINE', index: i });
   };
 
   const totals = useMemo(() => {
@@ -273,13 +255,14 @@ export function ReviewForm({
 
   const linkSuggestedPartner = () => {
     if (!partnerSuggestion) return;
-    setPartnerId(partnerSuggestion.matchedPartnerId);
-    setCreatePartnerOnConfirm(false);
+    dispatch({
+      type: 'LINK_PARTNER',
+      partnerId: partnerSuggestion.matchedPartnerId,
+    });
   };
 
   const unlinkPartner = () => {
-    setPartnerId(null);
-    setCreatePartnerOnConfirm(true);
+    dispatch({ type: 'UNLINK_PARTNER' });
   };
 
   return (
@@ -344,10 +327,10 @@ export function ReviewForm({
                     value={supplier.legalName ?? ''}
                     onChange={(e) => {
                       markTouched('supplier.legalName');
-                      setSupplier((s) => ({
-                        ...s,
-                        legalName: e.target.value,
-                      }));
+                      dispatch({
+                        type: 'SET_SUPPLIER',
+                        patch: { legalName: e.target.value },
+                      });
                     }}
                   />
                   <FieldHint
@@ -366,7 +349,10 @@ export function ReviewForm({
                     value={supplier.eik ?? ''}
                     onChange={(e) => {
                       markTouched('supplier.eik');
-                      setSupplier((s) => ({ ...s, eik: e.target.value }));
+                      dispatch({
+                        type: 'SET_SUPPLIER',
+                        patch: { eik: e.target.value },
+                      });
                     }}
                   />
                   <FieldHint
@@ -387,7 +373,10 @@ export function ReviewForm({
                     value={supplier.vatNumber ?? ''}
                     onChange={(e) => {
                       markTouched('supplier.vatNumber');
-                      setSupplier((s) => ({ ...s, vatNumber: e.target.value }));
+                      dispatch({
+                        type: 'SET_SUPPLIER',
+                        patch: { vatNumber: e.target.value },
+                      });
                     }}
                   />
                   <FieldHint
@@ -406,7 +395,10 @@ export function ReviewForm({
                     value={supplier.city ?? ''}
                     onChange={(e) => {
                       markTouched('supplier.city');
-                      setSupplier((s) => ({ ...s, city: e.target.value }));
+                      dispatch({
+                        type: 'SET_SUPPLIER',
+                        patch: { city: e.target.value },
+                      });
                     }}
                   />
                   <FieldHint
@@ -427,7 +419,10 @@ export function ReviewForm({
                     value={supplier.street ?? ''}
                     onChange={(e) => {
                       markTouched('supplier.street');
-                      setSupplier((s) => ({ ...s, street: e.target.value }));
+                      dispatch({
+                        type: 'SET_SUPPLIER',
+                        patch: { street: e.target.value },
+                      });
                     }}
                   />
                   <FieldHint
@@ -446,7 +441,10 @@ export function ReviewForm({
                     value={supplier.postCode ?? ''}
                     onChange={(e) => {
                       markTouched('supplier.postCode');
-                      setSupplier((s) => ({ ...s, postCode: e.target.value }));
+                      dispatch({
+                        type: 'SET_SUPPLIER',
+                        patch: { postCode: e.target.value },
+                      });
                     }}
                   />
                   <FieldHint
@@ -468,7 +466,10 @@ export function ReviewForm({
                     value={supplier.country ?? ''}
                     onChange={(e) => {
                       markTouched('supplier.country');
-                      setSupplier((s) => ({ ...s, country: e.target.value }));
+                      dispatch({
+                        type: 'SET_SUPPLIER',
+                        patch: { country: e.target.value },
+                      });
                     }}
                   />
                   <FieldHint
@@ -482,7 +483,12 @@ export function ReviewForm({
                 <input
                   type="checkbox"
                   checked={createPartnerOnConfirm}
-                  onChange={(e) => setCreatePartnerOnConfirm(e.target.checked)}
+                  onChange={(e) =>
+                    dispatch({
+                      type: 'SET',
+                      patch: { createPartnerOnConfirm: e.target.checked },
+                    })
+                  }
                 />
                 Save as new partner on confirm
               </label>
@@ -507,7 +513,10 @@ export function ReviewForm({
                 value={invoiceNumber}
                 onChange={(e) => {
                   markTouched('invoiceNumber');
-                  setInvoiceNumber(e.target.value);
+                  dispatch({
+                    type: 'SET',
+                    patch: { invoiceNumber: e.target.value },
+                  });
                 }}
                 placeholder="Supplier's number"
               />
@@ -523,7 +532,7 @@ export function ReviewForm({
                 value={currency}
                 onValueChange={(v) => {
                   markTouched('currency');
-                  setCurrency(v);
+                  dispatch({ type: 'SET', patch: { currency: v } });
                 }}
               >
                 <SelectTrigger
@@ -562,7 +571,10 @@ export function ReviewForm({
                 value={issueDate}
                 onChange={(e) => {
                   markTouched('issueDate');
-                  setIssueDate(e.target.value);
+                  dispatch({
+                    type: 'SET',
+                    patch: { issueDate: e.target.value },
+                  });
                 }}
               />
               <FieldHint
@@ -577,7 +589,12 @@ export function ReviewForm({
                 id="supplyDate"
                 type="date"
                 value={supplyDate}
-                onChange={(e) => setSupplyDate(e.target.value)}
+                onChange={(e) =>
+                  dispatch({
+                    type: 'SET',
+                    patch: { supplyDate: e.target.value },
+                  })
+                }
               />
             </div>
             <div>
@@ -591,7 +608,10 @@ export function ReviewForm({
                 value={dueDate}
                 onChange={(e) => {
                   markTouched('dueDate');
-                  setDueDate(e.target.value);
+                  dispatch({
+                    type: 'SET',
+                    patch: { dueDate: e.target.value },
+                  });
                 }}
               />
               <FieldHint
@@ -610,7 +630,12 @@ export function ReviewForm({
                 step="0.000001"
                 min="0"
                 value={fxRate}
-                onChange={(e) => setFxRate(Number(e.target.value) || 1)}
+                onChange={(e) =>
+                  dispatch({
+                    type: 'SET',
+                    patch: { fxRate: Number(e.target.value) || 1 },
+                  })
+                }
               />
             </div>
           )}
@@ -790,7 +815,12 @@ export function ReviewForm({
             <Label>Method</Label>
             <RadioGroup
               value={paymentMethod}
-              onValueChange={(v) => setPaymentMethod(parsePaymentMethod(v))}
+              onValueChange={(v) =>
+                dispatch({
+                  type: 'SET',
+                  patch: { paymentMethod: parsePaymentMethod(v) },
+                })
+              }
               className="flex gap-4 pt-2"
             >
               {PAYMENT_METHODS.map((m) => (
@@ -806,7 +836,12 @@ export function ReviewForm({
               <Label htmlFor="paymentStatus">Payment status</Label>
               <Select
                 value={paymentStatus}
-                onValueChange={(v) => setPaymentStatus(parsePaymentStatus(v))}
+                onValueChange={(v) =>
+                  dispatch({
+                    type: 'SET',
+                    patch: { paymentStatus: parsePaymentStatus(v) },
+                  })
+                }
               >
                 <SelectTrigger id="paymentStatus" className="mt-1">
                   <SelectValue />
@@ -825,7 +860,10 @@ export function ReviewForm({
               <Select
                 value={accountingStatus}
                 onValueChange={(v) =>
-                  setAccountingStatus(parseAccountingStatus(v))
+                  dispatch({
+                    type: 'SET',
+                    patch: { accountingStatus: parseAccountingStatus(v) },
+                  })
                 }
               >
                 <SelectTrigger id="accountingStatus" className="mt-1">
@@ -852,7 +890,9 @@ export function ReviewForm({
           <textarea
             className="block min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
             value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            onChange={(e) =>
+              dispatch({ type: 'SET', patch: { notes: e.target.value } })
+            }
             placeholder="Optional internal notes"
           />
         </CardContent>

@@ -75,6 +75,9 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | N14 | RTL + jsdom + jest-dom setup + 33 smoke tests | Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField |
 | N11 | `invoices/[invoiceId]/page.tsx` → `useActionSWR` | last raw-useState page migrated |
 | N12 | icon-only button `aria-label` sweep | 8 sites |
+| N13 | `useToast()` ergonomic alias | added in `lib/toast.ts` |
+| N7 | Drizzle pool `max: 10` | conservative under Supabase pooler |
+| N6 | composite `idx_activity_logs_company_ts` | migration 0001 |
 
 ---
 
@@ -149,19 +152,19 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — found in scans, 8 done, 13 still pending
+### N-tier — found in scans, 11 done, 10 still pending
 - [ ] **N2** `next@canary` pinned in package.json — unpin to stable
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [ ] **N4** Split `lib/db/queries.ts` (755 lines) into per-feature files
 - [ ] **N5** Move `removeCompanyMember`/`inviteCompanyMember`/`acceptInvitation` from `app/(login)/actions.ts` → `src/features/invoicing/actions.ts`
-- [ ] **N6** Composite index on `activity_log(companyId, timestamp DESC)`
-- [ ] **N7** Drizzle connection pool config (`max: 10`)
+- [x] **N6** Composite index on `activity_log(companyId, timestamp DESC)` — migration `0001_shocking_tombstone.sql`
+- [x] **N7** Drizzle connection pool — `max: 10` set in `lib/db/drizzle.ts`
 - [ ] **N8** Structured logger — replace 71 `console.*` sites; wire into `error.tsx` boundaries (3 TODOs already in code)
 - [x] **N9** Field-level form validation feedback — `<FormField>` primitive at `components/forms/form-field.tsx`; wired on PartnerForm + ArticleForm + InviteMemberForm + settings (Identity/Address/Bank/InvoiceDefaults) + create-company. `validatedAction` middleware extended to surface `validationErrors` alongside `error`. Onboarding steps still on raw labels — deferred.
 - [ ] **N10** `ReviewForm.tsx` (886 lines) → `useReducer` (matches pattern of `invoices/new/_components/form-state.ts`)
 - [x] **N11** `invoices/[invoiceId]/page.tsx` migrated to `useActionSWR` — useState/useEffect quartet removed, `mutate(data, {revalidate:false})` used after action returns updated invoice
 - [x] **N12** Icon-only button `aria-label` sweep — added labels to ArticlesStep remove, upload back, new-invoice back, ReviewHeader back, DetailHeader back, LineItemsCard remove, ReviewForm remove, SearchBar search; ArticleForm/PartnerForm close + invoice-detail back already labeled in N9. RowActionsMenu / ReceivedInvoiceRowActions use `<span className="sr-only">Actions</span>` (canonical).
-- [ ] **N13** `useToast()` ergonomic wrapper — 15 min
+- [x] **N13** `useToast()` ergonomic wrapper added in `lib/toast.ts`
 - [ ] **N14** `@testing-library/react` setup + smoke tests — *partial*: RTL + jsdom + jest-dom installed; vitest.config.ts → jsdom env + setup; 33 tests for Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField. Still TODO: Toast, PageShell (low-value — mostly markup).
 - [ ] **N15** Integration tests for `createInvoiceDraft → finalize → credit-note` flow — *after N14*
 - [ ] **N18** `settings/members/page.tsx` → `useListPageState` — *deferred*: `getCompanyMembersAction` is no-param but `useListPageState` requires `{...filters, page, pageSize}`. Page already on `useActionSWR` with manual mutation-error tracking; migration adds type-shape friction without benefit until a real filter ships. Revisit when members gets search.

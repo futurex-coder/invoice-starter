@@ -1,0 +1,1 @@
+CREATE INDEX "idx_activity_logs_company_ts" ON "activity_logs" USING btree ("company_id","timestamp" DESC NULLS LAST);

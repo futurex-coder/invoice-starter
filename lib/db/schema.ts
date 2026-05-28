@@ -553,6 +553,13 @@ export const activityLogs = pgTable(
       .on(t.userId)
       .where(sql`${t.userId} IS NOT NULL`),
     index('idx_activity_logs_timestamp').on(t.timestamp.desc()),
+    // Composite for the dashboard feed query
+    //   WHERE company_id = $1 ORDER BY timestamp DESC LIMIT N
+    // Postgres can satisfy both predicate + sort from this index.
+    index('idx_activity_logs_company_ts').on(
+      t.companyId,
+      t.timestamp.desc()
+    ),
   ]
 );
 

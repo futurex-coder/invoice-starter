@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import type { PaymentRow } from '@/src/features/received-invoices/actions';
 import type { PaymentStatus } from '@/src/features/received-invoices/types';
 import { formatDate, formatMoney } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 interface Props {
   rows: PaymentRow[];
@@ -37,9 +38,9 @@ export function PaymentTable({
           <th className={HEADER_CELL}>Number</th>
           <th className={HEADER_CELL}>Issue date</th>
           {isToPay && <th className={HEADER_CELL}>Due date</th>}
-          <th className={`${HEADER_CELL} text-right`}>Amount</th>
+          <th className={cn(HEADER_CELL, 'text-right')}>Amount</th>
           {isToPay && <th className={HEADER_CELL}>Status</th>}
-          <th className={`${HEADER_CELL} text-right`}>Actions</th>
+          <th className={cn(HEADER_CELL, 'text-right')}>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -48,9 +49,10 @@ export function PaymentTable({
           return (
             <tr
               key={row.id}
-              className={`border-b border-gray-200 ${
+              className={cn(
+                'border-b border-gray-200',
                 overdue ? 'bg-red-50/40 hover:bg-red-50/70' : 'hover:bg-gray-50/50'
-              }`}
+              )}
             >
               <td className="px-2 py-3">
                 <a
@@ -89,11 +91,12 @@ export function PaymentTable({
               {isToPay && (
                 <td className="px-4 py-3">
                   <span
-                    className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium uppercase ${
+                    className={cn(
+                      'inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium uppercase',
                       row.paymentStatus === 'partial'
                         ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-red-100 text-red-700'
-                    }`}
+                    )}
                   >
                     {row.paymentStatus}
                   </span>

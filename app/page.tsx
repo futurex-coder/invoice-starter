@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Quote,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function LandingPage() {
   return (
@@ -187,13 +188,16 @@ export default function LandingPage() {
             {FEATURES.map((f, i) => (
               <Card
                 key={f.title}
-                className={`border-gray-200 ${i < 2 ? 'lg:col-span-1' : ''}`}
+                className={cn('border-gray-200', i < 2 && 'lg:col-span-1')}
               >
                 <CardContent className="p-6">
                   <div
-                    className={`mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl ${f.bg}`}
+                    className={cn(
+                      'mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl',
+                      f.bg
+                    )}
                   >
-                    <f.icon className={`h-5 w-5 ${f.fg}`} />
+                    <f.icon className={cn('h-5 w-5', f.fg)} />
                   </div>
                   <h3 className="mb-2 text-lg font-semibold text-gray-900">
                     {f.title}

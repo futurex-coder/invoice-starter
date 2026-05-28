@@ -5,6 +5,7 @@ import { getUser } from '@/lib/db/queries';
 import { SWRConfig } from 'swr';
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from '@/components/ui/toaster';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: 'Invoicly',
@@ -25,7 +26,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`bg-white dark:bg-gray-950 text-black dark:text-white ${manrope.className}`}
+      className={cn('bg-white dark:bg-gray-950 text-black dark:text-white', manrope.className)}
     >
       <Analytics />
       <body className="min-h-[100dvh] bg-gray-50">

@@ -1,3 +1,5 @@
+import { cn } from '@/lib/utils';
+
 export interface Column {
   label: string;
   align?: 'left' | 'right';
@@ -14,9 +16,10 @@ export function DataTableHead({ columns }: Props) {
         {columns.map((col) => (
           <th
             key={col.label}
-            className={`px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider ${
+            className={cn(
+              'px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider',
               col.align === 'right' ? 'text-right' : 'text-left'
-            }`}
+            )}
           >
             {col.label}
           </th>

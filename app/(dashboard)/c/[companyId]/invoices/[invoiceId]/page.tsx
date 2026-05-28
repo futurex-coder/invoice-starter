@@ -31,6 +31,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert } from '@/components/ui/alert';
 import { useCurrentUser } from '@/lib/swr/use-current-user';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
@@ -147,9 +148,10 @@ export default function InvoiceDetailPage() {
               {formatDateBg(invoice.issueDate)}
               {' · '}
               <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                className={cn(
+                  'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
                   isCancelled ? 'bg-gray-200' : isDraft ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
-                }`}
+                )}
               >
                 {STATUS_LABELS[invoice.status] ?? invoice.status}
               </span>

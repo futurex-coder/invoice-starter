@@ -79,6 +79,7 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | N7 | Drizzle pool `max: 10` | conservative under Supabase pooler |
 | N6 | composite `idx_activity_logs_company_ts` | migration 0001 |
 | N2 | next 15-canary → 16.2.6 stable | PPR follow-up: N22 |
+| A7 | `cn()` adoption sweep | 38 sites, 24 files |
 
 ---
 
@@ -138,8 +139,8 @@ When a fresh session needs to orient, these are the load-bearing files:
 
 ## 4. What's still pending — Master checklist
 
-### Track A — Design System (1 pending)
-- [ ] **A7** `cn()` adoption in pages — cosmetic sweep, ~2h
+### Track A — Design System — done ✅
+- [x] **A7** `cn()` adoption — 38 template-literal classNames across 24 files converted to `cn(...)`. `cn` import added where missing; defensive `?? ''` guards dropped (cn handles them).
 
 ### Track B — Velocity Helpers (1 deliberately deferred)
 - [ ] **B7** `defineEnum()` + `createCompanyCrud()` — **deferred until 3rd CRUD entity arrives**

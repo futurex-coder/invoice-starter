@@ -163,7 +163,7 @@ function FieldHint({
   const tone =
     m.confidence === 'missing' ? 'text-rose-700' : 'text-amber-700';
   return (
-    <p className={`mt-1 inline-flex items-start gap-1 text-xs ${tone}`}>
+    <p className={cn('mt-1 inline-flex items-start gap-1 text-xs', tone)}>
       <Info className="mt-0.5 h-3 w-3 shrink-0" />
       <span>{text}</span>
     </p>

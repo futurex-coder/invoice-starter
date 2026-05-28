@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Props {
   value: string;
@@ -14,7 +15,7 @@ interface Props {
 
 export function SearchBar({ value, onChange, onSubmit, placeholder, className }: Props) {
   return (
-    <div className={`flex gap-2 ${className ?? 'max-w-sm'}`}>
+    <div className={cn('flex gap-2', className ?? 'max-w-sm')}>
       <Input
         placeholder={placeholder}
         value={value}

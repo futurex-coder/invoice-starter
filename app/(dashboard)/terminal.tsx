@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Copy, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function Terminal() {
   const [terminalStep, setTerminalStep] = useState(0);
@@ -56,7 +57,10 @@ export function Terminal() {
           {terminalSteps.map((step, index) => (
             <div
               key={index}
-              className={`${index > terminalStep ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+              className={cn(
+                index > terminalStep ? 'opacity-0' : 'opacity-100',
+                'transition-opacity duration-300'
+              )}
             >
               <span className="text-green-400">$</span> {step}
             </div>

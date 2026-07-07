@@ -406,6 +406,33 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     expect(unwrapError(result, 'note-on-note')).toMatch(/regular invoices/);
   });
 
+  it('creates a note against an OLD invoice — the note carries its own tax-event date', async () => {
+    // Regression: the note used to inherit the original's supplyDate, so any
+    // note against an invoice older than 5 days failed ISSUE_DATE_TOO_LATE
+    // (ЗДДС чл. 115 — the note's tax event is the correction, not the supply).
+    const past = new Date();
+    past.setDate(past.getDate() - 60);
+    const oldDate = past.toISOString().slice(0, 10);
+
+    const draft = unwrap(
+      await createInvoiceDraft({
+        ...baseDraftInput(),
+        issueDate: oldDate,
+        supplyDate: oldDate,
+      }),
+      'createInvoiceDraft (old)'
+    );
+    unwrap(await finalizeInvoice(draft.id), 'finalizeInvoice (old)');
+
+    const cn = unwrap(
+      await createCreditNoteFromInvoice(draft.id),
+      'createCreditNoteFromInvoice (old parent)'
+    );
+    expect(cn.issueDate).toBe(TODAY);
+    expect(cn.supplyDate).toBe(TODAY);
+    expect(cn.number).toBe(draft.number);
+  });
+
   it('hides invoices from other companies (scoping on read + mutate)', async () => {
     authState.ctx = { user: owner, companyId: otherCompanyId, role: CompanyRole.OWNER };
     try {

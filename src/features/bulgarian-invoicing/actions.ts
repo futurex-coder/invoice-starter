@@ -874,9 +874,13 @@ async function createNoteFromInvoice(
       : parsePartySnapshotStrict(original.recipientSnapshot);
 
     const issueDate = overrides?.issueDate ?? today;
+    // The note's tax event is the CORRECTION (ЗДДС чл. 115: a note is issued
+    // within 5 days of the circumstance requiring it), not the original
+    // supply — inheriting the original's supplyDate made every note against
+    // an invoice older than 5 days fail ISSUE_DATE_TOO_LATE validation.
     const supplyDate = overrides?.supplyDate !== undefined
       ? overrides.supplyDate
-      : original.supplyDate;
+      : issueDate;
     const currency = overrides?.currency ?? original.currency;
     const fxRate = overrides?.fxRate ?? Number(original.fxRate);
 

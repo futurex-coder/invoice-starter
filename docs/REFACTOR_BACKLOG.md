@@ -94,7 +94,8 @@ surfaced (N24, N25)** — see §4 and §5.
 | N10 | ReviewForm → useReducer | 7-variant FormAction; `touched` kept as useState |
 | N23 | ReviewForm line-item perf | single useMemo shared by totals + row loop |
 | N22 | PPR via cacheComponents + middleware→proxy | company routes ◐ PPR; dead template page removed |
-| N15 | Invoice-lifecycle integration tests (13, real DB) + credit/debit-note numbering fix | notes now inherit parent series+number per DB trigger; CN/DN creation was broken in prod |
+| N15 | Invoice-lifecycle integration tests (14, real DB) + credit/debit-note numbering fix | notes now inherit parent series+number per DB trigger; CN/DN creation was broken in prod |
+| FUNC-AUDIT fix | Note supplyDate = its own issue date (was: parent's) | notes against invoices >5 days old failed ISSUE_DATE_TOO_LATE; CN flow verified UI→DB (id 43 on dev) |
 
 ---
 

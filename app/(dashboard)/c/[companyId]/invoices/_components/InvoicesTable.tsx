@@ -85,7 +85,12 @@ function InvoiceRow({
   return (
     <tr className={isOverdue ? 'border-b border-gray-200 bg-red-50 hover:bg-red-100/70' : DATA_ROW_CLASS}>
       <td className="px-4 py-3 text-sm">
-        {invoice.number != null ? formatInvoiceNumber(invoice.number) : `#${invoice.id}`}
+        <Link
+          href={`/c/${companyId}/invoices/${invoice.id}`}
+          className="font-medium text-blue-700 hover:underline"
+        >
+          {invoice.number != null ? formatInvoiceNumber(invoice.number) : `#${invoice.id}`}
+        </Link>
         {isNote && invoice.referencedInvoiceId && (
           <Link
             href={`/c/${companyId}/invoices/${invoice.referencedInvoiceId}`}
@@ -96,7 +101,18 @@ function InvoiceRow({
         )}
       </td>
       <td className="px-4 py-3 text-sm">{formatDocTypeLabel(invoice.docType)}</td>
-      <td className="px-4 py-3 text-sm">{recipient.legalName ?? '—'}</td>
+      <td className="px-4 py-3 text-sm">
+        {recipient.legalName ? (
+          <Link
+            href={`/c/${companyId}/partners?search=${encodeURIComponent(recipient.legalName)}`}
+            className="hover:underline"
+          >
+            {recipient.legalName}
+          </Link>
+        ) : (
+          '—'
+        )}
+      </td>
       <td className="px-4 py-3 text-sm">{formatDateBg(invoice.issueDate)}</td>
       <td className="px-4 py-3 text-sm">
         {PAYMENT_STATUS_LABELS[invoice.paymentStatus ?? 'unpaid'] ?? invoice.paymentStatus}

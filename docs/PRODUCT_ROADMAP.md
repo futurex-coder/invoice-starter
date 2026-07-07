@@ -106,9 +106,11 @@ Feature work starts off a clean `main`.
 - Accept: a brand-new invoice can be previewed and finalized without a manual draft save;
   draft save remains available for those who want it.
 
-**OI-8 — Clear navigation links on the invoice list** · S
-- Make invoice number, partner name, and related CN/DN references clickable links to their
-  detail pages. Use the `cn()` + `<Link>` conventions already in the codebase.
+**OI-8 — Clear navigation links on the invoice list** · S · ✅ **done 2026-07-08**
+- Invoice number → invoice detail; partner name → partners list pre-filtered via the
+  URL-synced `?search=` (no partner-detail route exists yet); CN/DN "→ parent" link kept.
+- Verified live: links render on all 7 rows, number-link click-through loads the detail
+  page, no console errors.
 
 ---
 

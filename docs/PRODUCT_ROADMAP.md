@@ -12,6 +12,9 @@ branches off `main`.
 **Read `docs/PRODUCT_CONTEXT.md` first** — what we're building, for whom, and why. This
 roadmap is the *how/when*; PRODUCT_CONTEXT is the *what/why* every item should serve.
 
+**For an unattended / overnight run, follow `docs/FABLE_KICKOFF.md`** — the full
+information → implementation → verification → autonomy protocol.
+
 **Working discipline:** see `.claude/CLAUDE.md` "Working Process" (loaded every session)
 and `REFACTOR_BACKLOG.md` §10. In short: load the matching skill, break each item into
 `TaskCreate` steps, **commit your own work** on a feature branch after the verify quad

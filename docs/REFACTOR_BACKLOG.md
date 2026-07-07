@@ -4,17 +4,25 @@
 > everything the refactor has shipped, everything still on the list, and the
 > recommended sequence for the next sitting. Update it as work lands.
 
-**Last updated:** 2026-05-28
-**Active branch when this was written:** `claude-run-1.7` (13 commits ahead of `main` — PR + merge before starting new work)
+**Last updated:** 2026-07-07
+**Active branch when this was written:** `claude-run-1.8` (12 commits ahead of `main` — PR + merge before starting new work)
 
 ---
 
 ## 1. What this document is — read this first
 
-Two sessions of Claude-driven refactoring took the codebase from "post-page-extraction
-+ 56 known issues" to "Phase 1 + most of Phase 2 done + 24 newly-found items, 4 of those
-also done." The result is on `claude-run-1.7`. Every commit is atomic, bisectable,
-and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
+Three sessions of Claude-driven refactoring took the codebase from "post-page-extraction
++ 56 known issues" to "Phase 1 + Phase 2 done + all big-leverage N-tier items shipped."
+The result is on `claude-run-1.8`. Every commit is atomic, bisectable, and verified
+(`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 201/201 / build ✅`).
+
+The most recent session (2026-07-07) shipped 12 items in 11 commits: N9 (form
+validation `<FormField>`), N14 (RTL test setup + 33 smoke tests), N11 (invoice
+detail → SWR), N12 (a11y aria-labels), A7 (cn() sweep), N13 (useToast), N5 (relocate
+member actions), N4 (split queries.ts), N8 (structured logger), N10 (ReviewForm →
+useReducer), N6 (composite index), N7 (pool cap), N2 (next 16 upgrade). What remains
+is either **deferred-by-design** (waiting on a trigger) or **three small actionable
+items** — see §4 and §5.
 
 **You (the next session) should:**
 1. **Read section 10 first** — the working-process rules: which skill to load per
@@ -46,7 +54,7 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | F3 | Zod parser boundary completion — 19 `as` casts removed |
 | F4 | Formatter + ACTIVITY_LABELS consolidation |
 
-### Phase 2 — Design System, Velocity, Robustness (on `claude-run-1.7`, awaiting PR)
+### Phase 2 — Design System, Velocity, Robustness (merged via PR) + Phase 3 (on `claude-run-1.8`, awaiting PR)
 | Done | Item | Coverage |
 |---|---|---|
 | P1.1 | Fix `logActivity` broken enum strings | 7 sites in invoicing/actions.ts + 1 in bulgarian-invoicing |
@@ -72,7 +80,7 @@ and verified (`type-check ✅ / lint ✅ 0 warnings / npm test ✅ 168/168`).
 | N16 | `invoices/page.tsx` → `useListPageState` | URL-syncs 5 filters |
 | N17 | `payments/page.tsx` → `useListPageState` | URL-syncs date range |
 | N9 | `<FormField>` primitive + form validation feedback | PartnerForm + ArticleForm + InviteMember + settings cards + create-company |
-| N14 | RTL + jsdom + jest-dom setup + 33 smoke tests | Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField |
+| N14 | RTL + jsdom + jest-dom setup + 33 smoke tests (core primitives; Toast/PageShell still pending — see §4) | Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField |
 | N11 | `invoices/[invoiceId]/page.tsx` → `useActionSWR` | last raw-useState page migrated |
 | N12 | icon-only button `aria-label` sweep | 8 sites |
 | N13 | `useToast()` ergonomic alias | added in `lib/toast.ts` |
@@ -98,7 +106,8 @@ When a fresh session needs to orient, these are the load-bearing files:
 - **`lib/auth/guards.ts`** — `requireUser`, `requireUserOrRedirect`, `requireCompanyAccess`, `withApiAuth`, `withApiCompanyAuth`
 - **`lib/db/activity.ts`** — `logActivity`, `logActivityInTx` (centralized; use these, never insert directly)
 - **`lib/db/queries/`** — split into per-feature modules: `auth.ts`, `companies.ts`, `subscriptions.ts`, `activity.ts`, `invoices.ts`, `partners.ts`, `articles.ts`, `dashboard.ts` + `index.ts` barrel. Import path unchanged: `from '@/lib/db/queries'`.
-- **`lib/db/schema.ts`** — 856 lines, single source of truth; D1 to split
+- **`lib/db/schema.ts`** — 872 lines, single source of truth; D1 to split
+- **`lib/logger.ts`** — structured logger (dev pretty / prod JSON); `logger.info/warn/error`, `logger.child({…})` for request scope. Use this, never raw `console.*` (CLI scripts excepted).
 
 ### Design system primitives (added in Phase 2)
 - `components/ui/dialog.tsx` — Dialog + Header/Title/Description/Footer/Close
@@ -133,11 +142,17 @@ When a fresh session needs to orient, these are the load-bearing files:
 - `app/(dashboard)/c/[companyId]/loading.tsx` — company scope
 - `app/(dashboard)/c/[companyId]/activity/loading.tsx` — pre-existing
 
-### Codebase facts (measured 2026-05-28)
-- 100 .tsx files in `app/` — 66 are `'use client'` (66%)
-- 71 `console.*` calls across `app/lib/src` (no structured logger — N8)
-- 2 files over 400 lines: `ReviewForm.tsx` (886) + `app/page.tsx` landing (423)
-- 2 explicit TODOs in code: Sentry hook in error.tsx; `activity_logs.description` column
+### Codebase facts (measured 2026-07-07)
+- 100 .tsx files in `app/` — 65 are `'use client'` (65%)
+- `console.*` now only in CLI scripts (`db/seed.ts`, `db/setup.ts`), env-gated
+  `debug/page.tsx`, and a README snippet — all app/lib/src runtime sites go through
+  `lib/logger.ts` (N8 done). `lib/logger.ts` itself is the one allowed direct caller.
+- Largest files (>400 lines, excl. tests): `received-invoices/actions.ts` (1117),
+  `bulgarian-invoicing/actions.ts` (1104), `ReviewForm.tsx` (927), `lib/db/schema.ts`
+  (872, D1 to split), `invoicing/actions.ts` (817), `lib/db/seed.ts` (578, CLI),
+  `app/page.tsx` landing (427)
+- 1 explicit TODO left in code: `activity_logs.description` column (N20). The Sentry-hook
+  TODOs in the error boundaries were resolved by N8 (they now call `logger.error`).
 
 ---
 
@@ -152,13 +167,14 @@ When a fresh session needs to orient, these are the load-bearing files:
 ### Track C — Robustness — all done ✅
 
 ### Track D — Structural (all deferred by design)
-- [ ] **D1** Split `lib/db/schema.ts` (856 lines) — *when next big feature touches it*
+- [ ] **D1** Split `lib/db/schema.ts` (872 lines) — *when next big feature touches it*
 - [ ] **D2** CHECK constraints on status varchars — *pair with RLS rollout*
 - [ ] **D3** Soft-delete consistency (partners/articles/invoices) — *UX decision needed*
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — found in scans, 16 done, 7 still pending
+### N-tier — 23 items: 14 done, N14 partial, 8 pending
+*(pending = 3 actionable: N15, N22, N23 · 5 deferred/blocked: N3, N18, N19, N20, N21)*
 - [x] **N2** `next@canary` → `next@16.2.6` stable — also removed `experimental.clientSegmentCache` (gone in 16) and disabled `experimental.ppr` (now opt-in via `cacheComponents`, needs a separate route-config sweep). See N22.
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [x] **N4** Split `lib/db/queries.ts` (768 lines) → `lib/db/queries/{auth,companies,subscriptions,activity,invoices,partners,articles,dashboard}.ts` + barrel `index.ts`. No public-API change; consumers still import from `@/lib/db/queries`. No cross-module circular deps.
@@ -172,7 +188,7 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [x] **N12** Icon-only button `aria-label` sweep — added labels to ArticlesStep remove, upload back, new-invoice back, ReviewHeader back, DetailHeader back, LineItemsCard remove, ReviewForm remove, SearchBar search; ArticleForm/PartnerForm close + invoice-detail back already labeled in N9. RowActionsMenu / ReceivedInvoiceRowActions use `<span className="sr-only">Actions</span>` (canonical).
 - [x] **N13** `useToast()` ergonomic wrapper added in `lib/toast.ts`
 - [ ] **N14** `@testing-library/react` setup + smoke tests — *partial*: RTL + jsdom + jest-dom installed; vitest.config.ts → jsdom env + setup; 33 tests for Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField. Still TODO: Toast, PageShell (low-value — mostly markup).
-- [ ] **N15** Integration tests for `createInvoiceDraft → finalize → credit-note` flow — *after N14*
+- [ ] **N15** Integration tests for `createInvoiceDraft → finalize → credit-note` flow — **now unblocked** (N14 set up RTL + jsdom). Actionable — see §5.
 - [ ] **N18** `settings/members/page.tsx` → `useListPageState` — *deferred*: `getCompanyMembersAction` is no-param but `useListPageState` requires `{...filters, page, pageSize}`. Page already on `useActionSWR` with manual mutation-error tracking; migration adds type-shape friction without benefit until a real filter ships. Revisit when members gets search.
 - [ ] **N19** i18n layer — BG-EN mix; defer until shipping beyond BG
 - [ ] **N20** `activity_logs.description` column — CANCEL_INVOICE reason currently dropped from feed (TODO in `bulgarian-invoicing/actions.ts`)
@@ -184,137 +200,55 @@ When a fresh session needs to orient, these are the load-bearing files:
 
 ## 5. Recommended sequence for next session
 
-Pick a tier based on available time. Each tier is roughly independent.
+**State:** all big-leverage N-tier + design-system items are shipped. What remains is
+**three small, independent, actionable items** plus optional test polish. None block
+each other; pick in any order.
 
-### 🥇 Tier 1 — Big-leverage (~1 day)
+### 🎯 Actionable now
 
-**T1.1 — N9: Field-level form validation feedback (3–4h)**
-- **Why first**: Biggest single user-facing UX improvement remaining. Touches every form.
-- **Approach**:
-  1. Add a `<FormField field="legalName" errors={result.validationErrors} />` primitive in `components/forms/form-field.tsx` that takes children (the input), the field name, and the `validationErrors` array from `ActionResult`. Renders children with `aria-invalid` + inline error message below on mismatch.
-  2. The `action()` wrapper already produces structured `validationErrors` from any `ZodError` — consumers just need to surface it. Currently `ErrorAlert` only shows the summary `error` string.
-  3. Modify form parents to thread `validationErrors` down to fields.
-- **Files affected**: ~8 forms in `_components/` folders. Start with PartnerForm or ArticleForm (smallest). The pattern then mechanically applies to the rest.
-- **Gotcha**: Some forms today don't use Zod-validated server actions yet — they hand-roll validation. Those need to be flipped to `schema.parse(input)` first (the `action()` wrapper catches ZodError → validationErrors). See ADR-0001 for the canonical pattern.
+**A — N23: ReviewForm line-item perf (S, ~30min)**
+- **Where**: `components/received-invoices/ReviewForm.tsx`, the line-item `.map(...)` in
+  the items table (was ~line 641 pre-N10; grep for `calculateReceivedInvoice`).
+- **Problem**: `calculateReceivedInvoice(lineItems)` is recomputed once *per row* inside the
+  map — O(n) recomputes per render. The `totals` `useMemo` already computes the same thing.
+- **Fix**: hoist the per-line calc results out of the map — compute the `items` array once
+  (either extend the existing `totals` `useMemo` to expose per-line results, or add a sibling
+  `useMemo`) and index into it in the row loop.
+- **Verify**: behavior identical (same rendered numbers); type-check + lint + `npm test` green.
 
-**T1.2 — N14: `@testing-library/react` setup + 5 component tests (3h)**
-- **Why now**: New primitives have zero tests. Once RTL is set up, each primitive is a 30-min smoke test. After that, all future primitives get a test in 10 min.
-- **Approach**:
-  1. `npm install -D @testing-library/react @testing-library/user-event jsdom`
-  2. Update `vitest.config.ts`: add `test.environment: 'jsdom'`, `test.setupFiles: ['./vitest.setup.ts']`
-  3. Create `vitest.setup.ts` with `import '@testing-library/jest-dom/vitest'`
-  4. Write 5 smoke tests:
-     - `components/ui/dialog.test.tsx` — open/close + ESC
-     - `components/ui/select.test.tsx` — keyboard nav (arrow + Enter)
-     - `components/ui/confirm-dialog.test.tsx` — confirm/cancel paths + async onConfirm
-     - `components/ui/alert.test.tsx` — renders by variant + custom icon
-     - `components/forms/entity-picker.test.tsx` — filter behavior + clear option
-- **Gotcha**: vitest config currently includes `lib/**/*.test.ts` and `src/**/*.test.ts` and `app/**/*.test.ts` — make sure `components/**/*.test.tsx` gets added too.
+**B — N22: Re-enable PPR via `cacheComponents: true` (M, ~half day)**
+- **Why deferred in N2**: Next 16 renamed `experimental.ppr` → opt-in `cacheComponents`,
+  which is incompatible with per-route `dynamic`/`revalidate` exports.
+- **Blockers to clear first** (build errors point right at them):
+  - `app/(dashboard)/c/[companyId]/dashboard/page.tsx` — `export const dynamic = 'force-dynamic'`
+  - `app/(dashboard)/debug/page.tsx` — `export const dynamic = 'force-dynamic'`
+  - `app/(dashboard)/pricing/page.tsx` — `export const revalidate = 3600`
+  - `middleware.ts` — Next 16 deprecates the `middleware` convention in favor of `proxy`
+- **Approach**: migrate each route to the `'use cache'` + `cacheLife(...)` model, rename
+  middleware → proxy, then flip `cacheComponents: true` in `next.config.ts` and `npm run build`.
+- **Skill**: load `anthropic-skills:senior-frontend`; consult Next 16 cacheComponents docs.
 
-### 🥈 Tier 2 — Mid-leverage cleanups (~1 day)
+**C — N15: Integration tests for the invoice lifecycle (M, ~half day)**
+- **Now unblocked** — N14 set up RTL + jsdom + jest-dom.
+- **Flow to cover**: `createInvoiceDraft → finalize → credit-note`. Also good: partner-link on
+  received-invoice review, and the `ActionResult` failure surfacing through `<FormField>`.
+- **Skill**: `anthropic-skills:tdd-guide` + `engineering:testing-strategy`.
 
-**T2.1 — N18 + N11: Last two list-page holdouts (2h)**
-- **N18**: `app/(dashboard)/c/[companyId]/settings/members/page.tsx` — small migration; uses `useActionSWR` already, just swap to `useListPageState({swrKey:'companyMembers', defaults:{search:''}, action: getCompanyMembersAction})`. No pagination wired.
-- **N11**: `app/(dashboard)/c/[companyId]/invoices/[invoiceId]/page.tsx` — last page on raw useState/useEffect/fetch. Pattern:
-  ```ts
-  const { data: invoice, isLoading, error, mutate } = useActionSWR(
-    ['invoice', id],
-    () => getInvoice(id)
-  );
-  ```
-  Then delete the `[invoice, setInvoice, loading, setLoading, error, setError]` useState quartet + the `useEffect` that fetches.
-
-**T2.2 — N12: Icon-only button `aria-label` sweep (1h)**
-- Grep: `grep -rn 'size="icon"' app/ components/ | wc -l`
-- For each `<Button size="icon">` without text, add `aria-label="…"`. Also any `<button>` with only an icon child.
-- Pattern files: `LineItemsCard.tsx` (remove-line button), `ArticleForm.tsx` (X close), `PartnerForm.tsx` (X close), `ArticlesStep.tsx`, `ReviewForm.tsx` line-item delete buttons, `MembersTable.tsx` remove member, `SearchBar.tsx`.
-
-**T2.3 — A7: `cn()` adoption in pages (1–2h, mechanical)**
-- Sweep template-literal classNames into `cn()` calls in `app/` pages and `_components/`.
-- Pattern:
-  ```tsx
-  className={`base-class ${cond ? 'a' : 'b'} ${other}`}
-  // becomes
-  className={cn('base-class', cond ? 'a' : 'b', other)}
-  ```
-- Could be done by an agent.
-
-**T2.4 — N13: `useToast()` wrapper (15min)**
-- Add to `lib/toast.ts`:
-  ```ts
-  export function useToast() { return toast; }
-  ```
-- Pure ergonomics — keeps the React hook idiom for callers who prefer it.
-
-### 🥉 Tier 3 — Architecture / quality (~1–2 days)
-
-**T3.1 — N8: Structured logger (4h)**
-- Pick: lightweight (pino) or self-rolled with levels (debug/info/warn/error) + simple JSON output in prod / pretty in dev.
-- Replace 71 `console.*` sites in `app/api/*`, `lib/payments/*`, `lib/ai/*`, the 3 `error.tsx` boundaries.
-- Sentry / Logflare / Axiom integration is the right next step but pick the lib first.
-
-**T3.2 — N4: Split `lib/db/queries.ts` (2h)**
-- Currently 755 lines mixing auth, companies, partners, articles, invoices, activity.
-- Target structure:
-  ```
-  lib/db/queries/
-    auth.ts        (getUser, getSafeUser, verifyToken-related)
-    companies.ts   (verifyCompanyAccess, getCompaniesForUser, getActiveCompanyId, getCompanyWithMembers, transferCompanyOwnership, softDeleteCompany, restoreCompany, ...)
-    partners.ts    (findCompanyByEik, getPartnersForCompany, findPartnerByEik)
-    articles.ts    (getArticlesForCompany)
-    invoices.ts    (getInvoicesForCompany, getNextInvoiceNumber)
-    activity.ts    (getActivityLogs, getActivityLogsForDashboard, getDeletedCompaniesForUser)
-    index.ts       (barrel re-export for compat with existing imports)
-  ```
-- All imports today are `from '@/lib/db/queries'` — keep the barrel so nothing breaks.
-
-**T3.3 — N5: Relocate member-management actions (1h)**
-- Move `removeCompanyMember`, `inviteCompanyMember`, `acceptInvitation`, `signUp`'s company-create branch from `app/(login)/actions.ts` → `src/features/invoicing/actions.ts` (sits next to `transferOwnershipAction`, `deleteCompanyAction`).
-- Update import sites (~5 files).
-
-**T3.4 — N10: ReviewForm → useReducer (4h)**
-- 886-line file with ~30 `useState` calls. Big readability win.
-- Follow the pattern of `app/(dashboard)/c/[companyId]/invoices/new/_components/form-state.ts` — `FormState` type, `FormAction` discriminated union, reducer, initial-state factory.
-- Co-locate at `components/received-invoices/review-form-state.ts` or inline in `ReviewForm.tsx`.
-
-### 🛠️ Tier 4 — Perf / DB hygiene (~half day)
-
-**T4.1 — N6: Composite index (30min + migration)**
-- Add to `lib/db/schema.ts` activityLogs:
-  ```ts
-  (table) => ({
-    idx_company_timestamp: index('idx_activity_company_ts')
-      .on(table.companyId, sql`${table.timestamp} DESC NULLS LAST`),
-  })
-  ```
-- Run `npm run db:generate` → review SQL → commit → `npm run db:migrate`.
-
-**T4.2 — N7: Connection pool (15min)**
-- `lib/db/drizzle.ts`:
-  ```ts
-  export const client = postgres(process.env.POSTGRES_URL!, {
-    prepare: false,
-    max: 10,
-  });
-  ```
-- Verify with Supabase pooler URL limits (their pooler typically allows 60 connections; 10 per Next.js instance is conservative).
-
-**T4.3 — N2: Unpin Next from canary (15min)**
-- `package.json` has `next@15.6.0-canary.59` + `eslint-config-next@16.2.4` (major mismatch).
-- `npm install next@latest eslint-config-next@latest` (or pick a specific stable like `15.0.x`)
-- Then `npm run build` + smoke test before committing.
+### ✨ Optional polish
+- **N14 leftovers (XS)**: Toast + PageShell smoke tests. Low value — both are mostly markup;
+  do them only if you want the primitive suite to be exhaustive.
 
 ### ⏸️ Defer (until trigger)
 | Item | Trigger to start |
 |---|---|
 | B7 `defineEnum`/`createCompanyCrud` | When adding 3rd entity (expenses? projects?) |
-| D1 schema.ts split | Next time you add 2+ tables in one feature |
+| D1 schema.ts split (872 lines) | Next time you add 2+ tables in one feature |
 | D2 CHECK constraints | When adding RLS |
 | D3 soft-delete consistency | UX decision: "should partners be restorable?" |
 | D4 createdByUserId | When audit-trail UX is needed |
-| D5 reduce 'use client' | When measured client bundle becomes a problem |
+| D5 reduce 'use client' (65/100) | When measured client bundle becomes a problem |
 | N3 Stripe webhook idempotency | First time Stripe replays during deploy hurts |
-| N15 Integration tests | After N14 testing setup |
+| N18 members → useListPageState | When members list gets a real filter/search |
 | N19 i18n | When shipping beyond BG |
 | N20 activity_logs.description column | When users complain about lost cancel reason |
 | N21 debug/page.tsx (399 lines) | Fine as-is — env-gated correctly |
@@ -325,11 +259,10 @@ Pick a tier based on available time. Each tier is roughly independent.
 
 | Time | Pick |
 |---|---|
-| **1 hour** | T4.3 (N2 unpin next) + T4.2 (N7 pool) + T2.4 (N13 useToast). Three XS items, real improvements, one PR. |
-| **Half day** | T1.1 alone (N9 form validation). Biggest single user-facing UX win remaining. |
-| **Full day** | T1.1 + T1.2 (N9 + N14). Foundational pair: form UX + testing setup. |
-| **Two days** | Tier 1 + Tier 2. All "biggest leverage" items + the polish cleanups. |
-| **Week** | Tier 1 + 2 + 3 + 4. Everything pending except deferred-by-design. |
+| **30 min** | N23 (ReviewForm perf) — one-file, mechanical, measurable. |
+| **Half day** | N22 (PPR re-enable) **or** N15 (integration tests). Independent; either is a clean self-contained PR. |
+| **Full day** | N22 + N15 together, or one of them + the N14 polish tests. |
+| **New feature instead?** | Nothing in this backlog blocks feature work — see §7. A 3rd CRUD entity would also unlock B7. |
 
 ---
 
@@ -426,7 +359,7 @@ in the same commit as the work itself:
   - The code change is in
   - `npm run type-check` is clean
   - `npm run lint` is 0 warnings, 0 errors
-  - `npm test` passes (current baseline: 168)
+  - `npm test` passes (current baseline: 201)
   - It's committed
 
   Example:
@@ -453,7 +386,7 @@ it to §4's N-tier the moment you spot it:
 + - [ ] **N22** `<short title>` — *<why it matters>*. <File:line if known>. Effort: S/M/L.
 ```
 
-Number continues from the highest existing `N` (start at N22 — N21 is the
+Number continues from the highest existing `N` (start at N24 — N23 is the
 current ceiling).
 
 Rules of thumb for what counts as "new finding worth adding":

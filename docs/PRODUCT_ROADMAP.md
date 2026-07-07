@@ -258,6 +258,15 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 
 ## 4. Cross-cutting
 
+**VAT-1 — VAT paid vs received + tax view** · L · ⭐ *core value — see PRODUCT_CONTEXT §1*
+- The headline differentiated value from the founder interview: per company, per month, show
+  **VAT received** (on issued invoices) vs **VAT paid** (on received invoices), the **net VAT owed
+  to НАП**, and the trend — so owners/accountants see and optimize the monthly tax.
+- Depends on the numbers being trustworthy first: GEN-1 (base-currency aggregation) + DASH-1
+  (aggregation rules) + OI-1 (accounted status). Build correctness, then the view.
+- Verify by running: with mixed income + expense invoices in a month, the VAT-owed figure
+  reconciles by hand; toggling accounted/paid updates it correctly.
+
 **DASH-1 — Audit all money-aggregation rules** · M · *research/audit, pairs with GEN-1*
 - Before GEN-1 lands, map every place that sums money (dashboard metrics, list totals,
   reports) and document the current rules — a `Discover`-gear task (subagents or a Workflow

@@ -336,8 +336,6 @@ export default function NewInvoicePage() {
       />
 
       <NotesCard
-        customerNote={state.customerNote}
-        onCustomerNoteChange={(v) => update({ customerNote: v })}
         internalComment={state.internalComment}
         onInternalCommentChange={(v) => update({ internalComment: v })}
       />

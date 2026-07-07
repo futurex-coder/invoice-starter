@@ -90,9 +90,10 @@ Feature work starts off a clean `main`.
   partner cloned). Preview harness was wedged (see PREVIEW-ENV) so the DOM click itself
   is pending a working embedded browser; the wiring mirrors the proven `?edit=` path.
 
-**NI-2 — Remove customer-visible note** · S
-- Drop the customer note field from the new-invoice form (`customerNote` column stays for
-  historical rows; just stop surfacing/collecting it). Keep `internalComment`.
+**NI-2 — Remove customer-visible note** · S · ✅ **done 2026-07-08**
+- Field removed from `NotesCard`; `customerNote` stays in schema + save payload so
+  re-saving an old draft doesn't wipe its historical note. Verified live: only the
+  internal-comment textarea renders on /invoices/new.
 
 **RV-2 — Remove due date from received-invoice review** · S
 - Remove the `dueDate` field from `ReviewForm.tsx` (confuses users) **and** trim the AI

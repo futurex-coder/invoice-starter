@@ -15,8 +15,6 @@ import {
 import { requireUserOrRedirect } from '@/lib/auth/guards';
 import { PageShell } from '@/components/page-shell';
 
-export const dynamic = 'force-dynamic';
-
 /**
  * Guard for module-scope `'use server'` actions in this file.
  *

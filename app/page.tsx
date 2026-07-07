@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { CurrentYear } from '@/components/current-year';
 import {
   Card,
   CardContent,
@@ -334,7 +335,7 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-8 border-t border-gray-800 pt-6 text-center text-xs text-gray-600">
-            © {new Date().getFullYear()} Invoicly. All rights reserved.
+            © <CurrentYear /> Invoicly. All rights reserved.
           </div>
         </div>
       </footer>

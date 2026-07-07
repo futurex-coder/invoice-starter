@@ -22,8 +22,6 @@ import { ActivityFeed } from './_components/ActivityFeed';
 import { getCompanyMetrics, getCompanyExpenseMetrics } from './_components/queries';
 import { PageShell } from '@/components/page-shell';
 
-export const dynamic = 'force-dynamic';
-
 export default async function CompanyDashboardPage({
   params,
 }: {

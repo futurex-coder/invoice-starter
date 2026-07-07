@@ -93,6 +93,7 @@ items** — see §4 and §5.
 | N8 | `lib/logger.ts` + console.* sweep | dev pretty, prod JSON, child-bindings for request scope |
 | N10 | ReviewForm → useReducer | 7-variant FormAction; `touched` kept as useState |
 | N23 | ReviewForm line-item perf | single useMemo shared by totals + row loop |
+| N22 | PPR via cacheComponents + middleware→proxy | company routes ◐ PPR; dead template page removed |
 
 ---
 
@@ -174,8 +175,8 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — 23 items: 15 done, N14 partial, 7 pending
-*(pending = 2 actionable: N15, N22 · 5 deferred/blocked: N3, N18, N19, N20, N21)*
+### N-tier — 23 items: 16 done, N14 partial, 6 pending
+*(pending = 1 actionable: N15 · 5 deferred/blocked: N3, N18, N19, N20, N21)*
 - [x] **N2** `next@canary` → `next@16.2.6` stable — also removed `experimental.clientSegmentCache` (gone in 16) and disabled `experimental.ppr` (now opt-in via `cacheComponents`, needs a separate route-config sweep). See N22.
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [x] **N4** Split `lib/db/queries.ts` (768 lines) → `lib/db/queries/{auth,companies,subscriptions,activity,invoices,partners,articles,dashboard}.ts` + barrel `index.ts`. No public-API change; consumers still import from `@/lib/db/queries`. No cross-module circular deps.
@@ -194,7 +195,7 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **N19** i18n layer — BG-EN mix; defer until shipping beyond BG
 - [ ] **N20** `activity_logs.description` column — CANCEL_INVOICE reason currently dropped from feed (TODO in `bulgarian-invoicing/actions.ts`)
 - [ ] **N21** `debug/page.tsx` (399 lines) — env-gated correctly, fine as-is
-- [ ] **N22** Re-enable PPR via `cacheComponents: true` — Next 16 renamed `experimental.ppr` and made it opt-in caching. Blocks: 3 routes export `dynamic`/`revalidate` (`c/[companyId]/dashboard/page.tsx:25`, `debug/page.tsx:18`, `pricing/page.tsx:7`); migrate each to `'use cache'` + `cacheLife` semantics, plus middleware → proxy rename. Effort: M.
+- [x] **N22** PPR re-enabled via `cacheComponents: true` — dropped `force-dynamic` from dashboard + debug pages (loading.tsx boundaries provide the Suspense shells), pricing migrated to `'use cache'` + `cacheLife('hours')`, `middleware.ts` → `proxy.ts` (fn renamed, `runtime` key dropped — node is proxy default). Also removed dead `app/(dashboard)/page.tsx` (fully commented-out SaaS-template leftover that conflicted with `app/page.tsx` for `/`) and moved the landing footer year into a `<CurrentYear>` client island (server components can't read current time during prerender). Build: company routes now ◐ Partial Prerender; pricing 1h/1d. Verified by running: `/`→company-dashboard redirect, no-session 307→/sign-in, review route, /debug, /pricing, footer year, console clean.
 - [x] **N23** `ReviewForm.tsx` line-item perf — the `totals` `useMemo` now returns `{ items: calculatedItems, totals }` and the row loop indexes into `calculatedItems[i]` instead of recomputing `calculateReceivedInvoice(lineItems)` per row. Verified by running: row gross + totals recompute correctly on qty edit (20×290 → 10×290 reconciled by hand), mobile intact.
 
 ---

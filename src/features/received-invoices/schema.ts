@@ -15,8 +15,11 @@ export const SupplierSnapshotSchema = z.object({
 export const ReceivedInvoiceLineSchema = z.object({
   description: z.string().min(1).max(500),
   quantity: z.number().nonnegative(),
-  unit: z.string().min(1).max(20),
-  unitPrice: z.number().nonnegative(),
+  // Real-world received documents (e.g. US SaaS invoices) often print no
+  // unit at all, and carry negative lines (discounts/credits). These are the
+  // user's own expense records — mirror the paper instead of blocking.
+  unit: z.string().max(20),
+  unitPrice: z.number(),
   vatRate: z.union([z.literal(0), z.literal(9), z.literal(20)]),
   discountPercent: z.number().min(0).max(100),
 });

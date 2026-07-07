@@ -75,6 +75,19 @@ async function findPartnerByEik(
   return row ?? null;
 }
 
+/** Dedupe fallback for partners without an EIK (RV-4): exact-name match. */
+async function findPartnerByName(
+  companyId: number,
+  name: string
+): Promise<{ id: number } | null> {
+  const [row] = await db
+    .select({ id: partners.id })
+    .from(partners)
+    .where(and(eq(partners.companyId, companyId), eq(partners.name, name)))
+    .limit(1);
+  return row ?? null;
+}
+
 async function findDuplicates(
   companyId: number,
   options: {
@@ -552,21 +565,29 @@ async function applyReviewPatch(
   const calc = calculateReceivedInvoice(patch.lineItems);
 
   let partnerId = patch.partnerId ?? null;
-  if (!partnerId && patch.createPartnerOnConfirm && patch.supplier.eik) {
-    const existing = await findPartnerByEik(companyId, patch.supplier.eik);
+  if (!partnerId && patch.createPartnerOnConfirm) {
+    // RV-4: a name is enough — foreign suppliers have no EIK. Dedupe by EIK
+    // when present, else by exact name.
+    const supplierName = patch.supplier.legalName?.trim() || null;
+    const supplierEik = patch.supplier.eik?.trim() || null;
+    const existing = supplierEik
+      ? await findPartnerByEik(companyId, supplierEik)
+      : supplierName
+        ? await findPartnerByName(companyId, supplierName)
+        : null;
     if (existing) {
       partnerId = existing.id;
-    } else if (patch.supplier.legalName) {
+    } else if (supplierName) {
       const [created] = await db
         .insert(partners)
         .values({
           companyId,
-          name: patch.supplier.legalName,
-          eik: patch.supplier.eik,
-          vatNumber: patch.supplier.vatNumber ?? null,
+          name: supplierName,
+          eik: supplierEik,
+          vatNumber: patch.supplier.vatNumber?.trim() || null,
           country: patch.supplier.country ?? 'BG',
-          city: patch.supplier.city ?? '-',
-          street: patch.supplier.street ?? '-',
+          city: patch.supplier.city ?? '',
+          street: patch.supplier.street ?? '',
           postCode: patch.supplier.postCode ?? null,
         })
         .returning({ id: partners.id });

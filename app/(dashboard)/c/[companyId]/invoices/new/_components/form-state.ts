@@ -77,7 +77,7 @@ export function formReducer(state: FormState, action: FormAction): FormState {
         selectedPartnerId: p.id,
         recipient: {
           name: p.name,
-          eik: p.eik,
+          eik: p.eik ?? '',
           vatNumber: p.vatNumber ?? '',
           country: p.country,
           city: p.city,

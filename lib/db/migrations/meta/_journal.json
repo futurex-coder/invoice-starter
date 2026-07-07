@@ -15,6 +15,13 @@
       "when": 1779967669205,
       "tag": "0001_shocking_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783467608594,
+      "tag": "0002_dusty_sumo",
+      "breakpoints": true
     }
   ]
 }

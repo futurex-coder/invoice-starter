@@ -148,7 +148,8 @@ export const partners = pgTable(
 
     // Locally editable partner details (may diverge from linked company)
     name: varchar('name', { length: 255 }).notNull(),
-    eik: varchar('eik', { length: 13 }).notNull(),
+    // Nullable since RV-4: foreign suppliers (US EIN etc.) have no BG EIK.
+    eik: varchar('eik', { length: 13 }),
     vatNumber: varchar('vat_number', { length: 14 }),
     isIndividual: boolean('is_individual').notNull().default(false),
 
@@ -163,8 +164,11 @@ export const partners = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    // Same EIK can only appear once per company
-    unique('partners_company_eik_unique').on(t.companyId, t.eik),
+    // Same EIK can only appear once per company — but partners WITHOUT an
+    // EIK (foreign suppliers, RV-4) may repeat, hence the partial index.
+    uniqueIndex('partners_company_eik_unique')
+      .on(t.companyId, t.eik)
+      .where(sql`${t.eik} IS NOT NULL`),
     index('idx_partners_company_id').on(t.companyId),
     index('idx_partners_company_name').on(t.companyId, t.name),
     index('idx_partners_company_eik').on(t.companyId, t.eik),

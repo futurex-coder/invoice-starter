@@ -31,7 +31,7 @@ import { PageShell } from '@/components/page-shell';
 function partnerToForm(p: Partner): PartnerForm {
   return {
     name: p.name,
-    eik: p.eik,
+    eik: p.eik ?? '',
     vatNumber: p.vatNumber ?? '',
     isIndividual: p.isIndividual,
     country: p.country,

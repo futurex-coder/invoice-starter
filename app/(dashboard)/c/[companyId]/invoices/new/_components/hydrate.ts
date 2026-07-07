@@ -25,7 +25,7 @@ function recipientFromInvoice(
         selectedPartnerId: inv.partnerId,
         recipient: {
           name: partner.name,
-          eik: partner.eik,
+          eik: partner.eik ?? '',
           vatNumber: partner.vatNumber ?? '',
           country: partner.country,
           city: partner.city,

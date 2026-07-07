@@ -220,16 +220,19 @@ Feature work starts off a clean `main`.
 - Mobile: a **bottom drawer** that shrinks/expands.
 - Accept: a multi-page scan is readable on desktop and phone without the current cramped view.
 
-**RV-4 — "Save as partner" needs only a name** · S · *functionality gap — can ship independently*
-- A foreign supplier (e.g. Anysphere/Cursor — US EIN, no EIK/VAT) currently **can't** be saved
-  as a partner: `createPartnerSchema.eik` requires a 9–10 digit BG EIK, so the review form shows
-  blocking red errors on EIK/VAT. Fix: **make EIK + VAT optional** so "Save as partner on
-  confirm" works with just a **name** (+ whatever address we have). Treat missing EIK/VAT as a
-  soft note, not a blocker; keep BG-format validation only when a value is actually entered.
-- Touches: `createPartnerSchema` (eik → optional/nullable), the received-invoice confirm /
-  create-partner path, and the ReviewForm validation display.
-- Verify by running: confirm the Cursor (US) invoice with "save as partner" ticked and see the
-  partner created with just name + address, no EIK, no blocking error.
+**RV-4 — "Save as partner" needs only a name** · S · ✅ **done 2026-07-08**
+- Shipped: `partners.eik` is now **nullable** with a partial unique index (unique per company
+  only when an EIK exists) — migration `0002_dusty_sumo`, applied + verified on dev.
+  `createPartnerSchema` requires only the name (EIK/VAT normalized ''→null, BG format enforced
+  only when a value is present; city/street optional). The confirm path creates partners
+  without EIK and dedupes by exact name when no EIK (by EIK otherwise); the `'-'` address
+  placeholders are gone. PartnerForm required-marks relaxed accordingly.
+- The acceptance run also surfaced + fixed two more real-document blockers: received-invoice
+  line schema now allows an **empty unit** (US invoices print none) and **negative unit
+  prices** (Cursor's $-20 discount line).
+- **Verified on the real data:** confirmed the actual Cursor (US) invoice (RI 13, company 9)
+  with save-as-partner — partner «Cursor» created with name + NY address, `eik: null`, linked,
+  zero validation errors.
 
 ---
 

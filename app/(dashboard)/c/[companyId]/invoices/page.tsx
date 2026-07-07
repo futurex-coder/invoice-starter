@@ -169,7 +169,7 @@ export default function InvoicesPage() {
           onEdit={(id) => router.push(`/c/${companyId}/invoices/new?edit=${id}`)}
           onPrint={(id) => router.push(`/c/${companyId}/invoices/${id}?print=1`)}
           onCancel={handleCancelClick}
-          onCopy={() => {}}
+          onCopy={(id) => router.push(`/c/${companyId}/invoices/new?copy=${id}`)}
           onCreditNote={handleCreditNote}
           onDebitNote={handleDebitNote}
         />

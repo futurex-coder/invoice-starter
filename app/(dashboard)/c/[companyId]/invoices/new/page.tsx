@@ -35,7 +35,7 @@ import { ActionsBar } from './_components/ActionsBar';
 import { useInvoiceForm } from './_components/use-invoice-form';
 import { Alert } from '@/components/ui/alert';
 import { makeInitialFormState } from './_components/form-state';
-import { invoiceToFormState } from './_components/hydrate';
+import { invoiceToFormState, invoiceToCopyFormState } from './_components/hydrate';
 import { PageShell } from '@/components/page-shell';
 
 function buildSupplierSnapshot(profile: Company): PartySnapshot {
@@ -54,6 +54,12 @@ export default function NewInvoicePage() {
   const params = useParams();
   const companyId = requireStringParam(params, 'companyId');
   const editId = searchParams.get('edit') ? Number(searchParams.get('edit')) : null;
+  // ?copy=<id> — hydrate a fresh draft from an existing invoice (any status).
+  const copyId =
+    editId === null && searchParams.get('copy')
+      ? Number(searchParams.get('copy'))
+      : null;
+  const sourceId = editId ?? copyId;
 
   const [draftId, setDraftId] = useState<number | null>(editId);
   const [saving, setSaving] = useState(false);
@@ -77,17 +83,17 @@ export default function NewInvoicePage() {
     getNextNumber
   );
   const { data: editingInvoice, isLoading: invoiceLoading } = useActionSWR(
-    editId ? ['invoice', editId] : null,
+    sourceId ? ['invoice', sourceId] : null,
     () => {
-      if (editId == null) throw new Error('unreachable: editId null with non-null key');
-      return getInvoice(editId);
+      if (sourceId == null) throw new Error('unreachable: sourceId null with non-null key');
+      return getInvoice(sourceId);
     }
   );
   const { data: editingLines, isLoading: linesLoading } = useActionSWR(
-    editId ? ['invoiceLines', editId] : null,
+    sourceId ? ['invoiceLines', sourceId] : null,
     () => {
-      if (editId == null) throw new Error('unreachable: editId null with non-null key');
-      return getInvoiceLines(editId);
+      if (sourceId == null) throw new Error('unreachable: sourceId null with non-null key');
+      return getInvoiceLines(sourceId);
     }
   );
 
@@ -99,24 +105,29 @@ export default function NewInvoicePage() {
 
   const hydratedRef = useRef(false);
   useEffect(() => {
-    if (!editId || hydratedRef.current) return;
+    if (!sourceId || hydratedRef.current) return;
     if (!editingInvoice || !editingLines || !partnersList) return;
 
-    if (editingInvoice.status !== 'draft') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setError('Only drafts can be edited'); // one-shot hydration from SWR
-      hydratedRef.current = true;
-      return;
+    if (editId) {
+      if (editingInvoice.status !== 'draft') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setError('Only drafts can be edited'); // one-shot hydration from SWR
+        hydratedRef.current = true;
+        return;
+      }
+      hydrate(invoiceToFormState(editingInvoice, editingLines, partnersList.items));
+    } else {
+      // Copy: any status is a valid source; the result is a fresh unsaved draft.
+      hydrate(invoiceToCopyFormState(editingInvoice, editingLines, partnersList.items));
     }
-    hydrate(invoiceToFormState(editingInvoice, editingLines, partnersList.items));
     hydratedRef.current = true;
-  }, [editId, editingInvoice, editingLines, partnersList, hydrate]);
+  }, [sourceId, editId, editingInvoice, editingLines, partnersList, hydrate]);
 
   const loading =
     profileLoading ||
     partnersLoading ||
     articlesLoading ||
-    (editId !== null && (invoiceLoading || linesLoading));
+    (sourceId !== null && (invoiceLoading || linesLoading));
 
   const isVatRegistered = companyProfile?.isVatRegistered ?? true;
   const defaultVatRate = parseBgVatRate(companyProfile?.defaultVatRate);

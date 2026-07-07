@@ -80,16 +80,15 @@ Feature work starts off a clean `main`.
 
 ### Phase 1 — Quick wins (no decisions, low risk, ship fast)
 
-**OI-2 — Fix Copy invoice** · S · *bug*
-- Copy is unwired: `onCopy={() => {}}` at `app/(dashboard)/c/[companyId]/invoices/page.tsx:172`.
-- Behavior = "new invoice pre-filled from source": clone partner + line items + currency +
-  payment method + VAT mode; **reset** `issueDate`/`supplyDate`/`dueDate` to today; assign a
-  fresh `number` = last invoice number + 1 (via existing `getNextInvoiceNumber`); status
-  `draft`; drop the source's finalized snapshots.
-- Impl: route to `/c/[id]/invoices/new?copy=<sourceId>` and hydrate the new-invoice
-  reducer from the source (mirrors the existing `?edit=` path). Do **not** copy the number
-  from the source.
-- Accept: copying a finalized invoice lands on a fresh draft with today's dates + next number.
+**OI-2 — Fix Copy invoice** · S · *bug* · ✅ **done 2026-07-08**
+- `onCopy` now routes to `/c/[id]/invoices/new?copy=<sourceId>`; the page hydrates via
+  `invoiceToCopyFormState` (clones partner/lines/currency/fxRate/payment method/VAT
+  mode/language; resets dates to today, unpaid, no notes; always docType `invoice` —
+  a copied note would need its own reference; number allocated on first save).
+- Verified: 4 unit tests on the copy hydration + an end-to-end action replay of the
+  exact form payload (copy of invoice 11 → draft id 56, **number 4**, draft, 1920 BGN,
+  partner cloned). Preview harness was wedged (see PREVIEW-ENV) so the DOM click itself
+  is pending a working embedded browser; the wiring mirrors the proven `?edit=` path.
 
 **NI-2 — Remove customer-visible note** · S
 - Drop the customer note field from the new-invoice form (`customerNote` column stays for

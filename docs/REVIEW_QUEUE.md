@@ -102,8 +102,12 @@ _(The agent appends below. Seeded with the known-open product decisions from
 - **What I did:** verified the changed server action via the real-DB integration suite
   (asserted outputs — the C5 path for non-visual logic) and committed. The UI wiring to
   the action is unchanged by the diff.
-- **Needs from you:** nothing blocking; next session with a working preview should click
-  through Invoices → row menu → "Create credit note" once to see the toast + list refresh.
+- **Needs from you:** ~~nothing blocking; next session with a working preview should click
+  through Invoices → row menu → "Create credit note" once to see the toast + list refresh.~~
+  **Done 2026-07-08:** root cause found (rAF starvation in the occluded preview tab —
+  see `knowledge/func-audit-2026-07.md`), and the CN click was re-driven for real: it
+  first exposed a second bug (note inherited the parent's supplyDate → ISSUE_DATE_TOO_LATE
+  for parents >5 days old, fixed in `acdaad6`), then created CN id 43 (INV #2) UI→DB. ✅
 
 ### D-EMAIL — Email transport + ingestion scope — OPEN
 - **Needs from you:** (1) SMTP/deliverability provider for sending. (2) Scope of "look over

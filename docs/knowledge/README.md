@@ -30,3 +30,4 @@ be glad someone wrote down goes here — so we never re-learn the same thing twi
 ## Index
 _(add a line per file as you create them)_
 - [nap-compliance.md](nap-compliance.md) — NAP/НАП requirements (STUB — source PDF not yet extracted). Supports NAP-1.
+- [competitor-invoicing.md](competitor-invoicing.md) — how inv.bg/fakturi.bg/Microinvest + Stripe/Xero/QBO/FreshBooks/Zoho/Invoice Ninja actually work, by capability; data-model lessons + gap list. Supports RESEARCH-1, OI-*, GEN-1, RV-3, VAT-1, D-CANCEL/D-EDIT/D-FX. (2026-07-07)

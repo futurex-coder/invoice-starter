@@ -307,19 +307,31 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
   and into `docs/knowledge/`. This is where "features & functionality, not just UX" gets
   enforced against the existing product.
 
-**RESEARCH-1 — Competitor feature + functionality research** · M · *Discover gear*
-- Study **how established products actually work**, not just how they look. For each product,
-  capture: invoice **numbering** rules, **status & lifecycle** (draft→issued→paid→cancelled,
-  credit/debit notes), **currency & FX** handling, **VAT/tax** treatment, **payment tracking**
-  and partial payments, **reminders/dunning**, **recurring** invoices, **exports** (PDF / CSV /
-  accounting-software), **bulk actions**, **filtering** (esp. by month / accounting period),
-  **permissions & roles**, **audit trail**, and **integrations**. Note the data model each
-  implies. UX (lists, statuses, scan viewer) is one dimension among these.
-- Set: **inv.bg**, fakturi.bg, Microinvest; internationally Stripe Invoicing, Xero,
-  QuickBooks, FreshBooks, Zoho Invoice, and **Invoice Ninja** (open-source — read its actual
-  schema + feature model). Output: `docs/knowledge/competitor-invoicing.md`, organized **by
-  capability** (not by product), to inform OI-*, GEN-1, RV-1, and to surface features we're
-  missing entirely.
+**RESEARCH-1 — Competitor feature + functionality research** · M · *Discover gear* · ✅ **done 2026-07-07**
+- Shipped: `docs/knowledge/competitor-invoicing.md` — all 9 products (incl. inv.bg's public
+  APIv3 data model and Invoice Ninja's actual MySQL schema), organized by capability, with
+  data-model lessons (§15) and a gap list (§16) that seeded the RESEARCH-1 candidates section
+  below. Key decision inputs: inv.bg cancel is *reversible*; Invoice Ninja's `lock_invoices`
+  setting is the D-EDIT compromise pattern; ECB-daily + freeze-at-finalize confirmed as the
+  D-FX norm; «осчетоводена» list state in inv.bg validates OI-1/OI-9.
+
+**RESEARCH-1 candidates — features we're missing entirely** *(backlog, unscheduled; from
+`knowledge/competitor-invoicing.md` §16)*
+- **PROF-1 — Proforma invoices** · M — first-class doc type in all 3 BG competitors; BG table
+  stakes. Numbering + convert-to-invoice flow.
+- **REC-1 — Recurring invoice templates** · M/L — templates + schedule + draft-or-issue +
+  auto-email + period placeholders (both BG leaders have this).
+- **SER-1 — Multiple numbering series (кочани)** · M — all 3 BG products; wait for user demand.
+- **EUR-1 — Dual EUR/BGN display** (1.95583) on printed documents · S/M — both BG leaders
+  shipped this for the 2026 euro adoption; verify what we print today.
+- **VAT-2 — Reusable 0%/exempt legal-grounds list** in settings · S — pairs with VAT-1.
+- **HIST-1 — Per-document history view with old→new diffs** · M — Xero/QBO/Zoho pattern;
+  pairs with TRANS-1 and the transparency story.
+- **REM-1 — Overdue payment reminders** · M — after TRANS-1.
+- **LINK-1 — Client-facing document links + viewed/accept/reject tracking** · L — inv.bg
+  confirmation flow / Invoice Ninja invitations; pairs with EMAIL-1.
+- **BANK-1 — Bank statement import + payment auto-match** · L — future endgame (inv.bg).
+- **ESIGN-1 — E-signature (B-Trust/InfoNotary/StampIt)** · L — future.
 
 **MEMBERS** — you left this section blank in the request. Add items here when you have them.
 

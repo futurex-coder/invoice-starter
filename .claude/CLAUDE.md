@@ -23,8 +23,8 @@
   atomically** with a descriptive message. One logical change per commit; keep history
   bisectable. End commit messages with the `Co-Authored-By` trailer.
 - **Committing is local.** Do NOT push or open a PR unless explicitly asked.
-- If a change is bigger than expected or needs a product decision, stop and ask
-  (`AskUserQuestion`) rather than guessing.
+- If a change needs a product decision or is riskier/bigger than expected, do NOT block —
+  see **Autonomous operation** below (log it to `docs/REVIEW_QUEUE.md` and keep moving).
 
 ## Track everything
 - Keep the living docs current **in the same commit as the work**:
@@ -36,3 +36,25 @@
   keeping across sessions goes in `docs/knowledge/` or the living docs.
 - Record answered decisions (e.g. the invoice-cancel behavior) to memory and to the
   relevant doc's decisions register.
+
+## Autonomous operation ("god mode")
+This project runs unattended. `.claude/settings.json` sets `bypassPermissions`, so tool
+actions are auto-approved and **you must not stop to ask**. Concretely:
+- **Never call `AskUserQuestion` and never wait on the user during a run.** Assume no one
+  is watching.
+- When you hit a question, product decision, ambiguity, or a blocker you cannot safely
+  resolve: append a structured entry to **`docs/REVIEW_QUEUE.md`** (format in its header),
+  then either (a) proceed with the most sensible **reversible** default and note in the
+  entry that you did, or (b) if there is no safe default, skip that item and move to the
+  next actionable one. Never let one blocked item stall the whole run.
+- Always keep a next actionable item in flight. When you genuinely run out of safe work,
+  write a short summary of what you did + what's queued for review, then stop.
+- **Guardrails that hold even in god mode** — do NOT work around these:
+  - Never commit to `main`, push to `main`, or open/merge a PR without an explicit ask.
+  - Never force-push, rewrite shared history, or delete branches/worktrees you didn't create.
+  - `git push --force` and filesystem-wipe commands are hard-denied in settings. If you
+    think you need one, that's a signal to log it to `docs/REVIEW_QUEUE.md` — not to find
+    a workaround.
+  - Don't send anything to an external service (email, deploys, third-party APIs, publishing)
+    without an explicit ask. Log the intent to the review queue instead.
+  - Destructive or irreversible actions on data you didn't create → log, don't do.

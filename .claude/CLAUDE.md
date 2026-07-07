@@ -12,3 +12,27 @@
 - Use Zod for runtime validation of external data
 - Use Drizzle's inferred types (`typeof table.$inferSelect`)
 - Use generics instead of `any` for flexible functions
+
+# Working Process
+
+## Commit your own work — don't wait to be asked
+- Work on a **feature branch off `main`**, never commit directly to `main`.
+- After each self-contained item (a fix, a feature slice, a doc update) passes the
+  **verify quad** — `npm run type-check`, `npm run lint` (0 warnings), `npm test`
+  (baseline 201), and `npm run build` when routes/config/deps change — **commit it
+  atomically** with a descriptive message. One logical change per commit; keep history
+  bisectable. End commit messages with the `Co-Authored-By` trailer.
+- **Committing is local.** Do NOT push or open a PR unless explicitly asked.
+- If a change is bigger than expected or needs a product decision, stop and ask
+  (`AskUserQuestion`) rather than guessing.
+
+## Track everything
+- Keep the living docs current **in the same commit as the work**:
+  `docs/REFACTOR_BACKLOG.md` (refactor) and `docs/PRODUCT_ROADMAP.md` (features/fixes) —
+  tick items, append to the "done" tables, and add any newly-found issue immediately so
+  it isn't lost.
+- Persist durable findings, decisions, research, and gotchas to **`docs/knowledge/`**
+  (see its README). Session-scoped notes go in the harness Task list; anything worth
+  keeping across sessions goes in `docs/knowledge/` or the living docs.
+- Record answered decisions (e.g. the invoice-cancel behavior) to memory and to the
+  relevant doc's decisions register.

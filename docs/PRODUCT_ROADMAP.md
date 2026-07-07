@@ -9,15 +9,16 @@
 **Base branch:** `main` (after `claude-run-1.8` merges). Start feature work on fresh
 branches off `main`.
 
-**Working discipline:** identical to `REFACTOR_BACKLOG.md` §10 — load the matching
-skill first, break each item into `TaskCreate` steps, verify **type-check + lint +
-`npm test` (baseline 201) + `npm run build`** before every commit, keep commits atomic,
-tick the item here when done. Strict TS rules from `.claude/CLAUDE.md` apply (no `any`,
-no `as` casts, no `@ts-ignore`).
+**Working discipline:** see `.claude/CLAUDE.md` "Working Process" (loaded every session)
+and `REFACTOR_BACKLOG.md` §10. In short: load the matching skill, break each item into
+`TaskCreate` steps, **commit your own work** on a feature branch after the verify quad
+(type-check + lint + `npm test` baseline 201 + `npm run build`) passes, keep commits
+atomic, tick the item here in the same commit, and record durable findings in
+`docs/knowledge/`. Strict TS rules apply (no `any`, no `as` casts, no `@ts-ignore`).
 
-**Scope note — "not only Bulgaria":** decided **i18n UI strings only**. Keep the BG
-tax / VAT / invoice-numbering logic as-is. Do *not* generalize jurisdiction rules in
-this phase; just make new UI text translatable. (See I18N-1.)
+**Scope note — i18n:** **out of scope for now** (removed from this phase). Keep everything
+BG-specific as-is — no message catalog, no locale switch. Revisit only when a second
+market is actually targeted (tracked as N19 in `REFACTOR_BACKLOG.md`, deferred).
 
 ---
 
@@ -186,12 +187,9 @@ Feature work starts off a clean `main`.
 
 ---
 
-### Phase 8 — i18n (UI strings only)
-
-**I18N-1 — Translatable UI strings** · M
-- This is `REFACTOR_BACKLOG.md` N19, now scoped: extract UI strings into a message
-  catalog (BG + EN), add a locale switch. **Do not** touch tax/VAT/numbering logic.
-- Do this once several features have settled so you're not re-extracting churned strings.
+### ~~Phase 8 — i18n~~ — removed from this phase
+i18n is **out of scope for now** (per product decision). Stays deferred as N19 in
+`REFACTOR_BACKLOG.md`; revisit only when a second market is targeted.
 
 ---
 
@@ -206,7 +204,7 @@ Feature work starts off a clean `main`.
 - Study how established products handle invoice lists, statuses, currency, and scan viewers.
 - Set: **inv.bg**, fakturi.bg, Microinvest; internationally Stripe Invoicing, Xero,
   QuickBooks, FreshBooks, Zoho Invoice, and **Invoice Ninja** (open-source — inspect its
-  actual feature model). Output: `docs/research/competitor-invoicing.md` to inform OI-*, RV-1.
+  actual feature model). Output: `docs/knowledge/competitor-invoicing.md` to inform OI-*, RV-1.
 
 **MEMBERS** — you left this section blank in the request. Add items here when you have them.
 
@@ -214,7 +212,7 @@ Feature work starts off a clean `main`.
 
 ## 5. Suggested first moves for the Fable session
 
-1. Run **RESEARCH-1** (parallel subagents, one per site) → `docs/research/competitor-invoicing.md`.
+1. Run **RESEARCH-1** (parallel subagents, one per site) → `docs/knowledge/competitor-invoicing.md`.
    It de-risks the OI-* and RV-1 UX before any code.
 2. Knock out **Phase 1** quick wins (OI-2, NI-2, RV-2, NI-1, OI-8) — fast, satisfying, no decisions.
 3. Write the **GEN-1/D-FX ADR** and **DASH-1 audit** in parallel — money correctness is the

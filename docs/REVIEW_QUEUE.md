@@ -38,6 +38,16 @@ _(The agent appends below. Seeded with the known-open product decisions from
   `cancelled` (immutable) and you reverse via a credit note. Confirm what's wrong / desired.
 - **Blocks:** OI-3.
 
+### D-EDIT — Editing finalized/cancelled OUTGOING invoices — OPEN
+- **Context:** You asked for "everything editable no matter the status." Received invoices
+  (your own records) — fine, we'll make them freely editable. Outgoing **finalized** invoices
+  are a legal problem: a BG фактура is a sequential legal document, immutable, corrected via
+  credit note — the app locks them on purpose.
+- **Options:** (a) drafts-only editable (≈today); (b) finalized editable **with** version
+  history + audit trail; (c) finalized editable but auto-issues a correction/credit doc.
+- **Needs from you:** Pick a/b/c (or confirm you accept the compliance tradeoff of raw edits).
+- **Blocks:** OI-10 (outgoing side only).
+
 ### D-FX — FX rate source for currency conversion — OPEN
 - **Needs from you:** Approve the source. Recommendation: ECB daily reference rates, cached
   daily, with the rate frozen onto each document at finalize. Base = `companies.defaultCurrency`.

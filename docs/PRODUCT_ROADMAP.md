@@ -54,6 +54,7 @@ type-check/lint/tests.
 | ID | Decision | Status | Recommendation |
 |---|---|---|---|
 | **D-CANCEL** | How should invoice Cancel behave? (OI-3) | ❓ OPEN — **ask Koceto** | Today: mark `cancelled`, immutable, reverse via credit note. Confirm what's actually wrong; save his answer to memory. |
+| **D-EDIT** | Can **finalized/cancelled outgoing** invoices be edited? (OI-10) | ❓ OPEN — **compliance** | BG law: a finalized фактура is a sequential legal document, immutable, corrected via credit note. "Edit anything" for outgoing finalized breaks that + the unique-number guarantee. Received invoices (your own records) can be freely editable — no legal issue. Options: (a) drafts-only editable (≈today); (b) finalized editable with version history + audit trail; (c) finalized editable but auto-issues a correction doc. Needs your decision before OI-10. |
 | **D-FX** | FX rate source for currency conversion (GEN-1) | ❓ OPEN | ECB daily reference rates (free, EUR-authoritative); cache daily; **freeze the rate onto each document at finalize** so historical totals never drift. `invoices.fxRate` + `receivedInvoices.fxRate` columns already exist. |
 | **D-AUTH** | Adopt an auth library or extend hand-rolled `jose` sessions? (AUTH-1) | ❓ OPEN | ADR comparing Auth.js (NextAuth v5) vs. lightweight `arctic` + existing `users` table. `/security-review` mandatory. |
 | **D-EMAIL-SEND** | SMTP transport for outbound (EMAIL-1) | ❓ OPEN | Already have `nodemailer` + `sendInvitationEmail`. Pick a provider (Resend/Postmark/SES) for deliverability. |
@@ -134,6 +135,25 @@ Feature work starts off a clean `main`.
   the detail or reuse the already-loaded row snapshot. Mobile-friendly.
 - *Competitor research (RESEARCH-1) informs the exact layout.*
 
+**OI-9 — Simplify both lists + inline paid/accounted editing** · M · *UX + functionality*
+- Trim both invoice lists (outgoing + received) to the columns that matter: **Number ·
+  Client/Supplier · Date · Total · Paid · Accounted · Actions**. Drop the noise — e.g. the
+  outgoing "Type" column, and fold the separate "Payment" column into the inline Paid control.
+- **Paid** and **Accounted** are **inline-editable directly in the row** (click the pill →
+  optimistic `mutate(...,{revalidate:false})`, pattern from N11). These are the two statuses
+  accountants flip most; no menu or detail page needed.
+- Depends on OI-1 (accounted column). **Supersedes OI-6's interaction** — inline is the primary
+  path; keep a context-menu entry only as a secondary affordance.
+- Verify by running: toggle paid/accounted on a real row, confirm it persists and the aggregate
+  updates, at desktop and mobile widths.
+
+**OI-10 — Edit invoices regardless of status** · M · ⚠️ *needs D-EDIT (compliance)*
+- Requested: every field editable no matter draft / finalized / cancelled.
+- **Received invoices** (your own records) → make freely editable at any status; no legal issue.
+- **Outgoing finalized/cancelled** invoices → **do NOT implement until D-EDIT is decided.** A
+  finalized BG фактура is a sequential legal document corrected via credit note; that's why the
+  codebase locks it + freezes snapshots. See D-EDIT for the options.
+
 ---
 
 ### Phase 3 — Money correctness (currency) ⚠️ ADR first (D-FX)
@@ -163,13 +183,31 @@ Feature work starts off a clean `main`.
 
 ---
 
-### Phase 5 — Received-invoice scan viewer
+### Phase 5 — Received-invoice review redesign
 
-**RV-1 — Better scanned-invoice viewer** · M/L · *frontend*
+**RV-3 — Redesign the whole review-received-invoice screen** · L · *UX + functionality*
+- The current view is cramped and hard to use. Rebuild it to be clear and easy: sensible field
+  grouping (Supplier / Document / Items), the readable scan viewer (RV-1), inline validation
+  that **guides rather than blocks**, and a layout that uses desktop width well and collapses
+  cleanly on mobile. Absorbs RV-1, RV-2, RV-4.
+- Verify by running: load a real multi-page scan **including a foreign-supplier invoice** and
+  confirm the whole review → confirm flow is smooth end-to-end.
+
+**RV-1 — Better scanned-invoice viewer** · M/L · *frontend (part of RV-3)*
 - Desktop: use more screen width; show **one page at a time** with **pagination + zoom**.
 - Mobile: a **bottom drawer** that shrinks/expands.
-- Consider a PDF/image renderer that supports page navigation + zoom; keep it self-contained.
 - Accept: a multi-page scan is readable on desktop and phone without the current cramped view.
+
+**RV-4 — "Save as partner" needs only a name** · S · *functionality gap — can ship independently*
+- A foreign supplier (e.g. Anysphere/Cursor — US EIN, no EIK/VAT) currently **can't** be saved
+  as a partner: `createPartnerSchema.eik` requires a 9–10 digit BG EIK, so the review form shows
+  blocking red errors on EIK/VAT. Fix: **make EIK + VAT optional** so "Save as partner on
+  confirm" works with just a **name** (+ whatever address we have). Treat missing EIK/VAT as a
+  soft note, not a blocker; keep BG-format validation only when a value is actually entered.
+- Touches: `createPartnerSchema` (eik → optional/nullable), the received-invoice confirm /
+  create-partner path, and the ReviewForm validation display.
+- Verify by running: confirm the Cursor (US) invoice with "save as partner" ticked and see the
+  partner created with just name + address, no EIK, no blocking error.
 
 ---
 

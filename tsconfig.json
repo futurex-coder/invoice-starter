@@ -41,7 +41,6 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "docs/refactoring"
+    "node_modules"
   ]
 }

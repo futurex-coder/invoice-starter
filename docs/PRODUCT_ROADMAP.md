@@ -26,7 +26,7 @@ market is actually targeted (tracked as N19 in `REFACTOR_BACKLOG.md`, deferred).
 
 | Gear | Claude features | Use for |
 |---|---|---|
-| **Discover** | `WebSearch`/`WebFetch`, parallel subagents (1 per competitor site), optional multi-agent **Workflow** | competitor UX research (RESEARCH-1); auditing money-aggregation rules (DASH-1) |
+| **Discover** | `WebSearch`/`WebFetch`, parallel subagents (1 per competitor site), optional multi-agent **Workflow** | competitor **feature + functionality + UX** research (RESEARCH-1); money-aggregation audit (DASH-1); functional audit of existing flows (FUNC-AUDIT) |
 | **Decide** | `engineering:architecture` (ADRs), `AskUserQuestion`, **memory** (persist answers) | GEN-1 currency, AUTH-1, EMAIL-1/2 |
 | **Build** | **plan mode** per feature, skills (`senior-frontend`/`-backend`/`-data-engineer`/`-security`), subagents for mechanical fan-out | every item |
 | **Ship** | `/security-review` (auth + email), `engineering:deploy-checklist`, Supabase MCP (migrations), Vercel MCP (deploy) | before each PR |
@@ -36,6 +36,16 @@ for EMAIL-2 ingestion), Vercel (deploy).
 
 **Parallelizable tracks** (independent — safe to run in separate sessions/branches):
 Phase 1 quick wins · MENU-1 · RV-1 viewer. Sequence the rest per the dependency notes.
+
+**Analyze functionality, not just UX.** Every item is assessed across five dimensions
+before it's called done: (1) **UX** — layout, flow, a11y; (2) **functionality** — does the
+feature actually do what it should, including the unhappy paths; (3) **data integrity** —
+correct schema/constraints, no orphaned, duplicated, or lost data; (4) **edge cases** —
+empty states, huge inputs, concurrent edits, mixed currencies, cancelled/credit-noted docs;
+(5) **money correctness** — every total and aggregate reconciles. A pretty screen that
+computes the wrong total is a failure, not a win. And per `.claude/CLAUDE.md`, a feature is
+not done until its behavior is **verified by actually running the app**, not just by passing
+type-check/lint/tests.
 
 ---
 
@@ -200,11 +210,28 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
   reports) and document the current rules — a `Discover`-gear task (subagents or a Workflow
   scanning `getDashboardMetrics` + all `totals` consumers). Output feeds the GEN-1 ADR.
 
-**RESEARCH-1 — Competitor UX research** · M · *Discover gear*
-- Study how established products handle invoice lists, statuses, currency, and scan viewers.
+**FUNC-AUDIT — Functional audit of existing flows** · M · *Discover gear, do early*
+- Complements DASH-1's money focus: exercise the real flows **end-to-end by running the app**
+  and catalog correctness gaps, not cosmetics. Cover: `createInvoiceDraft → finalize →
+  credit-note`, received-invoice review → confirm → partner-link, payments, copy/cancel, and
+  mixed-currency documents. For each, note broken/missing behavior, silent failures,
+  unhandled edge cases, and data-integrity risks. Feed findings back as new roadmap items
+  and into `docs/knowledge/`. This is where "features & functionality, not just UX" gets
+  enforced against the existing product.
+
+**RESEARCH-1 — Competitor feature + functionality research** · M · *Discover gear*
+- Study **how established products actually work**, not just how they look. For each product,
+  capture: invoice **numbering** rules, **status & lifecycle** (draft→issued→paid→cancelled,
+  credit/debit notes), **currency & FX** handling, **VAT/tax** treatment, **payment tracking**
+  and partial payments, **reminders/dunning**, **recurring** invoices, **exports** (PDF / CSV /
+  accounting-software), **bulk actions**, **filtering** (esp. by month / accounting period),
+  **permissions & roles**, **audit trail**, and **integrations**. Note the data model each
+  implies. UX (lists, statuses, scan viewer) is one dimension among these.
 - Set: **inv.bg**, fakturi.bg, Microinvest; internationally Stripe Invoicing, Xero,
-  QuickBooks, FreshBooks, Zoho Invoice, and **Invoice Ninja** (open-source — inspect its
-  actual feature model). Output: `docs/knowledge/competitor-invoicing.md` to inform OI-*, RV-1.
+  QuickBooks, FreshBooks, Zoho Invoice, and **Invoice Ninja** (open-source — read its actual
+  schema + feature model). Output: `docs/knowledge/competitor-invoicing.md`, organized **by
+  capability** (not by product), to inform OI-*, GEN-1, RV-1, and to surface features we're
+  missing entirely.
 
 **MEMBERS** — you left this section blank in the request. Add items here when you have them.
 
@@ -213,8 +240,11 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 ## 5. Suggested first moves for the Fable session
 
 1. Run **RESEARCH-1** (parallel subagents, one per site) → `docs/knowledge/competitor-invoicing.md`.
-   It de-risks the OI-* and RV-1 UX before any code.
-2. Knock out **Phase 1** quick wins (OI-2, NI-2, RV-2, NI-1, OI-8) — fast, satisfying, no decisions.
-3. Write the **GEN-1/D-FX ADR** and **DASH-1 audit** in parallel — money correctness is the
+   Capture features + functionality + data model, not just UX; surface gaps we're missing.
+2. Run **FUNC-AUDIT** — drive the existing flows in a live preview and catalog correctness /
+   edge-case / data-integrity gaps. Turn findings into new roadmap items.
+3. Knock out **Phase 1** quick wins (OI-2, NI-2, RV-2, NI-1, OI-8) — fast, no decisions —
+   verifying each in a running preview before committing.
+4. Write the **GEN-1/D-FX ADR** and **DASH-1 audit** in parallel — money correctness is the
    highest-stakes item; get the design right early.
-4. Get **D-CANCEL** answered by Koceto and saved to memory so OI-3 can unblock.
+5. Get **D-CANCEL** answered by Koceto and saved to memory so OI-3 can unblock.

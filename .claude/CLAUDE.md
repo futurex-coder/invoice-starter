@@ -26,6 +26,27 @@
 - If a change needs a product decision or is riskier/bigger than expected, do NOT block —
   see **Autonomous operation** below (log it to `docs/REVIEW_QUEUE.md` and keep moving).
 
+## Verify by running — and self-correct until it's right
+Type-check, lint, and tests are necessary but **not sufficient**. Before considering any
+change done, **run the app and watch it actually work**:
+- Start a preview — `.claude/launch.json` has a `dev` config. Use the `run` / `verify`
+  skills or the `preview_*` tools (`preview_start`, then `preview_screenshot` /
+  `preview_snapshot`, `preview_console_logs`, `preview_network`, `preview_click` / `preview_fill`).
+- Exercise the exact thing you changed **and** the flow around it. Check real behavior:
+  correct data, correct totals, **no console errors, no failed network requests**, layout
+  intact at desktop and mobile widths.
+- **If anything is wrong, broken, or even feels off / strange — do not commit.** Re-read your
+  own code, find the **root cause** (not a band-aid), fix it, then run and observe again.
+  Repeat the **build → run → observe → fix** loop until you are genuinely confident the
+  behavior is correct across the happy path *and* the edge cases (empty, large, mixed
+  currency, cancelled/credit-noted, concurrent).
+- Only once it's verified-by-running do you run the full verify quad and commit.
+- For non-visual logic (server actions, parsers, aggregations), "run it" means an actual
+  execution path — a focused test, a throwaway script, or a DB round-trip — not just reading
+  the code. Assert the output, don't eyeball it.
+
+Treat "it compiles and tests pass" as the floor, never the finish line.
+
 ## Track everything
 - Keep the living docs current **in the same commit as the work**:
   `docs/REFACTOR_BACKLOG.md` (refactor) and `docs/PRODUCT_ROADMAP.md` (features/fixes) —

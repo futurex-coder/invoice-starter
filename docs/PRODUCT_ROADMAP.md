@@ -102,12 +102,17 @@ Feature work starts off a clean `main`.
   form state keeps carrying it so re-saving an old row preserves the stored value; payments
   overdue logic unaffected for historical rows.
 
-**NI-1 — Preview + Finalize without saving a draft first** · M
-- Today Preview/Finalize are gated behind saving a draft. Allow both from unsaved state:
-  Preview renders from current form state; Finalize does an implicit create-then-finalize in
-  one action (server-side transaction) so the user never has to "Save draft" as a separate step.
-- Accept: a brand-new invoice can be previewed and finalized without a manual draft save;
-  draft save remains available for those who want it.
+**NI-1 — Preview + Finalize without saving a draft first** · M · ✅ **done 2026-07-08**
+- Finalize from an unsaved form = **one server transaction** (`createInvoiceDraft` with
+  `finalizeImmediately: true` — validates against the finalized rules, allocates the number,
+  inserts already-finalized, logs CREATE + FINALIZE atomically; note doc-types refused).
+  Preview from an unsaved form **implicitly saves the draft** then opens the print view
+  (logged to REVIEW_QUEUE as the reversible default — a pure client-side render can come
+  with RV-3/print work). Bonus fix: Finalize on an *edited saved draft* now saves the latest
+  form state first (it used to finalize the stale stored version).
+- Verified live: new form → Finalize → Фактура № 0000000005 finalized in one action
+  (server log shows a single createInvoiceDraft call; 360 EUR reconciled by hand); +2
+  integration tests (16 total in the lifecycle suite).
 
 **OI-8 — Clear navigation links on the invoice list** · S · ✅ **done 2026-07-08**
 - Invoice number → invoice detail; partner name → partners list pre-filtered via the

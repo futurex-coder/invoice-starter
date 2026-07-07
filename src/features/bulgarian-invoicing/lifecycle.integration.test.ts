@@ -466,4 +466,41 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
       .where(eq(invoices.id, secondDraftId));
     expect(row?.status).toBe('cancelled');
   });
+
+  it('creates + finalizes in one transaction, no intermediate draft (NI-1)', async () => {
+    const res = unwrap(
+      await createInvoiceDraft({ ...baseDraftInput(), finalizeImmediately: true }),
+      'createInvoiceDraft(finalizeImmediately)'
+    );
+
+    expect(res.status).toBe('finalized');
+    expect(res.docType).toBe('invoice');
+    expect(res.totals.grossAmount).toBe(300.6);
+    expect(res.amountInWords).toBeTruthy();
+
+    // Already finalized — a second finalize must refuse.
+    expect(unwrapError(await finalizeInvoice(res.id), 'refinalize')).toMatch(
+      /Cannot finalize/
+    );
+
+    // Both lifecycle activities land in the same transaction.
+    const acts = await db
+      .select({ action: activityLogs.action })
+      .from(activityLogs)
+      .where(eq(activityLogs.companyId, companyId));
+    const counts = acts.reduce<Record<string, number>>((m, a) => {
+      m[a.action] = (m[a.action] ?? 0) + 1;
+      return m;
+    }, {});
+    expect(counts[ActivityType.FINALIZE_INVOICE]).toBeGreaterThanOrEqual(2);
+  });
+
+  it('refuses finalizeImmediately for note doc types (they need an original)', async () => {
+    const res = await createInvoiceDraft({
+      ...baseDraftInput(),
+      docType: 'credit_note',
+      finalizeImmediately: true,
+    });
+    expect(unwrapError(res, 'immediate note')).toMatch(/original invoice/);
+  });
 });

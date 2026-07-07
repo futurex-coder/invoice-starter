@@ -149,15 +149,7 @@ export default function NewInvoicePage() {
     form.selectPartner(p ?? null);
   };
 
-  const handleSaveDraft = async () => {
-    if (!companyProfile) {
-      setError('Company profile (Supplier) is required. Complete it in Settings.');
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    setValidationErrors([]);
-    const supplier = buildSupplierSnapshot(companyProfile);
+  const buildPayload = () => {
     const itemsWithVat: LineItemWithArticle[] = state.lineItems.map((item) => ({
       description: item.description,
       quantity: item.quantity,
@@ -178,7 +170,7 @@ export default function NewInvoicePage() {
       postCode: state.recipient.postCode || null,
       mol: state.recipient.mol || null,
     };
-    const payload = {
+    return {
       docType: state.docType,
       issueDate: state.issueDate,
       supplyDate: state.supplyDate || null,
@@ -197,51 +189,95 @@ export default function NewInvoicePage() {
       customerNote: state.customerNote.trim() || null,
       internalComment: state.internalComment.trim() || null,
     };
+  };
+
+  const surfaceFailure = (res: {
+    error?: string;
+    validationErrors?: { field: string; message: string }[];
+  }) => {
+    setError(res.error ?? null);
+    if (res.validationErrors)
+      setValidationErrors(res.validationErrors.map((e) => ({ field: e.field, message: e.message })));
+  };
+
+  /** Persist the current form as a draft. Returns the draft id, or null on failure. */
+  const saveDraft = async (): Promise<number | null> => {
+    if (!companyProfile) {
+      setError('Company profile (Supplier) is required. Complete it in Settings.');
+      return null;
+    }
+    setSaving(true);
+    setError(null);
+    setValidationErrors([]);
+    const payload = buildPayload();
     if (draftId) {
       const res = await updateInvoiceDraft(draftId, payload);
       setSaving(false);
-      if (res.error) {
-        setError(res.error);
-        if (res.validationErrors)
-          setValidationErrors(res.validationErrors.map((e) => ({ field: e.field, message: e.message })));
-        return;
+      if (res.error || !res.data) {
+        surfaceFailure(res);
+        return null;
       }
-      if (res.data) setDraftId(res.data.id);
-    } else {
-      const res = await createInvoiceDraft({ ...payload, supplier });
-      setSaving(false);
-      if (res.error) {
-        setError(res.error);
-        if (res.validationErrors)
-          setValidationErrors(res.validationErrors.map((e) => ({ field: e.field, message: e.message })));
-        return;
-      }
-      if (res.data) {
-        setDraftId(res.data.id);
-        router.replace(`/c/${companyId}/invoices/new?edit=${res.data.id}`);
-      }
+      setDraftId(res.data.id);
+      return res.data.id;
     }
+    const supplier = buildSupplierSnapshot(companyProfile);
+    const res = await createInvoiceDraft({ ...payload, supplier });
+    setSaving(false);
+    if (res.error || !res.data) {
+      surfaceFailure(res);
+      return null;
+    }
+    setDraftId(res.data.id);
+    router.replace(`/c/${companyId}/invoices/new?edit=${res.data.id}`);
+    return res.data.id;
+  };
+
+  const handleSaveDraft = async () => {
+    await saveDraft();
   };
 
   const handleFinalize = async () => {
-    if (!draftId) {
-      setError('Save draft first.');
+    if (!companyProfile) {
+      setError('Company profile (Supplier) is required. Complete it in Settings.');
       return;
     }
     setSaving(true);
     setError(null);
-    const res = await finalizeInvoice(draftId);
-    setSaving(false);
-    if (res.error) {
-      setError(res.error);
+    setValidationErrors([]);
+    if (draftId) {
+      // A saved draft first gets the latest form state, then finalizes.
+      const savedId = await saveDraft();
+      if (!savedId) return;
+      setSaving(true);
+      const res = await finalizeInvoice(savedId);
+      setSaving(false);
+      if (res.error || !res.data) {
+        surfaceFailure(res);
+        return;
+      }
+      router.push(`/c/${companyId}/invoices/${res.data.id}`);
       return;
     }
-    if (res.data) router.push(`/c/${companyId}/invoices/${res.data.id}`);
+    // NI-1: no draft yet — create + finalize in one server transaction.
+    const supplier = buildSupplierSnapshot(companyProfile);
+    const res = await createInvoiceDraft({
+      ...buildPayload(),
+      supplier,
+      finalizeImmediately: true,
+    });
+    setSaving(false);
+    if (res.error || !res.data) {
+      surfaceFailure(res);
+      return;
+    }
+    router.push(`/c/${companyId}/invoices/${res.data.id}`);
   };
 
-  const handlePreview = () => {
-    if (draftId) router.push(`/c/${companyId}/invoices/${draftId}?print=1`);
-    else setError('Save draft first to preview.');
+  const handlePreview = async () => {
+    // NI-1: previewing an unsaved form implicitly saves the draft first, then
+    // opens the print preview — no manual "Save draft" step required.
+    const id = draftId ?? (await saveDraft());
+    if (id) router.push(`/c/${companyId}/invoices/${id}?print=1`);
   };
 
   if (loading) {
@@ -342,7 +378,6 @@ export default function NewInvoicePage() {
 
       <ActionsBar
         saving={saving}
-        hasDraft={Boolean(draftId)}
         onSaveDraft={handleSaveDraft}
         onPreview={handlePreview}
         onFinalize={handleFinalize}

@@ -90,6 +90,11 @@ interface CreateInvoiceDraftInput {
   amountInWords?: string | null;
   customerNote?: string | null;
   internalComment?: string | null;
+  /**
+   * NI-1: create the document already finalized — one transaction, no
+   * intermediate draft. Validation runs against the `finalized` rules.
+   */
+  finalizeImmediately?: boolean;
 }
 
 interface UpdateInvoiceDraftInput {
@@ -413,9 +418,18 @@ export async function createInvoiceDraft(
       input.amountInWords?.trim() ||
       amountInWordsBg(calc.totals.grossAmount, currency);
 
+    // NI-1: when finalizing immediately, validate against the stricter
+    // `finalized` rules up front and never persist an intermediate draft.
+    const targetStatus = input.finalizeImmediately ? 'finalized' : 'draft';
+    if (input.finalizeImmediately && requiresReference(input.docType)) {
+      throw new Error(
+        `${input.docType} must be created from its original invoice`
+      );
+    }
+
     const doc: InvoiceDocument = {
       docType: input.docType,
-      status: 'draft',
+      status: targetStatus,
       series,
       number: 1,
       issueDate: input.issueDate,
@@ -470,7 +484,7 @@ export async function createInvoiceDraft(
           createdByUserId: user.id,
           partnerId,
           docType: input.docType,
-          status: 'draft',
+          status: targetStatus,
           series,
           number: allocatedNumber,
           issueDate: input.issueDate,
@@ -499,6 +513,14 @@ export async function createInvoiceDraft(
       await saveInvoiceLines(tx, row.id, calc.items, articleIds);
 
       await logActivityInTx(tx, companyId, user.id, ActivityType.CREATE_INVOICE);
+      if (input.finalizeImmediately) {
+        await logActivityInTx(
+          tx,
+          companyId,
+          user.id,
+          ActivityType.FINALIZE_INVOICE
+        );
+      }
 
       return row;
     });

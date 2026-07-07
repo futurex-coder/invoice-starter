@@ -109,6 +109,19 @@ _(The agent appends below. Seeded with the known-open product decisions from
   first exposed a second bug (note inherited the parent's supplyDate → ISSUE_DATE_TOO_LATE
   for parents >5 days old, fixed in `acdaad6`), then created CN id 43 (INV #2) UI→DB. ✅
 
+### NI1-PREVIEW — Preview of an unsaved invoice implicitly saves a draft — PROCEEDED
+- **When:** NI-1 (2026-07-08).
+- **Context:** The spec said "Preview renders from current form state". A true client-side
+  print render needs the invoice print layout extracted into a reusable component (RV-3 /
+  print territory). Instead, clicking Preview on an unsaved form now **saves the draft
+  silently and opens the existing print view** — the user-visible goal (no manual save
+  step) is met; the side effect is a draft row + an allocated number, exactly as if the
+  user had clicked Save draft then Preview (today's flow).
+- **What I did:** shipped the implicit-save default; noted the client-side render as
+  follow-up for the RV-3 redesign.
+- **Needs from you:** nothing unless you dislike drafts being created by Preview — say so
+  and it becomes a pure client-side render when RV-3 lands.
+
 ### D-EMAIL — Email transport + ingestion scope — OPEN
 - **Needs from you:** (1) SMTP/deliverability provider for sending. (2) Scope of "look over
   all emails" — recommend limiting to invoice-relevant emails auto-matched to partners.

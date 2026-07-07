@@ -58,6 +58,14 @@ _(The agent appends below. Seeded with the known-open product decisions from
   `users` table). Security-review required before merge.
 - **Blocks:** AUTH-1.
 
+### NAP-DOC — Need the NAP.pdf content (can't OCR locally) — BLOCKED
+- **Context:** Owner attached `NAP.pdf` ("we must meet all these from NAP"). It's a scanned
+  image PDF with no text layer, and this machine has no OCR / PDF-render tooling, so it couldn't
+  be read. `docs/knowledge/nap-compliance.md` is a stub awaiting the content.
+- **Needs from you:** paste the requirements as text, or screenshot the key pages (images are
+  readable), or confirm which NAP doc it is (invoice-content rules / SAF-T / e-invoicing mandate).
+- **Blocks:** NAP-1 scoping.
+
 ### D-EMAIL — Email transport + ingestion scope — OPEN
 - **Needs from you:** (1) SMTP/deliverability provider for sending. (2) Scope of "look over
   all emails" — recommend limiting to invoice-relevant emails auto-matched to partners.

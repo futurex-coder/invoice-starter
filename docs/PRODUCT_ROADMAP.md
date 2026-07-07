@@ -154,6 +154,18 @@ Feature work starts off a clean `main`.
   finalized BG фактура is a sequential legal document corrected via credit note; that's why the
   codebase locks it + freezes snapshots. See D-EDIT for the options.
 
+**OI-11 — "All invoices" view** · S/M · *UX*
+- The Invoices page tabs **Outgoing / Received**. Add an **All** tab (or toggle) listing every
+  invoice — outgoing + received together — with a Direction column to tell them apart. Shares
+  the OI-9 column set + filters. One place to see everything.
+
+**BULK-1 — Row selection + bulk email via Google** · M · *depends on EMAIL-1 + AUTH-1*
+- On **every** invoice tab (Outgoing / Received / All): a **checkbox per row** + select-all, and
+  a bulk-action bar to **email the selected invoices + their info** (PDF attachments + a summary)
+  via **Google/Gmail** (ties to AUTH-1 Google auth + EMAIL-1 send transport).
+- Verify by running: select several rows, trigger send, confirm the email + PDFs go out and the
+  UI shows per-row success/failure.
+
 ---
 
 ### Phase 3 — Money correctness (currency) ⚠️ ADR first (D-FX)
@@ -247,6 +259,19 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 - Before GEN-1 lands, map every place that sums money (dashboard metrics, list totals,
   reports) and document the current rules — a `Discover`-gear task (subagents or a Workflow
   scanning `getDashboardMetrics` + all `totals` consumers). Output feeds the GEN-1 ADR.
+
+**NAP-1 — NAP (НАП) compliance requirements** · L · ⚠️ *compliance — high priority*
+- The attached `NAP.pdf` specifies requirements the app must meet. **Blocked on getting the PDF
+  content** — it's a scanned/image document and the current machine has no OCR/render tooling, so
+  it couldn't be extracted here. Owner to provide the text (or readable pages) → capture into
+  `docs/knowledge/nap-compliance.md` → gap-analyze vs. the current invoice model → split into
+  concrete items.
+- **Baseline** (standard BG ЗДДС чл.114 invoice rules — a starting checklist, **verify against
+  the actual PDF, do not assume it's the whole story**): sequential 10-digit numbering;
+  mandatory supplier + recipient identity, address, EIK/VAT; description, quantity, unit price;
+  taxable base + VAT rate + VAT amount + total; issue date + tax-event/supply date; legal grounds
+  when VAT is 0%/exempt; original/copy marking. The PDF may add SAF-T, mandatory e-invoicing, or a
+  specific NAP-notice format — **read it before scoping.**
 
 **FUNC-AUDIT — Functional audit of existing flows** · M · *Discover gear, do early*
 - Complements DASH-1's money focus: exercise the real flows **end-to-end by running the app**

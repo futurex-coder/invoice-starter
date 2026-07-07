@@ -29,4 +29,4 @@ be glad someone wrote down goes here — so we never re-learn the same thing twi
 
 ## Index
 _(add a line per file as you create them)_
-- _(none yet)_
+- [nap-compliance.md](nap-compliance.md) — NAP/НАП requirements (STUB — source PDF not yet extracted). Supports NAP-1.

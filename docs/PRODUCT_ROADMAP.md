@@ -284,6 +284,17 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 - Before GEN-1 lands, map every place that sums money (dashboard metrics, list totals,
   reports) and document the current rules — a `Discover`-gear task (subagents or a Workflow
   scanning `getDashboardMetrics` + all `totals` consumers). Output feeds the GEN-1 ADR.
+- **Head start:** `knowledge/func-audit-2026-07.md` already reconciled the dashboard
+  numbers by hand and found the three holes below (AGG-1).
+
+**AGG-1 — Fix the decision-free aggregation holes** · M · *bug, from FUNC-AUDIT*
+- (1) `paymentStatus='partial'` counts in **neither** revenue nor outstanding (invoice
+  side); (2) credit/debit-note **amounts** never subtract from any bucket (Алфа's true
+  net revenue is 1 440, dashboard says 1 920); (3) notes carry a meaningless default
+  `paymentStatus='unpaid'` — define note payment-semantics while fixing.
+- Explicitly **not** in scope: FX conversion of mixed-currency sums (that's GEN-1 / D-FX).
+- Verify by running: dashboard + company cards reconcile by hand against SQL buckets for
+  a company with partial payments and credit notes.
 
 **NAP-1 — NAP (НАП) compliance requirements** · L · ⚠️ *compliance — high priority*
 - The attached `NAP.pdf` specifies requirements the app must meet. **Blocked on getting the PDF
@@ -298,14 +309,14 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
   when VAT is 0%/exempt; original/copy marking. The PDF may add SAF-T, mandatory e-invoicing, or a
   specific NAP-notice format — **read it before scoping.**
 
-**FUNC-AUDIT — Functional audit of existing flows** · M · *Discover gear, do early*
-- Complements DASH-1's money focus: exercise the real flows **end-to-end by running the app**
-  and catalog correctness gaps, not cosmetics. Cover: `createInvoiceDraft → finalize →
-  credit-note`, received-invoice review → confirm → partner-link, payments, copy/cancel, and
-  mixed-currency documents. For each, note broken/missing behavior, silent failures,
-  unhandled edge cases, and data-integrity risks. Feed findings back as new roadmap items
-  and into `docs/knowledge/`. This is where "features & functionality, not just UX" gets
-  enforced against the existing product.
+**FUNC-AUDIT — Functional audit of existing flows** · M · *Discover gear* · ✅ **done 2026-07-08**
+- Shipped: `docs/knowledge/func-audit-2026-07.md` — flow-by-flow verdicts against the real
+  dev DB. Two production bugs found in the CN/DN path (numbering-trigger violation → fixed
+  in N15; note inheriting the parent's supplyDate → every note vs an invoice >5 days old
+  failed → fixed in `acdaad6`, verified UI→DB). Money-aggregation holes quantified with
+  hand reconciliation → **AGG-1** (decision-free fixes) + DASH-1 head start; payment model
+  confirmed enum-only → **PAY-1** candidate. Permission boundary + cross-company scoping
+  verified enforced server-side.
 
 **RESEARCH-1 — Competitor feature + functionality research** · M · *Discover gear* · ✅ **done 2026-07-07**
 - Shipped: `docs/knowledge/competitor-invoicing.md` — all 9 products (incl. inv.bg's public
@@ -332,6 +343,9 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
   confirmation flow / Invoice Ninja invitations; pairs with EMAIL-1.
 - **BANK-1 — Bank statement import + payment auto-match** · L — future endgame (inv.bg).
 - **ESIGN-1 — E-signature (B-Trust/InfoNotary/StampIt)** · L — future.
+- **PAY-1 — Real payment ledger** · L — amount/date/method per payment, M:N allocation to
+  invoices (inv.bg / Invoice Ninja model, `competitor-invoicing.md` §5). Today payment
+  tracking is a status enum only — `partial` has no amount behind it (FUNC-AUDIT).
 
 **MEMBERS** — you left this section blank in the request. Add items here when you have them.
 

@@ -304,6 +304,11 @@ export const invoices = pgTable(
     paymentStatus: varchar('payment_status', { length: 20 })
       .notNull()
       .default('unpaid'),
+    // 'pending' | 'accounted' — has the accountant booked this document?
+    // Mirrors receivedInvoices.accountingStatus (OI-1).
+    accountingStatus: varchar('accounting_status', { length: 20 })
+      .notNull()
+      .default('pending'),
     dueDate: date('due_date'),
     vatMode: varchar('vat_mode', { length: 20 }).notNull().default('standard'),
     noVatReason: text('no_vat_reason'),
@@ -333,6 +338,10 @@ export const invoices = pgTable(
     index('idx_invoices_company_payment_status').on(
       t.companyId,
       t.paymentStatus
+    ),
+    index('idx_invoices_company_accounting_status').on(
+      t.companyId,
+      t.accountingStatus
     ),
     index('idx_invoices_created_by_user_id')
       .on(t.createdByUserId)

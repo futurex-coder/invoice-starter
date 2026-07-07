@@ -124,11 +124,13 @@ Feature work starts off a clean `main`.
 
 ### Phase 2 — Invoice-list UX (needs the accounted-status column first)
 
-**OI-1 — "Accounted" status on outgoing invoices** · M · *schema*
-- Outgoing `invoices` has **no** accounting-status column (received invoices do). Add
-  `accounting_status varchar(20) NOT NULL DEFAULT 'pending'` (`'pending' | 'accounted'`),
-  migration via `npm run db:generate`. Surface as a column/badge on the list.
-- Blocks: OI-4, OI-6.
+**OI-1 — "Accounted" status on outgoing invoices** · M · *schema* · ✅ **done 2026-07-08**
+- `invoices.accounting_status varchar(20) NOT NULL DEFAULT 'pending'` + composite index
+  `(company_id, accounting_status)` — migration `0003_lonely_argent`, applied to dev.
+  Parser layer: `AccountingStatus` type + `parseAccountingStatus` wired into
+  `parseInvoiceRow`/`ParsedInvoice`. List shows an Accounting pill column (Pending gray /
+  Accounted sky). Verified live: column + pills render on all rows.
+- Unblocks: OI-4, OI-6/OI-9, TRANS-2, VAT-1.
 
 **OI-4 — Filter by accounted status** · S · *depends on OI-1*
 - Add an `accountingStatus` filter to the invoice-list `useListPageState` defaults +

@@ -30,6 +30,10 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   paid: 'Paid',
   partial: 'Partial',
 };
+const ACCOUNTING_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pending',
+  accounted: 'Accounted',
+};
 
 interface RowProps {
   invoice: Invoice;
@@ -129,6 +133,19 @@ function InvoiceRow({
         <span
           className={cn(
             'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+            invoice.accountingStatus === 'accounted'
+              ? 'bg-sky-100 text-sky-800'
+              : 'bg-gray-100 text-gray-600'
+          )}
+        >
+          {ACCOUNTING_STATUS_LABELS[invoice.accountingStatus ?? 'pending'] ??
+            invoice.accountingStatus}
+        </span>
+      </td>
+      <td className="px-4 py-3">
+        <span
+          className={cn(
+            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
             isCancelled
               ? 'bg-gray-200 text-gray-700'
               : isDraft
@@ -169,6 +186,7 @@ export function InvoicesTable(props: TableProps) {
           { label: 'Date' },
           { label: 'Payment' },
           { label: 'Total' },
+          { label: 'Accounting' },
           { label: 'Status' },
           { label: 'Actions', align: 'right' },
         ]}

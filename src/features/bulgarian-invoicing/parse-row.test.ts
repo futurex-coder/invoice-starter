@@ -28,6 +28,7 @@ function fixtureInvoice(overrides?: Partial<Invoice>): Invoice {
     language: 'bg',
     paymentMethod: 'bank',
     paymentStatus: 'unpaid',
+    accountingStatus: 'pending',
     dueDate: null,
     vatMode: 'standard',
     noVatReason: null,

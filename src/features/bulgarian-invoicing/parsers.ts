@@ -38,6 +38,7 @@ const invoiceStatusSchema = z.enum(STATUSES);
 const vatModeSchema = z.enum(['standard', 'no_vat']);
 const paymentMethodSchema = z.enum(['bank', 'cash', 'barter']);
 const paymentStatusSchema = z.enum(['unpaid', 'partial', 'paid']);
+const accountingStatusSchema = z.enum(['pending', 'accounted']);
 
 const vatBreakdownEntrySchema: z.ZodType<VatBreakdownEntry> = z.object({
   vatRate: z.coerce.number(),
@@ -69,6 +70,7 @@ const lineItemSchema: z.ZodType<LineItem> = z.object({
 export type VatMode = z.infer<typeof vatModeSchema>;
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
+export type AccountingStatus = z.infer<typeof accountingStatusSchema>;
 
 const partySnapshotSchema = z.object({
   legalName: z.string(),
@@ -121,6 +123,14 @@ export function parsePaymentStatus(
   fallback: PaymentStatus = 'unpaid'
 ): PaymentStatus {
   const r = paymentStatusSchema.safeParse(value);
+  return r.success ? r.data : fallback;
+}
+
+export function parseAccountingStatus(
+  value: unknown,
+  fallback: AccountingStatus = 'pending'
+): AccountingStatus {
+  const r = accountingStatusSchema.safeParse(value);
   return r.success ? r.data : fallback;
 }
 
@@ -239,6 +249,7 @@ export function parseInvoiceRow(raw: Invoice): ParsedInvoice {
     vatMode: parseVatMode(raw.vatMode),
     paymentMethod: parsePaymentMethod(raw.paymentMethod),
     paymentStatus: parsePaymentStatus(raw.paymentStatus),
+    accountingStatus: parseAccountingStatus(raw.accountingStatus),
     supplierSnapshot: parsePartySnapshot(raw.supplierSnapshot),
     recipientSnapshot: parsePartySnapshot(raw.recipientSnapshot),
     items: parseInvoiceItems(raw.items),

@@ -55,6 +55,7 @@ function fixtureInvoice(overrides?: Partial<ParsedInvoice>): ParsedInvoice {
     language: 'bg',
     paymentMethod: 'bank',
     paymentStatus: 'paid',
+    accountingStatus: 'pending',
     dueDate: '2026-02-01',
     vatMode: 'standard',
     noVatReason: null,

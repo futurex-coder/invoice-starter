@@ -9,6 +9,9 @@
 **Base branch:** `main` (after `claude-run-1.8` merges). Start feature work on fresh
 branches off `main`.
 
+**Read `docs/PRODUCT_CONTEXT.md` first** — what we're building, for whom, and why. This
+roadmap is the *how/when*; PRODUCT_CONTEXT is the *what/why* every item should serve.
+
 **Working discipline:** see `.claude/CLAUDE.md` "Working Process" (loaded every session)
 and `REFACTOR_BACKLOG.md` §10. In short: load the matching skill, break each item into
 `TaskCreate` steps, **commit your own work** on a feature branch after the verify quad

@@ -231,10 +231,10 @@ export function ReviewForm({
     dispatch({ type: 'REMOVE_LINE', index: i });
   };
 
-  const totals = useMemo(() => {
-    const calc = calculateReceivedInvoice(lineItems);
-    return calc.totals;
-  }, [lineItems]);
+  const { items: calculatedItems, totals } = useMemo(
+    () => calculateReceivedInvoice(lineItems),
+    [lineItems]
+  );
 
   const buildPatch = (): ReceivedInvoiceReviewInput => ({
     partnerId,
@@ -663,7 +663,7 @@ export function ReviewForm({
               </thead>
               <tbody>
                 {lineItems.map((line, i) => {
-                  const calc = calculateReceivedInvoice(lineItems).items[i];
+                  const calc = calculatedItems[i];
                   return (
                     <tr key={i} className="border-b">
                       <td className="py-1">

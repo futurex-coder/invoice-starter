@@ -14,16 +14,13 @@
       "WebSearch"
     ],
     "deny": [
-      "Bash(rm -rf /)",
-      "Bash(rm -rf /*)",
-      "Bash(rm -rf ~)",
-      "Bash(rm -rf ~/*)",
       "Bash(git push --force)",
       "Bash(git push --force *)",
       "Bash(git push -f)",
       "Bash(git push -f *)"
     ]
   },
+  "fallbackModel": ["claude-opus-4-8"],
   "skipDangerousModePermissionPrompt": true,
   "skipAutoPermissionPrompt": true,
   "skipWorkflowUsageWarning": true

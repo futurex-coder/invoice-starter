@@ -42,7 +42,29 @@
       "Bash(git fetch *)",
       "PowerShell(Get-ChildItem \"D:\\\\Work\\\\invoice-starter\\\\app\" -Recurse -Include \"page.tsx\",\"layout.tsx\" | ForEach-Object { $lines = \\(Get-Content $_.FullName | Measure-Object -Line\\).Lines; \"$lines`t$\\($_.FullName.Substring\\(28\\)\\)\" } | Sort-Object {[int]\\($_ -split \"`t\"\\)[0]} -Descending)",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(git check-ignore *)",
+      "Bash(git rm *)",
+      "Bash(git restore *)",
+      "Bash(npm install *)",
+      "Bash(tail -40 \"C:\\\\Users\\\\yoans\\\\AppData\\\\Local\\\\npm-cache\\\\_logs\\\\2026-05-28T10_59_53_020Z-debug-0.log\" 2>&1)",
+      "Bash(npm --version)",
+      "Bash(pnpm --version)",
+      "Bash(yarn --version)",
+      "Bash(corepack pnpm *)",
+      "Bash(npx pnpm *)",
+      "Bash(npx drizzle-kit *)",
+      "PowerShell(\\(Get-Content components/received-invoices/ReviewForm.tsx | Measure-Object -Line\\).Lines; \\(Get-Content components/received-invoices/review-form-state.ts | Measure-Object -Line\\).Lines)",
+      "Bash(xargs wc -l)",
+      "Bash(awk '$1 > 400 && $2 != \"total\" {print $1, $2}')",
+      "Bash(cat ~/.claude/settings.json 2>/dev/null || echo \"NO_USER_SETTINGS\")",
+      "mcp__64f6cf0b-d120-454f-a628-279c733aa0a9__get_project",
+      "Bash(git worktree *)",
+      "PowerShell($base = \"D:\\\\Work\\\\invoice-starter\\\\.claude\\\\worktrees\"; foreach \\($d in @\\(\"dazzling-jackson-ef9698\",\"keen-shamir-800842\",\"peaceful-goldwasser-2242e3\"\\)\\) { $p = Join-Path $base $d; if \\(Test-Path $p\\) { try { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction Stop; Write-Output \"removed $d\" } catch { Write-Output \"FAILED $d : $\\($_.Exception.Message\\)\" } } else { Write-Output \"already gone: $d\" } }; Write-Output \"--- remaining ---\"; if \\(Test-Path $base\\) { Get-ChildItem -Force $base | Select-Object -ExpandProperty Name } else { Write-Output \"\\(worktrees dir gone\\)\" })",
+      "PowerShell($target = \"D:\\\\Work\\\\invoice-starter\\\\.claude\\\\worktrees\\\\keen-shamir-800842\"; $empty = Join-Path $env:TEMP \\(\"empty_\" + [System.Guid]::NewGuid\\(\\).ToString\\(\"N\"\\)\\); New-Item -ItemType Directory -Path $empty -Force | Out-Null; robocopy $empty $target /MIR /NFL /NDL /NJH /NJS /NC /NS /NP | Out-Null; Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue; if \\(Test-Path $target\\) { Write-Output \"STILL PRESENT\" } else { Write-Output \"removed keen-shamir-800842\" }; $base = \"D:\\\\Work\\\\invoice-starter\\\\.claude\\\\worktrees\"; Write-Output \"--- worktrees dir now ---\"; if \\(Test-Path $base\\) { $items = Get-ChildItem -Force $base; if \\($items\\) { $items | Select-Object -ExpandProperty Name } else { Write-Output \"\\(empty\\)\" } } else { Write-Output \"\\(gone\\)\" })",
+      "Bash(echo \"=== EXIT: $? ===\")",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }

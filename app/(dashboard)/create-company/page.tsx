@@ -8,6 +8,7 @@ import {
   createCompanyAction,
   type CreateCompanyInput,
 } from '@/src/features/invoicing/actions';
+import type { ValidationIssue } from '@/lib/actions/result';
 import { Building2, Loader2 } from 'lucide-react';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { IdentityCard } from './_components/IdentityCard';
@@ -33,6 +34,9 @@ export default function CreateCompanyPage() {
   const [eikStatus, setEikStatus] = useState<EikStatus>('idle');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<
+    ValidationIssue[] | null
+  >(null);
 
   const checkEik = async () => {
     const trimmed = form.eik.trim();
@@ -64,6 +68,7 @@ export default function CreateCompanyPage() {
 
     setSaving(true);
     setError(null);
+    setValidationErrors(null);
 
     const input: CreateCompanyInput = {
       legalName: form.legalName,
@@ -88,6 +93,9 @@ export default function CreateCompanyPage() {
 
     if (res.error) {
       setError(res.error);
+      if (res.validationErrors && res.validationErrors.length > 0) {
+        setValidationErrors(res.validationErrors);
+      }
       return;
     }
 
@@ -125,6 +133,7 @@ export default function CreateCompanyPage() {
           onVatNumberChange={(v) => update({ vatNumber: v })}
           mol={form.mol}
           onMolChange={(v) => update({ mol: v })}
+          validationErrors={validationErrors}
         />
 
         <AddressCard
@@ -136,6 +145,7 @@ export default function CreateCompanyPage() {
           onPostCodeChange={(v) => update({ postCode: v })}
           country={form.country}
           onCountryChange={(v) => update({ country: v })}
+          validationErrors={validationErrors}
         />
 
         <BankDetailsCard
@@ -145,6 +155,7 @@ export default function CreateCompanyPage() {
           onIbanChange={(v) => update({ iban: v })}
           bicSwift={form.bicSwift}
           onBicSwiftChange={(v) => update({ bicSwift: v })}
+          validationErrors={validationErrors}
         />
 
         <InvoiceDefaultsCard
@@ -154,6 +165,7 @@ export default function CreateCompanyPage() {
           onDefaultVatRateChange={(v) => update({ defaultVatRate: v })}
           defaultPaymentMethod={form.defaultPaymentMethod}
           onDefaultPaymentMethodChange={(v) => update({ defaultPaymentMethod: v })}
+          validationErrors={validationErrors}
         />
 
         <ErrorAlert message={error} className="mb-6" />

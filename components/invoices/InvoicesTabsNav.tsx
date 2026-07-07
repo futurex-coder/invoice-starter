@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { FileText, Inbox } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type Tab = 'outgoing' | 'received';
 
@@ -37,21 +38,23 @@ export function InvoicesTabsNav({ companyId, active, pendingReceivedCount }: Pro
               key={tab.id}
               href={tab.href}
               aria-current={isActive ? 'page' : undefined}
-              className={`inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={cn(
+                'inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors',
                 isActive
                   ? 'border-primary text-primary/90'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              )}
             >
               <Icon className="h-4 w-4" />
               {tab.label}
               {tab.badge !== undefined && (
                 <span
-                  className={`ml-1 inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
+                  className={cn(
+                    'ml-1 inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold',
                     isActive
                       ? 'bg-primary/10 text-primary'
                       : 'bg-amber-100 text-amber-700'
-                  }`}
+                  )}
                 >
                   {tab.badge}
                 </span>

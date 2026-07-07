@@ -1,7 +1,6 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -16,12 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FormField } from '@/components/forms/form-field';
 import {
   CURRENCIES,
   PAYMENT_METHODS,
   isPaymentMethod,
   type PaymentMethod,
 } from './types';
+import type { ValidationIssue } from '@/lib/actions/result';
 
 interface Props {
   defaultCurrency: string;
@@ -30,6 +31,7 @@ interface Props {
   onDefaultVatRateChange: (value: number) => void;
   defaultPaymentMethod: PaymentMethod;
   onDefaultPaymentMethodChange: (value: PaymentMethod) => void;
+  validationErrors?: ValidationIssue[] | null;
 }
 
 export function InvoiceDefaultsCard({
@@ -39,6 +41,7 @@ export function InvoiceDefaultsCard({
   onDefaultVatRateChange,
   defaultPaymentMethod,
   onDefaultPaymentMethodChange,
+  validationErrors,
 }: Props) {
   return (
     <Card className="mb-6">
@@ -48,8 +51,11 @@ export function InvoiceDefaultsCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <Label>Default currency</Label>
+          <FormField
+            name="defaultCurrency"
+            label="Default currency"
+            errors={validationErrors}
+          >
             <Select
               value={defaultCurrency}
               onValueChange={onDefaultCurrencyChange}
@@ -65,20 +71,25 @@ export function InvoiceDefaultsCard({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label htmlFor="defaultVatRate">Default VAT rate (%)</Label>
+          </FormField>
+          <FormField
+            name="defaultVatRate"
+            label="Default VAT rate (%)"
+            errors={validationErrors}
+          >
             <Input
-              id="defaultVatRate"
               type="number"
               min={0}
               max={100}
               value={defaultVatRate}
               onChange={(e) => onDefaultVatRateChange(Number(e.target.value) || 0)}
             />
-          </div>
-          <div>
-            <Label>Default payment method</Label>
+          </FormField>
+          <FormField
+            name="defaultPaymentMethod"
+            label="Default payment method"
+            errors={validationErrors}
+          >
             <Select
               value={defaultPaymentMethod}
               onValueChange={(v) => {
@@ -96,7 +107,7 @@ export function InvoiceDefaultsCard({
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FormField>
         </div>
       </CardContent>
     </Card>

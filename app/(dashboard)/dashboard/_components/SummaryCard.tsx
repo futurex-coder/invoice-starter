@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 type Color = 'green' | 'amber' | 'blue' | 'red' | 'gray' | 'purple' | 'rose';
 
@@ -27,7 +28,7 @@ export function SummaryCard({ icon, label, value, sub, color, highlight }: Props
     <Card className={highlight ? 'border-red-300 bg-red-50/30' : ''}>
       <CardContent className="pt-5">
         <div className="flex items-center gap-3 mb-2">
-          <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${BG_MAP[color]}`}>
+          <div className={cn('flex h-9 w-9 items-center justify-center rounded-lg', BG_MAP[color])}>
             {icon}
           </div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">

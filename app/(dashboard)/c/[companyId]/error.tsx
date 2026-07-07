@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { PageShell } from '@/components/page-shell';
 import { requireStringParam } from '@/lib/route-params';
+import { logger } from '@/lib/logger';
 
 /**
  * Company-scope error boundary. Catches errors within /c/[companyId]/*
@@ -28,10 +29,12 @@ export default function CompanyScopeError({
   const companyId = requireStringParam(params, 'companyId');
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[company error boundary]', error);
-    }
-  }, [error]);
+    logger.error('company error boundary triggered', {
+      err: error,
+      digest: error.digest,
+      companyId,
+    });
+  }, [error, companyId]);
 
   return (
     <PageShell>

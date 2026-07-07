@@ -76,6 +76,7 @@ export default function ArticlesPage() {
     setForm(emptyArticleForm);
     setShowForm(true);
     list.setActionError(null);
+    list.setActionValidationErrors(null);
   };
 
   const openEdit = (a: Article) => {
@@ -83,6 +84,7 @@ export default function ArticlesPage() {
     setForm(articleToForm(a));
     setShowForm(true);
     list.setActionError(null);
+    list.setActionValidationErrors(null);
   };
 
   const closeForm = () => {
@@ -135,6 +137,7 @@ export default function ArticlesPage() {
           saving={saving}
           onSave={handleSave}
           onCancel={closeForm}
+          validationErrors={list.actionValidationErrors}
         />
       )}
 

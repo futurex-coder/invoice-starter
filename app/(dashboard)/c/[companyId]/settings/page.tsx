@@ -15,6 +15,7 @@ import {
 import { canEditCompanySettings } from '@/lib/auth/permissions';
 import { useCompany } from '@/lib/context/company-context';
 import type { UpsertCompanyProfileInput } from '@/src/features/invoicing/schemas';
+import type { ValidationIssue } from '@/lib/actions/result';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { Loader2, Save, Building2, ShieldAlert } from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
@@ -51,6 +52,9 @@ export default function CompanySettingsPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<
+    ValidationIssue[] | null
+  >(null);
 
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [showTransferModal, setShowTransferModal] = useState(false);
@@ -81,6 +85,7 @@ export default function CompanySettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     setError(null);
+    setValidationErrors(null);
 
     const input: UpsertCompanyProfileInput = {
       legalName: form.legalName,
@@ -105,6 +110,9 @@ export default function CompanySettingsPage() {
 
     if (res.error) {
       setError(res.error);
+      if (res.validationErrors && res.validationErrors.length > 0) {
+        setValidationErrors(res.validationErrors);
+      }
       return;
     }
 
@@ -206,6 +214,7 @@ export default function CompanySettingsPage() {
         onVatNumberChange={(v) => updateForm({ vatNumber: v })}
         mol={form.mol}
         onMolChange={(v) => updateForm({ mol: v })}
+        validationErrors={validationErrors}
       />
 
       <AddressCard
@@ -217,6 +226,7 @@ export default function CompanySettingsPage() {
         onPostCodeChange={(v) => updateForm({ postCode: v })}
         country={form.country}
         onCountryChange={(v) => updateForm({ country: v })}
+        validationErrors={validationErrors}
       />
 
       <BankDetailsCard
@@ -226,6 +236,7 @@ export default function CompanySettingsPage() {
         onIbanChange={(v) => updateForm({ iban: v })}
         bicSwift={form.bicSwift}
         onBicSwiftChange={(v) => updateForm({ bicSwift: v })}
+        validationErrors={validationErrors}
       />
 
       <InvoiceDefaultsCard
@@ -235,6 +246,7 @@ export default function CompanySettingsPage() {
         onDefaultVatRateChange={(v) => updateForm({ defaultVatRate: v })}
         defaultPaymentMethod={form.defaultPaymentMethod}
         onDefaultPaymentMethodChange={(v) => updateForm({ defaultPaymentMethod: v })}
+        validationErrors={validationErrors}
       />
 
       {/* Save button */}

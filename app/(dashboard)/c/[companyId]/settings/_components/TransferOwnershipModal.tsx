@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Loader2 } from 'lucide-react';
 import type { MemberSummary } from './types';
+import { cn } from '@/lib/utils';
 
 interface Props {
   open: boolean;
@@ -49,11 +50,12 @@ export function TransferOwnershipModal({
             {otherMembers.map((m) => (
               <label
                 key={m.userId}
-                className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer ${
+                className={cn(
+                  'flex items-center gap-3 rounded-md border p-3 cursor-pointer',
                   selectedMemberId === m.userId
                     ? 'border-primary/40 bg-primary/5'
                     : 'border-gray-200 hover:bg-gray-50'
-                }`}
+                )}
               >
                 <input
                   type="radio"

@@ -5,6 +5,7 @@ import {
   getUserByStripeCustomerId,
   updateUserSubscription
 } from '@/lib/db/queries';
+import { logger } from '@/lib/logger';
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-04-30.basil'
@@ -121,7 +122,7 @@ export async function handleSubscriptionChange(
   const user = await getUserByStripeCustomerId(customerId);
 
   if (!user) {
-    console.error('User not found for Stripe customer:', customerId);
+    logger.error('User not found for Stripe customer', { customerId });
     return;
   }
 

@@ -25,7 +25,7 @@ export function DetailHeader({
 }: Props) {
   return (
     <div className="mb-4 flex flex-wrap items-center gap-3">
-      <Button variant="ghost" size="icon" asChild>
+      <Button variant="ghost" size="icon" asChild aria-label="Back to received invoices">
         <Link href={`/c/${companyId}/received-invoices`}>
           <ArrowLeft className="h-4 w-4" />
         </Link>

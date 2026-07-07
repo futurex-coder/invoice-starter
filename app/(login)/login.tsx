@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { CircleIcon, Loader2 } from 'lucide-react';
 import { signIn, signUp } from './actions';
 import { ActionState } from '@/lib/auth/middleware';
+import { cn } from '@/lib/utils';
 
 export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
   const searchParams = useSearchParams();
@@ -58,7 +59,10 @@ export function Login({ mode = 'signin' }: { mode?: 'signin' | 'signup' }) {
                 readOnly={!!inviteEmail}
                 required
                 maxLength={50}
-                className={`appearance-none rounded-full relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm ${inviteEmail ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                className={cn(
+                  'appearance-none rounded-full relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-primary focus:border-primary focus:z-10 sm:text-sm',
+                  inviteEmail && 'bg-gray-100 cursor-not-allowed'
+                )}
                 placeholder="Enter your email"
               />
             </div>

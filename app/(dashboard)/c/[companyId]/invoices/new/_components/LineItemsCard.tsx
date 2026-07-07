@@ -181,6 +181,7 @@ export function LineItemsCard({
                         size="sm"
                         onClick={() => onRemoveLine(i)}
                         disabled={lineItems.length <= 1}
+                        aria-label="Remove line"
                       >
                         ×
                       </Button>

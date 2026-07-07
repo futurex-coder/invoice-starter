@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type Color = 'rose' | 'purple' | 'red' | 'gray';
 
@@ -26,7 +27,7 @@ export function KpiCard({ icon, label, value, color, highlight, loading }: Props
       <CardContent className="pt-5">
         <div className="mb-2 flex items-center gap-3">
           <div
-            className={`flex h-9 w-9 items-center justify-center rounded-lg ${BG_MAP[color]}`}
+            className={cn('flex h-9 w-9 items-center justify-center rounded-lg', BG_MAP[color])}
           >
             {icon}
           </div>

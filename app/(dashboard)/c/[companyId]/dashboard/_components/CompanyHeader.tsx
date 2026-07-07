@@ -1,4 +1,5 @@
 import { Building2, Crown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Props {
   legalName: string;
@@ -17,11 +18,12 @@ export function CompanyHeader({ legalName, eik, role }: Props) {
             EIK: {eik}
           </span>
           <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
               role === 'owner'
                 ? 'bg-primary/10 text-primary'
                 : 'bg-blue-50 text-blue-700'
-            }`}
+            )}
           >
             {role === 'owner' && <Crown className="h-3 w-3" />}
             {role === 'owner' ? 'Owner' : 'Accountant'}

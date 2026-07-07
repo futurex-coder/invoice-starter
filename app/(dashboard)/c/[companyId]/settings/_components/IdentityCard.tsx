@@ -10,6 +10,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { FormField } from '@/components/forms/form-field';
+import type { ValidationIssue } from '@/lib/actions/result';
 
 interface Props {
   legalName: string;
@@ -23,6 +25,7 @@ interface Props {
   onVatNumberChange: (value: string) => void;
   mol: string;
   onMolChange: (value: string) => void;
+  validationErrors?: ValidationIssue[] | null;
 }
 
 export function IdentityCard({
@@ -37,6 +40,7 @@ export function IdentityCard({
   onVatNumberChange,
   mol,
   onMolChange,
+  validationErrors,
 }: Props) {
   return (
     <Card className="mb-6">
@@ -46,19 +50,28 @@ export function IdentityCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="legalName">Legal name *</Label>
+          <FormField
+            name="legalName"
+            label="Legal name"
+            required
+            errors={validationErrors}
+          >
             <Input
-              id="legalName"
               value={legalName}
               onChange={(e) => onLegalNameChange(e.target.value)}
               placeholder="ACME Ltd."
             />
-          </div>
-          <div>
-            <Label htmlFor="eik">ЕИК (EIK / BULSTAT) *</Label>
+          </FormField>
+          <FormField
+            name="eik"
+            label="ЕИК (EIK / BULSTAT)"
+            required
+            errors={validationErrors}
+            hint={
+              eikLocked ? 'EIK cannot be changed after company creation.' : undefined
+            }
+          >
             <Input
-              id="eik"
               value={eik}
               onChange={(e) => onEikChange(e.target.value)}
               placeholder="123456789"
@@ -66,15 +79,10 @@ export function IdentityCard({
               disabled={eikLocked}
               className={eikLocked ? 'bg-gray-50 text-gray-500' : ''}
             />
-            {eikLocked && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                EIK cannot be changed after company creation.
-              </p>
-            )}
-          </div>
+          </FormField>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
+          <div className="space-y-1">
             <Label>VAT registered?</Label>
             <RadioGroup
               value={isVatRegistered ? 'yes' : 'no'}
@@ -92,27 +100,31 @@ export function IdentityCard({
             </RadioGroup>
           </div>
           {isVatRegistered && (
-            <div>
-              <Label htmlFor="vatNumber">ДДС № (VAT number)</Label>
+            <FormField
+              name="vatNumber"
+              label="ДДС № (VAT number)"
+              errors={validationErrors}
+            >
               <Input
-                id="vatNumber"
                 value={vatNumber}
                 onChange={(e) => onVatNumberChange(e.target.value)}
                 placeholder="BG123456789"
                 maxLength={14}
               />
-            </div>
+            </FormField>
           )}
         </div>
-        <div>
-          <Label htmlFor="mol">МОЛ / Contact person</Label>
+        <FormField
+          name="mol"
+          label="МОЛ / Contact person"
+          errors={validationErrors}
+        >
           <Input
-            id="mol"
             value={mol}
             onChange={(e) => onMolChange(e.target.value)}
             placeholder="Иван Иванов"
           />
-        </div>
+        </FormField>
       </CardContent>
     </Card>
   );

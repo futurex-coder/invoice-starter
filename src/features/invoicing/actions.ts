@@ -8,6 +8,8 @@ import {
   partners,
   articles,
   invoices,
+  invitations,
+  users,
   ActivityType,
   type Company,
   type CompanyWithMembers,
@@ -26,12 +28,19 @@ import {
   getActivityLogsForDashboard,
   getDeletedCompaniesForUser,
   restoreCompany,
+  getCompaniesForUser,
 } from '@/lib/db/queries';
 import {
   canEditCompanySettings,
   canTransferOwnership,
   canDeleteCompany,
+  canInviteMembers,
+  canRemoveMembers,
 } from '@/lib/auth/permissions';
+import { validatedActionWithUser } from '@/lib/auth/middleware';
+import { sendInvitationEmail } from '@/lib/email';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 import { action, type ActionResult } from '@/lib/actions/result';
 import { requireUser, requireCompanyAccess } from '@/lib/auth/guards';
 import { parseCompanyRow } from '@/src/features/bulgarian-invoicing/parsers';
@@ -691,3 +700,118 @@ export async function restoreCompanyAction(
     await logActivity(companyId, user.id, ActivityType.RESTORE_COMPANY);
   });
 }
+
+// ---------------------------------------------------------------------------
+// J) Member management — invite / remove
+//
+// These actions use the legacy `validatedActionWithUser` middleware (not the
+// `action()` wrapper) because they're consumed by `useActionState` clients
+// that bind a `(prevState, formData)` signature.
+// ---------------------------------------------------------------------------
+
+const removeCompanyMemberSchema = z.object({
+  memberId: z.number(),
+});
+
+export const removeCompanyMember = validatedActionWithUser(
+  removeCompanyMemberSchema,
+  async (data, _formData, user) => {
+    const { memberId } = data;
+    const { companyId, role } = await requireCompanyAccess();
+
+    if (!canRemoveMembers(role)) {
+      return { error: 'Only the company owner can remove members' };
+    }
+
+    await db
+      .delete(companyMembers)
+      .where(
+        and(
+          eq(companyMembers.id, memberId),
+          eq(companyMembers.companyId, companyId)
+        )
+      );
+
+    await logActivity(companyId, user.id, ActivityType.REMOVE_MEMBER);
+
+    return { success: 'Member removed successfully' };
+  }
+);
+
+const inviteCompanyMemberSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  role: z.enum(['accountant', 'owner']),
+});
+
+export const inviteCompanyMember = validatedActionWithUser(
+  inviteCompanyMemberSchema,
+  async (data, _formData, user) => {
+    const { email, role: inviteRole } = data;
+    const { companyId, role: actorRole } = await requireCompanyAccess();
+
+    if (!canInviteMembers(actorRole)) {
+      return { error: 'Insufficient permissions to invite members' };
+    }
+    if (inviteRole === 'owner' && actorRole !== 'owner') {
+      return { error: 'Only owners can invite other owners' };
+    }
+
+    const existingMember = await db
+      .select()
+      .from(users)
+      .leftJoin(companyMembers, eq(users.id, companyMembers.userId))
+      .where(
+        and(eq(users.email, email), eq(companyMembers.companyId, companyId))
+      )
+      .limit(1);
+
+    if (existingMember.length > 0) {
+      return { error: 'User is already a member of this company' };
+    }
+
+    const existingInvitation = await db
+      .select()
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.email, email),
+          eq(invitations.companyId, companyId),
+          eq(invitations.status, 'pending')
+        )
+      )
+      .limit(1);
+
+    if (existingInvitation.length > 0) {
+      return { error: 'An invitation has already been sent to this email' };
+    }
+
+    const [invitation] = await db
+      .insert(invitations)
+      .values({
+        companyId,
+        email,
+        role: inviteRole,
+        invitedBy: user.id,
+        status: 'pending',
+      })
+      .returning();
+
+    await logActivity(companyId, user.id, ActivityType.INVITE_MEMBER);
+
+    const inviteLink = `${process.env.BASE_URL}/sign-up?inviteId=${invitation.id}&email=${encodeURIComponent(email)}`;
+
+    const memberships = await getCompaniesForUser(user.id);
+    const companyName =
+      memberships.find((m) => m.company.id === companyId)?.company.legalName ||
+      'our company';
+
+    await sendInvitationEmail(email, companyName, inviteRole, inviteLink);
+
+    revalidatePath('/dashboard');
+
+    return {
+      success: 'Invitation sent successfully',
+      inviteLink,
+    };
+  }
+);

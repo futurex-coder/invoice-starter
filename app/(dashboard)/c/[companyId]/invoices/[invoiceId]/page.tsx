@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,6 @@ import {
   parseInvoiceTotalsStrict,
   parsePartySnapshotStrict,
 } from '@/src/features/bulgarian-invoicing/parsers';
-import type { Invoice } from '@/lib/db/schema';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
 import { requireStringParam } from '@/lib/route-params';
 import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
@@ -31,6 +30,8 @@ import { PageShell } from '@/components/page-shell';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert } from '@/components/ui/alert';
 import { useCurrentUser } from '@/lib/swr/use-current-user';
+import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Draft',
@@ -46,51 +47,42 @@ export default function InvoiceDetailPage() {
   const id = Number(params.invoiceId);
   const printMode = searchParams.get('print') === '1';
 
-  const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: invoice,
+    isLoading: loading,
+    error: fetchError,
+    mutate,
+  } = useActionSWR(['invoice', id], () => getInvoice(id));
+
+  const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const { data: currentUser } = useCurrentUser();
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      const res = await getInvoice(id);
-      if (cancelled) return;
-      setLoading(false);
-      if (res.error) {
-        setError(res.error);
-        return;
-      }
-      if (res.data) setInvoice(res.data);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+  const error = actionError ?? (fetchError ? fetchError.message : null);
 
   const handleFinalize = async () => {
     setActionLoading(true);
-    setError(null);
+    setActionError(null);
     const res = await finalizeInvoice(id);
     setActionLoading(false);
-    if (res.error) setError(res.error);
-    else if (res.data) setInvoice(res.data);
+    if (res.error) {
+      setActionError(res.error);
+      return;
+    }
+    if (res.data) mutate(res.data, { revalidate: false });
   };
 
   const handleCancelConfirmed = async () => {
     setActionLoading(true);
-    setError(null);
+    setActionError(null);
     const res = await cancelInvoice(id);
     setActionLoading(false);
     if (res.error) {
-      setError(res.error);
+      setActionError(res.error);
       throw new Error(res.error);
     }
-    if (res.data) setInvoice(res.data);
+    if (res.data) mutate(res.data, { revalidate: false });
   };
 
   const handlePrint = () => {
@@ -142,7 +134,7 @@ export default function InvoiceDetailPage() {
     <PageShell maxWidth="4xl" className="mx-auto">
       <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" size="icon" asChild aria-label="Back to invoices">
             <Link href={`/c/${companyId}/invoices`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
@@ -156,9 +148,10 @@ export default function InvoiceDetailPage() {
               {formatDateBg(invoice.issueDate)}
               {' · '}
               <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                className={cn(
+                  'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
                   isCancelled ? 'bg-gray-200' : isDraft ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'
-                }`}
+                )}
               >
                 {STATUS_LABELS[invoice.status] ?? invoice.status}
               </span>
@@ -229,11 +222,11 @@ export default function InvoiceDetailPage() {
                 disabled={actionLoading}
                 onValueChange={async (v) => {
                   setActionLoading(true);
-                  setError(null);
+                  setActionError(null);
                   const res = await updateInvoicePaymentInfo(id, { paymentStatus: v });
                   setActionLoading(false);
-                  if (res.error) setError(res.error);
-                  else if (res.data) setInvoice(res.data);
+                  if (res.error) setActionError(res.error);
+                  else if (res.data) mutate(res.data, { revalidate: false });
                 }}
               >
                 <SelectTrigger className="h-8 w-auto">
@@ -259,11 +252,11 @@ export default function InvoiceDetailPage() {
                 disabled={actionLoading}
                 onChange={async (e) => {
                   setActionLoading(true);
-                  setError(null);
+                  setActionError(null);
                   const res = await updateInvoicePaymentInfo(id, { dueDate: e.target.value || null });
                   setActionLoading(false);
-                  if (res.error) setError(res.error);
-                  else if (res.data) setInvoice(res.data);
+                  if (res.error) setActionError(res.error);
+                  else if (res.data) mutate(res.data, { revalidate: false });
                 }}
               />
             ) : (

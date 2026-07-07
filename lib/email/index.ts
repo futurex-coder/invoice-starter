@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { logger } from '@/lib/logger';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -30,10 +31,10 @@ export async function sendInvitationEmail(to: string, companyName: string, role:
 
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.warn('Email sent: %s', info.messageId);
+    logger.warn('Email sent', { messageId: info.messageId });
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending email:', error);
+    logger.error('Error sending email', { err: error });
     return { success: false, error };
   }
 }

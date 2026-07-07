@@ -6,6 +6,7 @@ import {
   type ExtractedInvoice,
   type CriticalFieldKey,
 } from '@/app/api/invoices/extract/schema';
+import { logger } from '@/lib/logger';
 
 export const ALLOWED_EXTRACT_MIME_TYPES = [
   'image/jpeg',
@@ -313,7 +314,7 @@ export async function extractInvoiceFromBytes(input: {
   } catch (error) {
     // Re-prompt failed — fall back to the first-pass result rather than
     // 500-ing the whole upload. The user can still review and fill in.
-    console.warn('extract retry failed, using first-pass result:', error);
+    logger.warn('extract retry failed, using first-pass result', { err: error });
     return { data: first.parsed, modelId: EXTRACTION_MODEL_ID, passes: 1 };
   }
 

@@ -14,15 +14,12 @@ import {
 import { logActivity } from '@/lib/db/activity';
 import { comparePasswords, hashPassword, setSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { createCheckoutSession } from '@/lib/payments/stripe';
-import { getUser, getCompaniesForUser, getActiveCompanyId, verifyCompanyAccess } from '@/lib/db/queries';
-import { sendInvitationEmail } from '@/lib/email';
-import { canRemoveMembers, canInviteMembers } from '@/lib/auth/permissions';
+import { getUser, getCompaniesForUser } from '@/lib/db/queries';
 import {
   validatedAction,
-  validatedActionWithUser
+  validatedActionWithUser,
 } from '@/lib/auth/middleware';
 
 async function getFirstCompanyId(userId: number): Promise<number | null> {
@@ -321,121 +318,6 @@ export const updateAccount = validatedActionWithUser(
   }
 );
 
-const removeCompanyMemberSchema = z.object({
-  memberId: z.number()
-});
-
-export const removeCompanyMember = validatedActionWithUser(
-  removeCompanyMemberSchema,
-  async (data, _, user) => {
-    const { memberId } = data;
-    const companyId = await getActiveCompanyId();
-    if (!companyId) {
-      return { error: 'No active company selected' };
-    }
-
-    const membership = await verifyCompanyAccess(user.id, companyId);
-    if (!membership) {
-      return { error: 'No access to this company' };
-    }
-    if (!canRemoveMembers(membership.role)) {
-      return { error: 'Only the company owner can remove members' };
-    }
-
-    await db
-      .delete(companyMembers)
-      .where(
-        and(
-          eq(companyMembers.id, memberId),
-          eq(companyMembers.companyId, companyId)
-        )
-      );
-
-    await logActivity(companyId, user.id, ActivityType.REMOVE_MEMBER);
-
-    return { success: 'Member removed successfully' };
-  }
-);
-
-const inviteCompanyMemberSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  role: z.enum(['accountant', 'owner'])
-});
-
-export const inviteCompanyMember = validatedActionWithUser(
-  inviteCompanyMemberSchema,
-  async (data, _, user) => {
-    const { email, role } = data;
-    const companyId = await getActiveCompanyId();
-    if (!companyId) {
-      return { error: 'No active company selected' };
-    }
-
-    const membership = await verifyCompanyAccess(user.id, companyId);
-    if (!membership) {
-      return { error: 'No access to this company' };
-    }
-    if (!canInviteMembers(membership.role)) {
-      return { error: 'Insufficient permissions to invite members' };
-    }
-    if (role === 'owner' && membership.role !== 'owner') {
-      return { error: 'Only owners can invite other owners' };
-    }
-
-    const existingMember = await db
-      .select()
-      .from(users)
-      .leftJoin(companyMembers, eq(users.id, companyMembers.userId))
-      .where(
-        and(eq(users.email, email), eq(companyMembers.companyId, companyId))
-      )
-      .limit(1);
-
-    if (existingMember.length > 0) {
-      return { error: 'User is already a member of this company' };
-    }
-
-    const existingInvitation = await db
-      .select()
-      .from(invitations)
-      .where(
-        and(
-          eq(invitations.email, email),
-          eq(invitations.companyId, companyId),
-          eq(invitations.status, 'pending')
-        )
-      )
-      .limit(1);
-
-    if (existingInvitation.length > 0) {
-      return { error: 'An invitation has already been sent to this email' };
-    }
-
-    const [invitation] = await db
-      .insert(invitations)
-      .values({
-        companyId,
-        email,
-        role,
-        invitedBy: user.id,
-        status: 'pending'
-      })
-      .returning();
-
-    await logActivity(companyId, user.id, ActivityType.INVITE_MEMBER);
-
-    const inviteLink = `${process.env.BASE_URL}/sign-up?inviteId=${invitation.id}&email=${encodeURIComponent(email)}`;
-
-    const memberships = await getCompaniesForUser(user.id);
-    const companyName = memberships.find(m => m.company.id === companyId)?.company.legalName || 'our company';
-
-    await sendInvitationEmail(email, companyName, role, inviteLink);
-
-    revalidatePath('/dashboard');
-
-    return {
-      success: 'Invitation sent successfully',
-      inviteLink
-    };
-  }
-);
+// removeCompanyMember + inviteCompanyMember moved to
+// `src/features/invoicing/actions.ts` (N5 — keep auth flows in (login),
+// company-feature actions in the invoicing feature).

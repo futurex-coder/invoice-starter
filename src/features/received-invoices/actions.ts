@@ -39,6 +39,7 @@ import type {
   ParsedReceivedInvoiceLine,
 } from './parsed-types';
 import type { ExtractedInvoice } from '@/app/api/invoices/extract/schema';
+import { logger } from '@/lib/logger';
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -954,7 +955,7 @@ export async function hardDeleteDiscardedReceivedInvoice(
         path: existing.fileObjectKey,
       });
     } catch (e) {
-      console.warn('storage delete failed (continuing):', e);
+      logger.warn('storage delete failed (continuing)', { err: e });
     }
 
     await db

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { PageShell } from '@/components/page-shell';
+import { logger } from '@/lib/logger';
 
 /**
  * Dashboard-scope error boundary. Catches errors within (dashboard)/*
@@ -18,9 +19,10 @@ export default function DashboardError({
   reset: () => void;
 }) {
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[dashboard error boundary]', error);
-    }
+    logger.error('dashboard error boundary triggered', {
+      err: error,
+      digest: error.digest,
+    });
   }, [error]);
 
   return (

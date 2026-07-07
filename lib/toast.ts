@@ -74,3 +74,23 @@ export const toast = {
   warning: (message: string, opts?: ToastOptions): number =>
     show('warning', message, opts?.duration),
 } as const;
+
+/**
+ * React-hook ergonomic alias for the `toast` singleton.
+ *
+ * The underlying queue is module-level so a hook isn't strictly necessary,
+ * but `useToast()` reads more naturally in callers that follow the
+ * `useFoo()` convention for everything else (useCurrentUser, useActionSWR,
+ * useListPageState, …).
+ *
+ * @example
+ *   const toast = useToast();
+ *   const onSave = async () => {
+ *     const res = await save();
+ *     if (res.error) toast.error(res.error);
+ *     else toast.success('Saved');
+ *   };
+ */
+export function useToast(): typeof toast {
+  return toast;
+}

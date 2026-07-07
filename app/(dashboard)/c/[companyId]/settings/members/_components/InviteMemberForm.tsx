@@ -2,7 +2,6 @@
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -18,6 +17,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { FormField } from '@/components/forms/form-field';
+import type { ValidationIssue } from '@/lib/actions/result';
 
 export type InviteRole = 'owner' | 'accountant';
 
@@ -34,6 +35,7 @@ interface Props {
   showOwnerOption: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
+  validationErrors?: ValidationIssue[] | null;
 }
 
 export function InviteMemberForm({
@@ -45,6 +47,7 @@ export function InviteMemberForm({
   showOwnerOption,
   onSubmit,
   onCancel,
+  validationErrors,
 }: Props) {
   return (
     <Card className="mb-6">
@@ -57,26 +60,28 @@ export function InviteMemberForm({
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="invEmail">Email address *</Label>
+            <FormField
+              name="email"
+              label="Email address"
+              required
+              errors={validationErrors}
+            >
               <Input
-                id="invEmail"
                 type="email"
                 value={email}
                 onChange={(e) => onEmailChange(e.target.value)}
                 placeholder="colleague@example.com"
                 required
               />
-            </div>
-            <div>
-              <Label htmlFor="invRole">Role</Label>
+            </FormField>
+            <FormField name="role" label="Role" errors={validationErrors}>
               <Select
                 value={role}
                 onValueChange={(v) => {
                   if (isInviteRole(v)) onRoleChange(v);
                 }}
               >
-                <SelectTrigger id="invRole" className="mt-1">
+                <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -84,7 +89,7 @@ export function InviteMemberForm({
                   {showOwnerOption && <SelectItem value="owner">Owner</SelectItem>}
                 </SelectContent>
               </Select>
-            </div>
+            </FormField>
           </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={inviting}>

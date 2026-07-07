@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Crown, Loader2, Trash2, User } from 'lucide-react';
 import type { CompanyMember, User as UserRow } from '@/lib/db/schema';
+import { cn } from '@/lib/utils';
 
 type Member = CompanyMember & { user: Pick<UserRow, 'id' | 'name' | 'email'> };
 
@@ -73,11 +74,12 @@ export function MembersTable({ members, canRemove, removingId, onRemove }: Props
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
                         m.role === 'owner'
                           ? 'bg-primary/10 text-primary'
                           : 'bg-blue-50 text-blue-700'
-                      }`}
+                      )}
                     >
                       {m.role === 'owner' && <Crown className="h-3 w-3" />}
                       {m.role === 'owner' ? 'Owner' : 'Accountant'}

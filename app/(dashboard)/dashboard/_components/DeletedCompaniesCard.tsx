@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import type { DeletedCompanyRow } from './types';
+import { cn } from '@/lib/utils';
 
 interface Props {
   rows: DeletedCompanyRow[];
@@ -15,7 +16,7 @@ interface Props {
 export function DeletedCompaniesCard({ rows, restoringId, onRestore, className }: Props) {
   if (rows.length === 0) return null;
   return (
-    <Card className={`border-amber-200 ${className ?? ''}`}>
+    <Card className={cn('border-amber-200', className)}>
       <CardHeader>
         <div className="flex items-center gap-2">
           <Trash2 className="h-4 w-4 text-amber-600" />

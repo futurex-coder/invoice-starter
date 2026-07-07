@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { logger } from '@/lib/logger';
 
 /**
  * Root error boundary. Catches errors anywhere in the app that aren't
@@ -21,10 +22,10 @@ export default function RootError({
   reset: () => void;
 }) {
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('[root error boundary]', error);
-    }
-    // TODO: report to Sentry/Logflare when structured logging lands.
+    logger.error('root error boundary triggered', {
+      err: error,
+      digest: error.digest,
+    });
   }, [error]);
 
   return (

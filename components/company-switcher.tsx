@@ -12,16 +12,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Building2, Check, ChevronsUpDown, Plus, LayoutGrid } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 function RoleBadge({ role }: { role: string }) {
   const isOwner = role === 'owner';
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none ${
+      className={cn(
+        'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none',
         isOwner
           ? 'bg-primary/10 text-primary'
           : 'bg-gray-100 text-gray-600'
-      }`}
+      )}
     >
       {isOwner ? 'Owner' : 'Accountant'}
     </span>
@@ -72,9 +74,10 @@ export function CompanySwitcher() {
                 }}
               >
                 <Check
-                  className={`h-3.5 w-3.5 shrink-0 ${
+                  className={cn(
+                    'h-3.5 w-3.5 shrink-0',
                     isActive ? 'text-primary' : 'text-transparent'
-                  }`}
+                  )}
                 />
                 <span className="flex flex-col gap-0.5 min-w-0 flex-1">
                   <span className="truncate text-sm">{m.company.legalName}</span>

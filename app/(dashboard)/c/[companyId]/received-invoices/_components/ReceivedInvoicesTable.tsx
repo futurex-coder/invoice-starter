@@ -14,6 +14,7 @@ import {
   isOverdue,
 } from './utils';
 import { formatDate } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 interface RowProps {
   item: ReceivedInvoiceListItem;
@@ -38,13 +39,14 @@ function Row(props: RowProps) {
 
   return (
     <tr
-      className={`border-b border-gray-200 ${
+      className={cn(
+        'border-b border-gray-200',
         overdue
           ? 'bg-red-50 hover:bg-red-100/70'
           : archived
             ? 'opacity-60 hover:bg-gray-50/50'
             : 'hover:bg-gray-50/50'
-      }`}
+      )}
     >
       <td className="w-8 px-2 py-3">
         <a
@@ -82,13 +84,14 @@ function Row(props: RowProps) {
       </td>
       <td className="px-4 py-3">
         <span
-          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+          className={cn(
+            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
             isDiscarded
               ? 'bg-gray-200 text-gray-700'
               : isDraft
                 ? 'bg-amber-100 text-amber-800'
                 : 'bg-green-100 text-green-800'
-          }`}
+          )}
         >
           {STATUS_LABELS[item.status] ?? item.status}
         </span>
@@ -133,7 +136,7 @@ export function ReceivedInvoicesTable(props: TableProps) {
           <th className={HEADER_CELL_CLASS}>Payment</th>
           <th className={HEADER_CELL_CLASS}>Total</th>
           <th className={HEADER_CELL_CLASS}>Status</th>
-          <th className={`${HEADER_CELL_CLASS} text-right`}>Actions</th>
+          <th className={cn(HEADER_CELL_CLASS, 'text-right')}>Actions</th>
         </tr>
       </thead>
       <tbody>

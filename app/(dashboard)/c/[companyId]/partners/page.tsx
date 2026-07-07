@@ -144,6 +144,7 @@ export default function PartnersPage() {
     setSelfEikError(false);
     setShowForm(true);
     list.setActionError(null);
+    list.setActionValidationErrors(null);
   };
 
   const openEdit = (p: Partner) => {
@@ -153,6 +154,7 @@ export default function PartnersPage() {
     setSelfEikError(false);
     setShowForm(true);
     list.setActionError(null);
+    list.setActionValidationErrors(null);
   };
 
   const closeForm = () => {
@@ -212,6 +214,7 @@ export default function PartnersPage() {
           saving={saving}
           onSave={handleSave}
           onCancel={closeForm}
+          validationErrors={list.actionValidationErrors}
         />
       )}
 

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Crown, ArrowRight } from 'lucide-react';
 import { formatMoney } from '@/lib/format';
 import type { CompanyMetric } from './types';
+import { cn } from '@/lib/utils';
 
 interface Props {
   companies: CompanyMetric[];
@@ -22,11 +23,12 @@ export function CompaniesGrid({ companies }: Props) {
                     {c.companyName}
                   </CardTitle>
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                    className={cn(
+                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium',
                       c.role === 'owner'
                         ? 'bg-primary/10 text-primary'
                         : 'bg-blue-50 text-blue-700'
-                    }`}
+                    )}
                   >
                     {c.role === 'owner' && <Crown className="h-3 w-3" />}
                     {c.role === 'owner' ? 'Owner' : 'Accountant'}
@@ -51,9 +53,10 @@ export function CompaniesGrid({ companies }: Props) {
                   <div>
                     <p className="text-xs text-muted-foreground">Overdue</p>
                     <p
-                      className={`text-sm font-semibold ${
+                      className={cn(
+                        'text-sm font-semibold',
                         c.overdueCount > 0 ? 'text-red-600' : 'text-gray-500'
-                      }`}
+                      )}
                     >
                       {c.overdueCount}
                     </p>
@@ -75,11 +78,12 @@ export function CompaniesGrid({ companies }: Props) {
                   <div>
                     <p className="text-xs text-muted-foreground">To review</p>
                     <p
-                      className={`text-sm font-semibold ${
+                      className={cn(
+                        'text-sm font-semibold',
                         c.pendingReviewCount > 0
                           ? 'text-amber-700'
                           : 'text-gray-500'
-                      }`}
+                      )}
                     >
                       {c.pendingReviewCount}
                     </p>

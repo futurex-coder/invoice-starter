@@ -4,8 +4,8 @@
 > everything the refactor has shipped, everything still on the list, and the
 > recommended sequence for the next sitting. Update it as work lands.
 
-**Last updated:** 2026-07-07
-**Active branch when this was written:** `claude-run-1.8` (12 commits ahead of `main` — PR + merge before starting new work)
+**Last updated:** 2026-07-08
+**Active branch when this was written:** `claude-run-1.9` (Phase 0 complete: N23 + N22 + N15 shipped on top of the 1.8 stack)
 
 ---
 
@@ -21,8 +21,8 @@ validation `<FormField>`), N14 (RTL test setup + 33 smoke tests), N11 (invoice
 detail → SWR), N12 (a11y aria-labels), A7 (cn() sweep), N13 (useToast), N5 (relocate
 member actions), N4 (split queries.ts), N8 (structured logger), N10 (ReviewForm →
 useReducer), N6 (composite index), N7 (pool cap), N2 (next 16 upgrade). What remains
-is either **deferred-by-design** (waiting on a trigger) or **three small actionable
-items** — see §4 and §5.
+is either **deferred-by-design** (waiting on a trigger) or the **two follow-ups N15
+surfaced (N24, N25)** — see §4 and §5.
 
 **You (the next session) should:**
 1. **Read section 10 first** — the working-process rules: which skill to load per
@@ -94,6 +94,7 @@ items** — see §4 and §5.
 | N10 | ReviewForm → useReducer | 7-variant FormAction; `touched` kept as useState |
 | N23 | ReviewForm line-item perf | single useMemo shared by totals + row loop |
 | N22 | PPR via cacheComponents + middleware→proxy | company routes ◐ PPR; dead template page removed |
+| N15 | Invoice-lifecycle integration tests (13, real DB) + credit/debit-note numbering fix | notes now inherit parent series+number per DB trigger; CN/DN creation was broken in prod |
 
 ---
 
@@ -175,8 +176,8 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [ ] **D4** `createdByUserId` consistency on partners/articles — *audit-trail design call*
 - [ ] **D5** Reduce `'use client'` count (66/100 files) — *defer until measured*
 
-### N-tier — 23 items: 16 done, N14 partial, 6 pending
-*(pending = 1 actionable: N15 · 5 deferred/blocked: N3, N18, N19, N20, N21)*
+### N-tier — 25 items: 17 done, N14 partial, 7 pending
+*(pending = 2 actionable: N24, N25 · 5 deferred/blocked: N3, N18, N19, N20, N21)*
 - [x] **N2** `next@canary` → `next@16.2.6` stable — also removed `experimental.clientSegmentCache` (gone in 16) and disabled `experimental.ppr` (now opt-in via `cacheComponents`, needs a separate route-config sweep). See N22.
 - [ ] **N3** Stripe webhook idempotency — **out of scope per user**
 - [x] **N4** Split `lib/db/queries.ts` (768 lines) → `lib/db/queries/{auth,companies,subscriptions,activity,invoices,partners,articles,dashboard}.ts` + barrel `index.ts`. No public-API change; consumers still import from `@/lib/db/queries`. No cross-module circular deps.
@@ -190,51 +191,36 @@ When a fresh session needs to orient, these are the load-bearing files:
 - [x] **N12** Icon-only button `aria-label` sweep — added labels to ArticlesStep remove, upload back, new-invoice back, ReviewHeader back, DetailHeader back, LineItemsCard remove, ReviewForm remove, SearchBar search; ArticleForm/PartnerForm close + invoice-detail back already labeled in N9. RowActionsMenu / ReceivedInvoiceRowActions use `<span className="sr-only">Actions</span>` (canonical).
 - [x] **N13** `useToast()` ergonomic wrapper added in `lib/toast.ts`
 - [ ] **N14** `@testing-library/react` setup + smoke tests — *partial*: RTL + jsdom + jest-dom installed; vitest.config.ts → jsdom env + setup; 33 tests for Dialog, Select, Alert, ConfirmDialog, EntityPicker, FormField. Still TODO: Toast, PageShell (low-value — mostly markup).
-- [ ] **N15** Integration tests for `createInvoiceDraft → finalize → credit-note` flow — **now unblocked** (N14 set up RTL + jsdom). Actionable — see §5.
+- [x] **N15** Integration tests for `createInvoiceDraft → finalize → credit-note` flow — `src/features/bulgarian-invoicing/lifecycle.integration.test.ts`: 13 tests running the REAL server actions against the REAL DB (only the cookie-bound auth guard is mocked; throwaway `[N15-TEST]` company created/purged around the suite). Covers draft numbering + totals + persisted lines + partner/article auto-create, monotonic allocation, domain-validation failures, finalize + double-finalize + update-after-finalize guards, credit-note creation (+ multiple notes per parent, note-on-note refusal), cross-company scoping, and cancel transitions. **Found + fixed a real bug**: `createNoteFromInvoice` used its own `CN`/`DN` series + fresh sequence numbers, which the live-DB trigger `trg_enforce_invoice_numbering` rejects — every credit/debit note creation failed in the app. Notes now inherit the parent's series + number per the DB contract (see `knowledge/invoice-numbering-triggers.md`). Note: `npm test` now needs `POSTGRES_URL` (.env) reachable.
 - [ ] **N18** `settings/members/page.tsx` → `useListPageState` — *deferred*: `getCompanyMembersAction` is no-param but `useListPageState` requires `{...filters, page, pageSize}`. Page already on `useActionSWR` with manual mutation-error tracking; migration adds type-shape friction without benefit until a real filter ships. Revisit when members gets search.
 - [ ] **N19** i18n layer — BG-EN mix; defer until shipping beyond BG
 - [ ] **N20** `activity_logs.description` column — CANCEL_INVOICE reason currently dropped from feed (TODO in `bulgarian-invoicing/actions.ts`)
 - [ ] **N21** `debug/page.tsx` (399 lines) — env-gated correctly, fine as-is
 - [x] **N22** PPR re-enabled via `cacheComponents: true` — dropped `force-dynamic` from dashboard + debug pages (loading.tsx boundaries provide the Suspense shells), pricing migrated to `'use cache'` + `cacheLife('hours')`, `middleware.ts` → `proxy.ts` (fn renamed, `runtime` key dropped — node is proxy default). Also removed dead `app/(dashboard)/page.tsx` (fully commented-out SaaS-template leftover that conflicted with `app/page.tsx` for `/`) and moved the landing footer year into a `<CurrentYear>` client island (server components can't read current time during prerender). Build: company routes now ◐ Partial Prerender; pricing 1h/1d. Verified by running: `/`→company-dashboard redirect, no-session 307→/sign-in, review route, /debug, /pricing, footer year, console clean.
 - [x] **N23** `ReviewForm.tsx` line-item perf — the `totals` `useMemo` now returns `{ items: calculatedItems, totals }` and the row loop indexes into `calculatedItems[i]` instead of recomputing `calculateReceivedInvoice(lineItems)` per row. Verified by running: row gross + totals recompute correctly on qty edit (20×290 → 10×290 reconciled by hand), mobile intact.
+- [ ] **N24** DB triggers not captured in migrations — *`trg_enforce_invoice_numbering` + `trg_prevent_invoice_number_mutation` exist only in the live DB; a DB rebuilt from `lib/db/migrations/` would silently lose all numbering guarantees.* Add them to a migration (idempotent `CREATE OR REPLACE` + `DROP TRIGGER IF EXISTS`). Source dumped in `knowledge/invoice-numbering-triggers.md`. Effort: S/M.
+- [ ] **N25** New-invoice form offers doc types the DB rejects — *the DocumentCard radio lists all `DOC_TYPES`; picking `proforma` can never insert (`Unknown doc_type` trigger exception), and picking `credit_note`/`debit_note` routes through `createInvoiceDraft`, which allocates its own series/number → trigger rejection.* Either restrict the form to `invoice` (notes are created from a finalized invoice's row menu; proforma is PROF-1) or teach `createInvoiceDraft` the note rules. Product call — logged in REVIEW_QUEUE. Effort: S (restrict) / M (support).
 
 ---
 
 ## 5. Recommended sequence for next session
 
-**State:** all big-leverage N-tier + design-system items are shipped. What remains is
-**three small, independent, actionable items** plus optional test polish. None block
-each other; pick in any order.
+**State:** Phase 0 is complete — N23, N22, and N15 all shipped (see §2 / §4). What
+remains actionable is the pair of findings N15 surfaced, plus optional test polish.
 
 ### 🎯 Actionable now
 
-**A — N23: ReviewForm line-item perf (S, ~30min)**
-- **Where**: `components/received-invoices/ReviewForm.tsx`, the line-item `.map(...)` in
-  the items table (was ~line 641 pre-N10; grep for `calculateReceivedInvoice`).
-- **Problem**: `calculateReceivedInvoice(lineItems)` is recomputed once *per row* inside the
-  map — O(n) recomputes per render. The `totals` `useMemo` already computes the same thing.
-- **Fix**: hoist the per-line calc results out of the map — compute the `items` array once
-  (either extend the existing `totals` `useMemo` to expose per-line results, or add a sibling
-  `useMemo`) and index into it in the row loop.
-- **Verify**: behavior identical (same rendered numbers); type-check + lint + `npm test` green.
+**A — N24: capture the numbering triggers in a migration (S/M)**
+- The two `invoices` triggers exist only in the live DB — see
+  `knowledge/invoice-numbering-triggers.md` for the dumped source and re-dump SQL.
+- Add an idempotent migration (`CREATE OR REPLACE FUNCTION` + `DROP TRIGGER IF EXISTS`
+  … `CREATE TRIGGER`) so `db:migrate` rebuilds a faithful DB.
+- **Skill**: `anthropic-skills:senior-data-engineer`; follow `docs/migrations.md`.
 
-**B — N22: Re-enable PPR via `cacheComponents: true` (M, ~half day)**
-- **Why deferred in N2**: Next 16 renamed `experimental.ppr` → opt-in `cacheComponents`,
-  which is incompatible with per-route `dynamic`/`revalidate` exports.
-- **Blockers to clear first** (build errors point right at them):
-  - `app/(dashboard)/c/[companyId]/dashboard/page.tsx` — `export const dynamic = 'force-dynamic'`
-  - `app/(dashboard)/debug/page.tsx` — `export const dynamic = 'force-dynamic'`
-  - `app/(dashboard)/pricing/page.tsx` — `export const revalidate = 3600`
-  - `middleware.ts` — Next 16 deprecates the `middleware` convention in favor of `proxy`
-- **Approach**: migrate each route to the `'use cache'` + `cacheLife(...)` model, rename
-  middleware → proxy, then flip `cacheComponents: true` in `next.config.ts` and `npm run build`.
-- **Skill**: load `anthropic-skills:senior-frontend`; consult Next 16 cacheComponents docs.
-
-**C — N15: Integration tests for the invoice lifecycle (M, ~half day)**
-- **Now unblocked** — N14 set up RTL + jsdom + jest-dom.
-- **Flow to cover**: `createInvoiceDraft → finalize → credit-note`. Also good: partner-link on
-  received-invoice review, and the `ActionResult` failure surfacing through `<FormField>`.
-- **Skill**: `anthropic-skills:tdd-guide` + `engineering:testing-strategy`.
+**B — N25: stop the new-invoice form offering doc types the DB rejects (S)**
+- `DocumentCard` lists all `DOC_TYPES`; `proforma` can never insert and CN/DN via
+  `createInvoiceDraft` violates the trigger. Product call logged in REVIEW_QUEUE
+  (CN-FORM) — default recommendation: restrict the form to `invoice`.
 
 ### ✨ Optional polish
 - **N14 leftovers (XS)**: Toast + PageShell smoke tests. Low value — both are mostly markup;
@@ -261,9 +247,8 @@ each other; pick in any order.
 
 | Time | Pick |
 |---|---|
-| **30 min** | N23 (ReviewForm perf) — one-file, mechanical, measurable. |
-| **Half day** | N22 (PPR re-enable) **or** N15 (integration tests). Independent; either is a clean self-contained PR. |
-| **Full day** | N22 + N15 together, or one of them + the N14 polish tests. |
+| **30 min** | N25 (restrict form doc types) — one component + a REVIEW_QUEUE answer. |
+| **Half day** | N24 (trigger migration) + N25 together. |
 | **New feature instead?** | Nothing in this backlog blocks feature work — see §7. A 3rd CRUD entity would also unlock B7. |
 
 ---
@@ -301,7 +286,9 @@ grep -rn "window\\.confirm\\|^\\s*if\\s*(!confirm(" app/
 
 # Test count baseline
 npm test 2>&1 | grep -E "Tests +\\d+ passed"
-# Expected: 201 passed (18 files)
+# Expected: 214 passed (19 files)
+# NB: the N15 integration suite needs POSTGRES_URL (.env) reachable — it runs
+# against the real DB with a self-cleaning throwaway company.
 ```
 
 ---

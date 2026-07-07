@@ -851,12 +851,19 @@ async function createNoteFromInvoice(
     if (!original) {
       throw new Error('Original invoice not found');
     }
+    if (original.docType !== 'invoice') {
+      throw new Error('Notes can only be created against regular invoices');
+    }
     if (original.status !== InvoiceStatus.FINALIZED) {
       throw new Error('Can only create notes against finalized invoices');
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const series = DEFAULT_SERIES[noteType];
+    // DB contract (trg_enforce_invoice_numbering): credit/debit notes inherit
+    // the parent invoice's series AND number — they are not numbered from
+    // their own sequence. Multiple notes per parent share the same number.
+    const series = original.series;
+    const number = original.number;
 
     const supplier = overrides?.supplier
       ?? parsePartySnapshotStrict(original.supplierSnapshot);
@@ -901,7 +908,7 @@ async function createNoteFromInvoice(
       docType: noteType,
       status: 'finalized',
       series,
-      number: 1,
+      number,
       issueDate,
       supplyDate: supplyDate ?? null,
       currency,
@@ -931,8 +938,6 @@ async function createNoteFromInvoice(
     const articleIds = lineItemInputs.map((l) => l.articleId ?? null);
 
     const result = await db.transaction(async (tx) => {
-      const allocatedNumber = await allocateNumber(tx, companyId, series);
-
       const [created] = await tx
         .insert(invoices)
         .values({
@@ -943,7 +948,7 @@ async function createNoteFromInvoice(
           docType: noteType,
           status: InvoiceStatus.FINALIZED,
           series,
-          number: allocatedNumber,
+          number,
           issueDate,
           supplyDate: supplyDate ?? null,
           currency,

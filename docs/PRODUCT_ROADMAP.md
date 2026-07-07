@@ -18,7 +18,7 @@ information → implementation → verification → autonomy protocol.
 **Working discipline:** see `.claude/CLAUDE.md` "Working Process" (loaded every session)
 and `REFACTOR_BACKLOG.md` §10. In short: load the matching skill, break each item into
 `TaskCreate` steps, **commit your own work** on a feature branch after the verify quad
-(type-check + lint + `npm test` baseline 201 + `npm run build`) passes, keep commits
+(type-check + lint + `npm test` baseline 214 + `npm run build`) passes, keep commits
 atomic, tick the item here in the same commit, and record durable findings in
 `docs/knowledge/`. Strict TS rules apply (no `any`, no `as` casts, no `@ts-ignore`).
 

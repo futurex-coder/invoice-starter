@@ -66,6 +66,45 @@ _(The agent appends below. Seeded with the known-open product decisions from
   readable), or confirm which NAP doc it is (invoice-content rules / SAF-T / e-invoicing mandate).
 - **Blocks:** NAP-1 scoping.
 
+### CN-NUMBERING — Credit/debit-note numbering: parent's number vs own sequence — PROCEEDED
+- **When:** N15 integration tests (2026-07-08).
+- **Context:** The tests exposed that **every credit/debit-note creation failed in the
+  app**: the action gave notes their own `CN`/`DN` series + fresh numbers, but the live-DB
+  trigger `trg_enforce_invoice_numbering` requires notes to **inherit the parent invoice's
+  series AND number** (full trigger source: `docs/knowledge/invoice-numbering-triggers.md`).
+- **Options:** (a) keep the DB design — notes share the parent's number (what the schema
+  comments + trigger say); (b) BG-common practice — notes are their own sequential tax
+  documents in the unified numbering range (what inv.bg-style products do; likely what НАП
+  expects — verify via NAP-1).
+- **What I did:** proceeded with (a) — aligned `createNoteFromInvoice` to the enforced DB
+  contract (reversible; no schema change). CN/DN creation works again and is pinned by tests.
+- **Needs from you:** confirm (a) vs (b) with the accountant / NAP requirements. If (b),
+  the trigger + action + tests change together (schema-level decision).
+
+### CN-FORM — New-invoice form offers doc types the DB rejects (N25) — OPEN
+- **Context:** The DocumentCard radio offers `proforma` / `credit_note` / `debit_note`.
+  `proforma` can never be inserted (trigger: `Unknown doc_type`); notes via
+  `createInvoiceDraft` violate the numbering trigger. Users picking these get raw errors.
+- **Options:** (a) restrict the form to `invoice` — notes come from a finalized invoice's
+  row menu (works now, post-N15), proforma waits for PROF-1; (b) implement note-draft +
+  proforma support in `createInvoiceDraft`.
+- **Needs from you:** pick (a) or (b). Recommendation: (a) — small, honest, reversible.
+
+### PREVIEW-ENV — Embedded preview browser unresponsive; CN flow not re-driven in-browser — PROCEEDED
+- **When:** N15 verification (2026-07-08).
+- **Context:** The preview harness's browser tab wedged (streamed-HTML Suspense
+  completions never applied, form submits didn't POST, `preview_screenshot` timed out with
+  "unresponsive renderer") across 2 server restarts + a `.next` cache wipe. Server-side
+  the app is healthy: authenticated `curl` of `/c/5/invoices` returns a complete stream in
+  <1s, all boundaries resolved, zero server errors. Also hit once: `TypeError: adapterFn
+  is not a function` from a stale `.next/dev` cache after killing the server mid-compile —
+  fixed by deleting `.next`.
+- **What I did:** verified the changed server action via the real-DB integration suite
+  (asserted outputs — the C5 path for non-visual logic) and committed. The UI wiring to
+  the action is unchanged by the diff.
+- **Needs from you:** nothing blocking; next session with a working preview should click
+  through Invoices → row menu → "Create credit note" once to see the toast + list refresh.
+
 ### D-EMAIL — Email transport + ingestion scope — OPEN
 - **Needs from you:** (1) SMTP/deliverability provider for sending. (2) Scope of "look over
   all emails" — recommend limiting to invoice-relevant emails auto-matched to partners.

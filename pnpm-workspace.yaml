@@ -1,0 +1,9 @@
+# Approve install/build scripts for these native/build-requiring packages
+# (equivalent to `pnpm approve-builds`). All are legitimate deps this
+# project uses: Tailwind v4 engine, esbuild, Next.js image optimization
+# (sharp), and the native eslint import resolver.
+allowBuilds:
+  '@tailwindcss/oxide': true
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

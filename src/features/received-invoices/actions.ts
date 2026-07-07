@@ -213,7 +213,6 @@ export async function createDraftFromUpload(input: {
     const extractedIssueDate = input.rawExtraction.issue_date?.value ?? null;
     const extractedSupplyDate =
       input.rawExtraction.supply_date?.value ?? null;
-    const extractedDueDate = input.rawExtraction.due_date?.value ?? null;
     const extractedCurrency = input.rawExtraction.currency?.value ?? null;
     const extractedPaymentMethod =
       input.rawExtraction.payment_method?.value ?? null;
@@ -241,7 +240,8 @@ export async function createDraftFromUpload(input: {
           invoiceNumber: extractedInvoiceNumber,
           issueDate: extractedIssueDate,
           supplyDate: extractedSupplyDate,
-          dueDate: extractedDueDate,
+          // dueDate no longer extracted (RV-2); the column stays for
+          // historical rows and manual payment tracking.
           currency: extractedCurrency ?? 'EUR',
           fxRate: '1',
           netAmount: String(Math.round(totals.net * 100) / 100),

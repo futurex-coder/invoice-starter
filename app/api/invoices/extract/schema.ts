@@ -33,8 +33,9 @@ export const ExtractedInvoiceSchema = z.object({
   invoice_number: StringFieldSchema,
 
   // Dates
+  // (due_date was removed per RV-2 — it confused users during review. Old
+  // stored extractions still parse: Zod strips unknown keys.)
   issue_date: DateFieldSchema,
-  due_date: DateFieldSchema,
   supply_date: DateFieldSchema.optional(),
 
   // Money

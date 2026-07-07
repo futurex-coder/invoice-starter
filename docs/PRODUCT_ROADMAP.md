@@ -95,10 +95,12 @@ Feature work starts off a clean `main`.
   re-saving an old draft doesn't wipe its historical note. Verified live: only the
   internal-comment textarea renders on /invoices/new.
 
-**RV-2 — Remove due date from received-invoice review** · S
-- Remove the `dueDate` field from `ReviewForm.tsx` (confuses users) **and** trim the AI
-  extraction prompt/schema so it stops extracting `due_date` (`app/api/invoices/extract/*`).
-- Accept: due date no longer shown or requested; extraction confidence unaffected on other fields.
+**RV-2 — Remove due date from received-invoice review** · S · ✅ **done 2026-07-08**
+- Field removed from ReviewForm (date grid → 2 cols); `due_date` removed from the extraction
+  Zod schema + prompt (schema/output/rules sections) and from the create-draft mapping.
+  Old stored extractions still parse (Zod strips unknown keys); the `dueDate` column stays —
+  form state keeps carrying it so re-saving an old row preserves the stored value; payments
+  overdue logic unaffected for historical rows.
 
 **NI-1 — Preview + Finalize without saving a draft first** · M
 - Today Preview/Finalize are gated behind saving a draft. Allow both from unsaved state:

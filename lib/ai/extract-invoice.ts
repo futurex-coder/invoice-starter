@@ -31,7 +31,7 @@ Each field is an object: { "value": <extracted value or null>, "confidence": "hi
 - "high": clearly readable, you are sure.
 - "medium": readable but partially obscured, ambiguous, or you had to interpret context.
 - "low": you guessed or it was almost illegible.
-- "missing": the field is genuinely not present on the document. Use a "reason" string explaining (e.g. "no due date printed").
+- "missing": the field is genuinely not present on the document. Use a "reason" string explaining (e.g. "no supply date printed").
 
 For numeric/array fields (line_items) use "line_items_confidence" at the top level instead of per-line confidence.
 
@@ -39,7 +39,6 @@ OUTPUT SCHEMA:
 {
   "invoice_number": { "value": string | null, "confidence": "high"|"medium"|"low"|"missing", "reason": string|null },
   "issue_date": { "value": "YYYY-MM-DD" | null, "confidence": ..., "reason": ... },
-  "due_date": { "value": "YYYY-MM-DD" | null, "confidence": ..., "reason": ... },
   "supply_date": { "value": "YYYY-MM-DD" | null, "confidence": ..., "reason": ... },
   "currency": { "value": "BGN"|"EUR"|"USD"|null, "confidence": ..., "reason": ... },
   "payment_method": { "value": "bank"|"cash"|"barter"|null, "confidence": ..., "reason": ... },
@@ -70,7 +69,6 @@ Invoice number:
 Dates:
 - Convert ALL dates to ISO format YYYY-MM-DD. Bulgarian dates appear as DD.MM.YYYY (e.g. "12.03.2026" → "2026-03-12"). Slashes "12/03/2026" follow the same DD/MM/YYYY convention.
 - "issue_date" = "Дата на издаване" / "Дата на фактура" / "Issue date" / just "Дата" near the header.
-- "due_date" = "Падеж" / "Срок за плащане" / "Due date" / "Дата на плащане". If the document says "Платима до DD.MM.YYYY", that is the due date.
 - "supply_date" = "Дата на данъчно събитие" / "Tax point" / "Date of supply". May equal issue date.
 - If a date is genuinely not shown, set value=null with confidence="missing" and a reason. Do NOT fabricate.
 

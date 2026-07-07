@@ -64,7 +64,9 @@
       "PowerShell($target = \"D:\\\\Work\\\\invoice-starter\\\\.claude\\\\worktrees\\\\keen-shamir-800842\"; $empty = Join-Path $env:TEMP \\(\"empty_\" + [System.Guid]::NewGuid\\(\\).ToString\\(\"N\"\\)\\); New-Item -ItemType Directory -Path $empty -Force | Out-Null; robocopy $empty $target /MIR /NFL /NDL /NJH /NJS /NC /NS /NP | Out-Null; Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -LiteralPath $empty -Recurse -Force -ErrorAction SilentlyContinue; if \\(Test-Path $target\\) { Write-Output \"STILL PRESENT\" } else { Write-Output \"removed keen-shamir-800842\" }; $base = \"D:\\\\Work\\\\invoice-starter\\\\.claude\\\\worktrees\"; Write-Output \"--- worktrees dir now ---\"; if \\(Test-Path $base\\) { $items = Get-ChildItem -Force $base; if \\($items\\) { $items | Select-Object -ExpandProperty Name } else { Write-Output \"\\(empty\\)\" } } else { Write-Output \"\\(gone\\)\" })",
       "Bash(echo \"=== EXIT: $? ===\")",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)"
     ]
   }
 }

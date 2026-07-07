@@ -73,7 +73,6 @@ function buildFieldMeta(
         'supplier.city',
         'invoiceNumber',
         'issueDate',
-        'dueDate',
         'currency',
         'lineItems',
       ].forEach((k) => m.set(k, { confidence: fallback }));
@@ -99,7 +98,6 @@ function buildFieldMeta(
 
   set('invoiceNumber', raw.invoice_number);
   set('issueDate', raw.issue_date);
-  set('dueDate', raw.due_date);
   set('supplyDate', raw.supply_date);
   set('currency', raw.currency);
   set('supplier.legalName', raw.supplier_name);
@@ -559,7 +557,7 @@ export function ReviewForm({
               />
             </div>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="issueDate">Issue date *</Label>
               <Input
@@ -597,29 +595,8 @@ export function ReviewForm({
                 }
               />
             </div>
-            <div>
-              <Label htmlFor="dueDate">Due date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                className={cn(
-                  fieldRing(fieldMeta, 'dueDate', touched.has('dueDate'))
-                )}
-                value={dueDate}
-                onChange={(e) => {
-                  markTouched('dueDate');
-                  dispatch({
-                    type: 'SET',
-                    patch: { dueDate: e.target.value },
-                  });
-                }}
-              />
-              <FieldHint
-                meta={fieldMeta}
-                formKey="dueDate"
-                touched={touched.has('dueDate')}
-              />
-            </div>
+            {/* Due date removed per RV-2 — state still carries `dueDate` so
+                re-saving an old row preserves its stored value. */}
           </div>
           {currency !== 'EUR' && (
             <div>

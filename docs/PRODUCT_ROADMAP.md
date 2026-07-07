@@ -267,6 +267,16 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 - Verify by running: with mixed income + expense invoices in a month, the VAT-owed figure
   reconciles by hand; toggling accounted/paid updates it correctly.
 
+**TRANS-1 — Notifications on new/changed documents** · M · ⭐ *core value (transparency)*
+- Both directions: notify the **accountant** when the owner adds/changes an invoice (income) or a
+  received/expense doc, and notify the **owner** of accountant actions. In-app first; email (Gmail,
+  EMAIL-1) later. Builds on the existing activity log.
+
+**TRANS-2 — Shared "what's left this month" status view** · M · ⭐ *core value (transparency)*
+- One view both owner and accountant see: for the current month, **done vs pending** — invoices
+  still needing review/accounting, missing docs, VAT-ready status. Kills the "do you have everything
+  for НАП this month?" back-and-forth. Depends on OI-1 (accounted status) + OI-5 (month filter).
+
 **DASH-1 — Audit all money-aggregation rules** · M · *research/audit, pairs with GEN-1*
 - Before GEN-1 lands, map every place that sums money (dashboard metrics, list totals,
   reports) and document the current rules — a `Discover`-gear task (subagents or a Workflow

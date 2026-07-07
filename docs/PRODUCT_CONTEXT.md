@@ -61,7 +61,11 @@
 - **Non-negotiable:** create invoices (income) · capture + store + analyze received invoices
   (expenses) · owner↔accountant transparency · all the company money numbers (expenses, profit, VAT
   paid/received).
-- **Non-goals:** _(TBD — nothing explicitly excluded yet; revisit to prevent scope drift.)_
+- **Transparency, concretely** (the #1 pain): beyond invite + shared invoice list (already exists),
+  it needs **notifications on new/changed documents** (both directions) + a **shared "what's left
+  this month" status view** (done vs pending for НАП). → roadmap **TRANS-1, TRANS-2**.
+- **Not-now / future:** accountant **directory/marketplace** ("find an accountant") — aspirational,
+  **not MVP**; revisit post-launch. Multi-country / i18n — deferred. Pricing / paywall — deferred.
 
 ## 5. Business model
 - **Free now.** Pricing / who-pays / per-what is **deferred** — Stripe is wired but unused. Decide later.
@@ -111,7 +115,6 @@
 ## Still open (worth nailing down)
 - **Accountant month-end flow** (§3) — the precise steps + what НАП needs. Research + ask a real accountant.
 - **NAP.pdf specifics** (§6) — need the document content (NAP-DOC).
-- **Non-goals** (§4) — define to prevent scope drift.
 - **Automation vision** (§8) — pick the first automation to pursue after MVP.
 - **Pricing** (§5) — revisit when moving off free.
 - **Differentiation/edge wording** (§7) — founder to confirm the synthesized version.

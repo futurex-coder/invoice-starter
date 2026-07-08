@@ -819,6 +819,49 @@ export async function discardReceivedInvoice(
 }
 
 // ---------------------------------------------------------------------------
+// restoreDiscardedReceivedInvoice — OI-10 (received side): discard is not a
+// dead end; a discarded document goes back to draft for review.
+// ---------------------------------------------------------------------------
+
+export async function restoreDiscardedReceivedInvoice(
+  id: number
+): Promise<ActionResult<{ id: number }>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    const [existing] = await db
+      .select()
+      .from(receivedInvoices)
+      .where(
+        and(
+          eq(receivedInvoices.id, id),
+          eq(receivedInvoices.companyId, companyId)
+        )
+      )
+      .limit(1);
+
+    if (!existing) throw new Error('Received invoice not found');
+    if (existing.status !== 'discarded') {
+      throw new Error('Only discarded invoices can be restored');
+    }
+
+    await db
+      .update(receivedInvoices)
+      .set({ status: 'draft', updatedAt: new Date() })
+      .where(
+        and(
+          eq(receivedInvoices.id, id),
+          eq(receivedInvoices.companyId, companyId)
+        )
+      );
+
+    await logActivity(companyId, user.id, ActivityType.UPDATE_RECEIVED_INVOICE);
+
+    return { id };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Lightweight status flips (accounted / paid / archived)
 // ---------------------------------------------------------------------------
 

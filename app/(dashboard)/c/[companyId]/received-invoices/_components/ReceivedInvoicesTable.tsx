@@ -25,6 +25,7 @@ interface RowProps {
   onMarkAccounting: (id: number, status: AccountingStatus) => void;
   onArchive: (id: number, archived: boolean) => void;
   onDiscard: (item: ReceivedInvoiceListItem) => void;
+  onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
 }
 
@@ -119,6 +120,7 @@ interface TableProps {
   onMarkAccounting: (id: number, status: AccountingStatus) => void;
   onArchive: (id: number, archived: boolean) => void;
   onDiscard: (item: ReceivedInvoiceListItem) => void;
+  onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
 }
 
@@ -154,6 +156,7 @@ export function ReceivedInvoicesTable(props: TableProps) {
             onMarkAccounting={props.onMarkAccounting}
             onArchive={props.onArchive}
             onDiscard={props.onDiscard}
+            onRestore={props.onRestore}
             onHardDelete={props.onHardDelete}
           />
         ))}

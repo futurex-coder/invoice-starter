@@ -16,6 +16,7 @@ import {
   setReceivedInvoicePaymentStatus,
   setReceivedInvoiceArchived,
   discardReceivedInvoice,
+  restoreDiscardedReceivedInvoice,
   hardDeleteDiscardedReceivedInvoice,
   type ListReceivedInvoicesFilters,
 } from '@/src/features/received-invoices/actions';
@@ -298,6 +299,9 @@ export default function ReceivedInvoicesPage() {
               onMarkAccounting={handleAccounting}
               onArchive={handleArchive}
               onDiscard={(item) => setConfirmTarget({ item, mode: 'discard' })}
+              onRestore={(id) =>
+                void list.runMutation(() => restoreDiscardedReceivedInvoice(id))
+              }
               onHardDelete={(item) => setConfirmTarget({ item, mode: 'hardDelete' })}
             />
           )}

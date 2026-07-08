@@ -166,12 +166,15 @@ Feature work starts off a clean `main`.
   dropped 2→1 издадени за осчетоводяване; Paid round-trip unpaid→paid→unpaid; received
   RI 8 accounted toggle round-trip. Zero console errors.
 
-**OI-10 — Edit invoices regardless of status** · M · ⚠️ *needs D-EDIT (compliance)*
-- Requested: every field editable no matter draft / finalized / cancelled.
-- **Received invoices** (your own records) → make freely editable at any status; no legal issue.
-- **Outgoing finalized/cancelled** invoices → **do NOT implement until D-EDIT is decided.** A
-  finalized BG фактура is a sequential legal document corrected via credit note; that's why the
-  codebase locks it + freezes snapshots. See D-EDIT for the options.
+**OI-10 — Edit invoices regardless of status** · M · ✅ **received side done 2026-07-08** · ⚠️ *outgoing blocked on D-EDIT*
+- **Received side complete:** confirmed docs were already freely editable (row-menu Edit →
+  review screen; re-confirm = update, `confirmedAt` preserved — verified in FUNC-AUDIT).
+  The missing piece was discarded docs being a dead end — new
+  `restoreDiscardedReceivedInvoice` action + "Restore to draft" row action. Verified live:
+  discarded 417 → draft → re-discarded (DB round-trip confirmed).
+- **Outgoing finalized/cancelled:** untouched until D-EDIT — a finalized фактура is a
+  sequential legal document (see decisions register; Invoice Ninja's `lock_invoices`
+  setting is the researched compromise pattern).
 
 **OI-11 — "All invoices" view** · S/M · *UX*
 - The Invoices page tabs **Outgoing / Received**. Add an **All** tab (or toggle) listing every

@@ -139,6 +139,7 @@ export default async function CompanyDashboardPage({
         metrics={metrics}
         expenseMetrics={expenseMetrics}
         currency={company.defaultCurrency}
+        companyId={String(company.id)}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

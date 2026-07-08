@@ -159,6 +159,8 @@ _(The agent appends below. Seeded with the known-open product decisions from
   row menu). This makes **PROF-1 (proforma support) a prerequisite** — proforma must become a
   real, insertable doc type (needs the NUM-1 trigger rewrite to stop rejecting it). Sequence:
   NUM-1 trigger → PROF-1 → restrict the form.
+- ✅ **Done 2026-07-08:** NUM-1 + PROF-1 shipped; DocumentCard now offers Invoice + Proforma
+  only (NEWINV-1). Sequence complete.
 
 ### PREVIEW-ENV — Embedded preview browser unresponsive; CN flow not re-driven in-browser — PROCEEDED
 - **When:** N15 verification (2026-07-08).

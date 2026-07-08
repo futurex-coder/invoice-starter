@@ -23,6 +23,7 @@ import {
   Copy,
   FileDown,
   FileUp,
+  FileCheck2,
   ChevronRight,
   RotateCcw,
 } from 'lucide-react';
@@ -145,6 +146,8 @@ function InvoiceRow({
   // EDIT-RULE: editable until accounted; a cancelled invoice is reinstated first.
   const canEdit = (isDraft || isIssued) && !isAccounted;
   const isNote = invoice.docType === 'credit_note' || invoice.docType === 'debit_note';
+  const isRealInvoice = invoice.docType === 'invoice';
+  const isProforma = invoice.docType === 'proforma';
   const isOverdue =
     invoice.status === 'finalized' &&
     invoice.paymentStatus === 'unpaid' &&
@@ -158,12 +161,20 @@ function InvoiceRow({
       : []),
     { icon: Printer, label: 'Print / Preview', onClick: () => onPrint(invoice.id) },
     ...(!isCancelled && isIssued
+      ? [{ icon: XCircle, label: 'Cancel', onClick: () => onCancel(invoice) }]
+      : []),
+    // Credit/debit notes can only be raised against a real invoice.
+    ...(!isCancelled && isIssued && isRealInvoice
       ? [
-          { icon: XCircle, label: 'Cancel', onClick: () => onCancel(invoice) },
           { icon: Copy, label: 'Copy', onClick: () => onCopy(invoice.id) },
           { icon: FileDown, label: 'Create credit note', onClick: () => onCreditNote(invoice.id) },
           { icon: FileUp, label: 'Create debit note', onClick: () => onDebitNote(invoice.id) },
         ]
+      : []),
+    // PROF-1: a proforma converts into a real invoice (reuses the copy flow →
+    // a fresh invoice draft; the proforma itself is left as-is).
+    ...(!isCancelled && isIssued && isProforma
+      ? [{ icon: FileCheck2, label: 'Convert to invoice', onClick: () => onCopy(invoice.id) }]
       : []),
     ...(isCancelled
       ? [{ icon: RotateCcw, label: 'Reinstate (uncancel)', onClick: () => onUncancel(invoice.id) }]

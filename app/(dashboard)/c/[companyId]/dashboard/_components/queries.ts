@@ -106,11 +106,13 @@ export async function getMonthCloseStatus(
         currency: invoices.currency,
         pendingAccounting: sql<number>`count(*) filter (
           where ${invoices.status} = 'finalized'
+            and ${invoices.docType} <> 'proforma'
             and ${invoices.accountingStatus} = 'pending'
             and ${invoices.issueDate}::date >= ${monthStart}
         )`,
         vatIssued: sql<string>`coalesce(sum(
           case when ${invoices.status} = 'finalized'
+               and ${invoices.docType} <> 'proforma'
                and ${invoices.issueDate}::date >= ${monthStart}
           then (case when ${invoices.docType} = 'credit_note'
                      then -(${invoices.totals}->>'vatAmount')::numeric

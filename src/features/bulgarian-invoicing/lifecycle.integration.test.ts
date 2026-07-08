@@ -484,6 +484,21 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     expect(cn.referencedInvoiceId).toBe(draft.id);
   });
 
+  it('creates + finalizes a proforma with its own unified number (PROF-1)', async () => {
+    const draft = unwrap(
+      await createInvoiceDraft({ ...baseDraftInput(), docType: 'proforma' }),
+      'createInvoiceDraft (proforma)'
+    );
+    expect(draft.docType).toBe('proforma');
+    expect(draft.series).toBe('PRF');
+    // Unified numbering: the proforma takes the next per-company number.
+    expect(draft.number).toBeGreaterThan(draftNumber);
+
+    const fin = unwrap(await finalizeInvoice(draft.id), 'finalizeInvoice (proforma)');
+    expect(fin.status).toBe('finalized');
+    expect(fin.number).toBe(draft.number);
+  });
+
   it('hides invoices from other companies (scoping on read + mutate)', async () => {
     authState.ctx = { user: owner, companyId: otherCompanyId, role: CompanyRole.OWNER };
     try {

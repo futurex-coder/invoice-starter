@@ -11,10 +11,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DOC_TYPES } from '@/src/features/bulgarian-invoicing/types';
 import { formatDocTypeLabel } from '@/src/features/bulgarian-invoicing/formatter';
 import { LANGUAGES, CURRENCIES } from './types';
 import { Alert } from '@/components/ui/alert';
+
+// NEWINV-1: the new-document form creates only invoices and proformas. Credit
+// and debit notes are raised from a finalized invoice's row menu (they must
+// reference a parent), so they are intentionally not offered here.
+const NEW_DOC_TYPES = ['invoice', 'proforma'] as const;
 
 interface Props {
   docType: string;
@@ -62,7 +66,7 @@ export function DocumentCard({
             onValueChange={onDocTypeChange}
             className="flex flex-wrap gap-4 pt-2"
           >
-            {DOC_TYPES.map((t) => (
+            {NEW_DOC_TYPES.map((t) => (
               <div key={t} className="flex items-center space-x-2">
                 <RadioGroupItem value={t} id={`doc-${t}`} />
                 <Label htmlFor={`doc-${t}`}>{formatDocTypeLabel(t)}</Label>

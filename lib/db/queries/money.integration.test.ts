@@ -13,6 +13,7 @@
  *   F  debit note  finalized  unpaid     50   (against A)
  *   G  invoice     draft               9999   (must never count)
  *   H  invoice     cancelled           7777   (must never count)
+ *   I  proforma    finalized  paid     5000   (must never count — not a tax doc)
  *
  * Expected:  collected = 1000 − 200                = 800
  *            outstanding = 600 + 300 − 150 + 50    = 800
@@ -182,6 +183,16 @@ beforeAll(async () => {
     paymentStatus: 'unpaid',
     number: 8,
     totals: gross(7777),
+  });
+  // PROF-1: a finalized, paid proforma must NOT count anywhere (not a tax doc).
+  await db.insert(invoices).values({
+    ...base,
+    docType: 'proforma',
+    series: 'PRF',
+    status: 'finalized',
+    paymentStatus: 'paid',
+    number: 9,
+    totals: gross(5000),
   });
 }, 60_000);
 

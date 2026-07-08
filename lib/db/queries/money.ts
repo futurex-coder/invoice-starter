@@ -5,7 +5,8 @@ import { invoices } from '../schema';
  * Canonical money-aggregation rules for OUTGOING documents (AGG-1).
  *
  * - Only `finalized` documents carry financial weight (drafts and cancelled
- *   docs never count).
+ *   docs never count). Proformas NEVER count — they are non-binding quotes, not
+ *   tax documents, so they are excluded from every money/VAT aggregate here.
  * - Credit notes SUBTRACT their gross; invoices and debit notes ADD it.
  * - `paymentStatus` buckets: 'paid' → collected ("revenue" — a cash view);
  *   anything else (unpaid | partial) → outstanding. A partially-paid document
@@ -28,6 +29,7 @@ export const signedGrossSql: SQL<string> = sql`
 export const collectedSumSql: SQL<string> = sql`
   COALESCE(SUM(
     CASE WHEN ${invoices.status} = 'finalized'
+         AND ${invoices.docType} <> 'proforma'
          AND ${invoices.paymentStatus} = 'paid'
     THEN ${signedGrossSql}
     ELSE 0 END
@@ -37,6 +39,7 @@ export const collectedSumSql: SQL<string> = sql`
 export const outstandingSumSql: SQL<string> = sql`
   COALESCE(SUM(
     CASE WHEN ${invoices.status} = 'finalized'
+         AND ${invoices.docType} <> 'proforma'
          AND ${invoices.paymentStatus} <> 'paid'
     THEN ${signedGrossSql}
     ELSE 0 END
@@ -70,6 +73,7 @@ export const signedVatSql: SQL<string> = sql`
 export const issuedVatSumSql: SQL<string> = sql`
   COALESCE(SUM(
     CASE WHEN ${invoices.status} = 'finalized'
+         AND ${invoices.docType} <> 'proforma'
     THEN ${signedVatSql}
     ELSE 0 END
   ), 0)`;

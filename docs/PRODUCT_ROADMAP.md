@@ -263,18 +263,26 @@ Feature work starts off a clean `main`.
   number, proforma path unblocked; money suite reseeded to unified 1–8 and green. Verify quad
   green (type-check, lint 0, tests 223, build). Unblocks **PROF-1** → NEWINV-1 form restriction.
 
-**PROF-1 — Proforma as a real doc type** · M · *now in-scope (was backlog)* · *depends on NUM-1*
-- Make `proforma` insertable (trigger accepts it after NUM-1), with its own numbering and a
-  convert-to-invoice flow. Needed so the new-invoice form can offer it.
+**PROF-1 — Proforma as a real doc type** · M · ✅ **done 2026-07-08**
+- **Shipped:** proforma is insertable (NUM-1 trigger accepts it) with its own unified number
+  and 'PRF' display series; **excluded from every money/VAT aggregate** (collected / outstanding
+  / overdue / issued-VAT in `money.ts`, and the month-close card's pending-accounting + VAT sums)
+  — a proforma is a non-binding quote, not a tax document. **Convert-to-invoice** reuses the
+  proven copy pipeline: a "Convert to invoice" row action on a finalized proforma opens a fresh
+  **invoice** draft pre-filled from it (docType forced to invoice). Labels already localised
+  (Проформа фактура / ПРОФОРМА ФАКТУРА print header / ПФ badge). Credit/debit-note row actions
+  are now correctly gated to real invoices only (bonus: notes could previously be offered on
+  notes/proformas → trigger error).
+- **Verified:** money integration suite pins a finalized+paid 5000 proforma changing NOTHING
+  (collected/outstanding/overdue unchanged); lifecycle suite creates + finalizes a proforma via
+  the real app path (own unified number, 'PRF' series). Follow-up (not v1): mark a proforma
+  "converted" / link the generated invoice back to it (today convert just copies).
 
-**NEWINV-1 — New-invoice form: Invoice + Proforma only, remove Preview** · S · *depends on PROF-1* · 🟡 **Preview removed 2026-07-08; doc-type restriction pending PROF-1**
+**NEWINV-1 — New-invoice form: Invoice + Proforma only, remove Preview** · S · ✅ **done 2026-07-08**
 - **Shipped:** the **Preview** button is gone from the new-invoice ActionsBar — only **Save
-  draft** and **Finalize** remain (per NI1-PREVIEW). Preview/print stays reachable from a saved
-  invoice's detail/row menu.
-- **Remaining (with PROF-1):** restrict DocumentCard to **Invoice + Proforma** (drop
-  credit_note/debit_note — notes come from a finalized invoice's row menu). Held until proforma
-  is a real insertable doc type (NUM-1 trigger → PROF-1); offering broken options now would just
-  error, so the selector is left as-is until then.
+  draft** and **Finalize** remain (per NI1-PREVIEW; preview/print stays on a saved invoice). The
+  DocumentCard doc-type radio now offers **Invoice + Proforma only** (credit/debit notes are
+  raised from a finalized invoice's row menu). Unblocked by NUM-1 (proforma insertable) + PROF-1.
 
 ---
 

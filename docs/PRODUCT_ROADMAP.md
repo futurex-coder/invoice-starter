@@ -231,13 +231,21 @@ Feature work starts off a clean `main`.
 
 ### Phase 5 — Received-invoice review redesign
 
-**RV-3 — Redesign the whole review-received-invoice screen** · L · *UX + functionality*
-- The current view is cramped and hard to use. Rebuild it to be clear and easy: sensible field
-  grouping (Supplier / Document / Items), the readable scan viewer (RV-1), inline validation
-  that **guides rather than blocks**, and a layout that uses desktop width well and collapses
-  cleanly on mobile. Absorbs RV-1, RV-2, RV-4.
-- Verify by running: load a real multi-page scan **including a foreign-supplier invoice** and
-  confirm the whole review → confirm flow is smooth end-to-end.
+**RV-3 — Redesign the whole review-received-invoice screen** · L · 🟡 **queued (deliberately not
+started at the end of the 2026-07-08 overnight run — an L rebuild of the app's core
+differentiator shouldn't land half-done)**
+- Already absorbed: RV-2 ✅ (due date gone), RV-4 ✅ (name-only partners + real-document
+  line tolerance), RV-1 first slice ✅ (image zoom + mobile collapse).
+- Remaining rebuild: field grouping (Supplier / Document / Items as distinct cards with
+  clearer hierarchy), inline validation that **guides rather than blocks** (soft warnings
+  vs the red rings; the schema is already tolerant post-RV-4), wider desktop layout
+  (viewer deserves >50%), true mobile bottom drawer for the scan, and the review→confirm
+  flow driven end-to-end with a multi-page + foreign-supplier scan.
+- Implementation notes for the next session: the form is already `useReducer`-based
+  (`review-form-state.ts`) with `FieldMetaMap` confidence hints — build ON that, don't
+  replace it; `ReviewForm.tsx` is 900+ lines — extract the Supplier/Document/Items cards
+  as separate components as part of the regroup; the numbering/tax constraints live in
+  `knowledge/invoice-numbering-triggers.md`.
 
 **RV-1 — Better scanned-invoice viewer** · M/L · 🟡 **first slice shipped 2026-07-08**
 - Shipped: **image zoom** (50–400% with ± / reset — scanned images previously had no zoom

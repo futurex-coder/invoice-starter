@@ -4,8 +4,12 @@
 > everything the refactor has shipped, everything still on the list, and the
 > recommended sequence for the next sitting. Update it as work lands.
 
-**Last updated:** 2026-07-08
-**Active branch when this was written:** `claude-run-1.9` (Phase 0 complete: N23 + N22 + N15 shipped on top of the 1.8 stack)
+**Last updated:** 2026-07-08 (end of the overnight feature run)
+**Active branch when this was written:** `claude-run-1.9` — Phase 0 (N23+N22+N15) **plus** the
+feature run: RESEARCH-1, FUNC-AUDIT, all Phase-1 quick wins (OI-2/8, NI-1/2, RV-2/4), OI-1,
+AGG-1+DASH-1, VAT-1 v1, TRANS-1 v1, TRANS-2 v1, OI-9, OI-4/5, OI-10 (received), OI-11, MENU-1,
+OI-7, RV-1 slice, + infra fixes (pg-pool dev singleton, CN tax-event date). Test baseline **222**.
+See `docs/PRODUCT_ROADMAP.md` for per-item states and `docs/REVIEW_QUEUE.md` for open decisions.
 
 ---
 

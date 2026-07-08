@@ -33,11 +33,11 @@ export function StatusControlsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Status</CardTitle>
+        <CardTitle className="text-base">Статус</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-gray-500">Accounting</label>
+          <label className="text-xs text-gray-500">Осчетоводяване</label>
           <Select
             value={accountingStatus}
             onValueChange={(v) => {
@@ -48,13 +48,13 @@ export function StatusControlsCard({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="accounted">Accounted</SelectItem>
+              <SelectItem value="pending">Чака</SelectItem>
+              <SelectItem value="accounted">Осчетоводена</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div>
-          <label className="text-xs text-gray-500">Payment</label>
+          <label className="text-xs text-gray-500">Плащане</label>
           <Select
             value={paymentStatus}
             onValueChange={(v) => {
@@ -65,9 +65,9 @@ export function StatusControlsCard({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="unpaid">Unpaid</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="unpaid">Неплатена</SelectItem>
+              <SelectItem value="partial">Частично</SelectItem>
+              <SelectItem value="paid">Платена</SelectItem>
             </SelectContent>
           </Select>
         </div>

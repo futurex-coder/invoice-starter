@@ -63,14 +63,14 @@ export function BankStep({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Bank Details</CardTitle>
+        <CardTitle>Банкови данни</CardTitle>
         <CardDescription>
-          Optional — used when payment method is &quot;bank&quot;.
+          По желание — използва се при плащане по банков път.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label htmlFor="ob-bankName">Bank name</Label>
+          <Label htmlFor="ob-bankName">Банка</Label>
           <Input
             id="ob-bankName"
             value={bankName}
@@ -105,7 +105,7 @@ export function BankStep({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <Label>Default payment method</Label>
+            <Label>Начин на плащане по подразбиране</Label>
             <Select
               value={defaultPaymentMethod}
               onValueChange={(v) => {
@@ -125,7 +125,7 @@ export function BankStep({
             </Select>
           </div>
           <div>
-            <Label>Default currency</Label>
+            <Label>Валута по подразбиране</Label>
             <Select
               value={defaultCurrency}
               onValueChange={onDefaultCurrencyChange}
@@ -143,7 +143,7 @@ export function BankStep({
             </Select>
           </div>
           <div>
-            <Label htmlFor="ob-vatRate">Default VAT rate (%)</Label>
+            <Label htmlFor="ob-vatRate">ДДС ставка по подразбиране (%)</Label>
             <Input
               id="ob-vatRate"
               type="number"
@@ -161,7 +161,7 @@ export function BankStep({
             onClick={onSkip}
             className="text-sm text-gray-500 hover:text-gray-700 underline"
           >
-            Skip for now
+            Пропусни засега
           </button>
           <Button
             onClick={onSave}
@@ -173,7 +173,7 @@ export function BankStep({
             ) : (
               <ArrowRight className="mr-2 h-4 w-4" />
             )}
-            Save &amp; Continue
+            Запази и продължи
           </Button>
         </div>
       </CardContent>

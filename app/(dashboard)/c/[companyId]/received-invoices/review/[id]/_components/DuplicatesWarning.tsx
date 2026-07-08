@@ -13,7 +13,9 @@ export function DuplicatesWarning({ duplicates, companyId }: Props) {
   return (
     <Alert variant="warning" icon={AlertTriangle} className="mb-4">
       <AlertTitle>
-        Possible duplicate of another received invoice{duplicates.length > 1 ? 's' : ''}:
+        {duplicates.length > 1
+          ? 'Възможен дубликат на други получени фактури:'
+          : 'Възможен дубликат на друга получена фактура:'}
       </AlertTitle>
       <AlertDescription>
         <ul className="mt-1 list-disc pl-5 text-xs text-amber-800">
@@ -29,13 +31,13 @@ export function DuplicatesWarning({ duplicates, companyId }: Props) {
               {d.invoiceNumber ? `(№ ${d.invoiceNumber})` : ''} {d.issueDate ?? ''}
               {' — '}
               <span className="text-amber-700">
-                {d.matchType === 'checksum' ? 'same file' : 'same number + date'}
+                {d.matchType === 'checksum' ? 'същият файл' : 'същите номер + дата'}
               </span>
             </li>
           ))}
         </ul>
         <p className="mt-1 text-xs text-amber-700">
-          You can still continue if this is intentional.
+          Можете да продължите, ако това е умишлено.
         </p>
       </AlertDescription>
     </Alert>

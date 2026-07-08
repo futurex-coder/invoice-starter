@@ -52,11 +52,11 @@ export function DocumentCard({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Document</CardTitle>
+        <CardTitle>Документ</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label>Document type</Label>
+          <Label>Вид документ</Label>
           <RadioGroup
             value={docType}
             onValueChange={onDocTypeChange}
@@ -73,14 +73,14 @@ export function DocumentCard({
         {!isEditing && nextInvoiceNumber != null && (
           <Alert variant="info">
             <span>
-              Next invoice number: <strong>{String(nextInvoiceNumber).padStart(10, '0')}</strong>
+              Следващ номер: <strong>{String(nextInvoiceNumber).padStart(10, '0')}</strong>
             </span>
-            <span className="ml-2 text-blue-600 text-xs">(assigned automatically on save)</span>
+            <span className="ml-2 text-blue-600 text-xs">(присвоява се автоматично при запазване)</span>
           </Alert>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="issueDate">Issue date *</Label>
+            <Label htmlFor="issueDate">Дата на издаване *</Label>
             <Input
               id="issueDate"
               type="date"
@@ -89,7 +89,7 @@ export function DocumentCard({
             />
           </div>
           <div>
-            <Label htmlFor="supplyDate">Tax event date</Label>
+            <Label htmlFor="supplyDate">Дата на данъчно събитие</Label>
             <Input
               id="supplyDate"
               type="date"
@@ -100,7 +100,7 @@ export function DocumentCard({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>Language</Label>
+            <Label>Език</Label>
             <Select value={language} onValueChange={onLanguageChange}>
               <SelectTrigger className="mt-1">
                 <SelectValue />
@@ -113,7 +113,7 @@ export function DocumentCard({
             </Select>
           </div>
           <div>
-            <Label>Currency</Label>
+            <Label>Валута</Label>
             <Select value={currency} onValueChange={onCurrencyChange}>
               <SelectTrigger className="mt-1">
                 <SelectValue />

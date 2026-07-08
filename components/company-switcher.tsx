@@ -25,7 +25,7 @@ function RoleBadge({ role }: { role: string }) {
           : 'bg-gray-100 text-gray-600'
       )}
     >
-      {isOwner ? 'Owner' : 'Accountant'}
+      {isOwner ? 'Собственик' : 'Счетоводител'}
     </span>
   );
 }
@@ -57,7 +57,7 @@ export function CompanySwitcher() {
             className="flex items-center gap-2 font-medium"
           >
             <LayoutGrid className="h-3.5 w-3.5 text-primary" />
-            <span className="text-sm">All Companies</span>
+            <span className="text-sm">Всички фирми</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -93,7 +93,7 @@ export function CompanySwitcher() {
         <DropdownMenuItem asChild className="cursor-pointer">
           <Link href="/create-company" className="flex items-center gap-2">
             <Plus className="h-3.5 w-3.5" />
-            <span className="text-sm">Create Company</span>
+            <span className="text-sm">Създай фирма</span>
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

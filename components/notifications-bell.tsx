@@ -55,8 +55,8 @@ export function NotificationsBell() {
         className="relative rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900"
         aria-label={
           unreadCount > 0
-            ? `Notifications — ${unreadCount} unread`
-            : 'Notifications'
+            ? `Известия — ${unreadCount} непрочетени`
+            : 'Известия'
         }
       >
         <Bell className="h-5 w-5" />
@@ -68,11 +68,11 @@ export function NotificationsBell() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
         <div className="border-b border-gray-100 px-3 py-2 text-sm font-medium">
-          Activity in your companies
+          Активност във вашите фирми
         </div>
         {items.length === 0 ? (
           <p className="px-3 py-4 text-sm text-gray-500">
-            Nothing yet — actions by other members will show up here.
+            Все още няма нищо — действията на другите членове ще се показват тук.
           </p>
         ) : (
           items.map((n) => (

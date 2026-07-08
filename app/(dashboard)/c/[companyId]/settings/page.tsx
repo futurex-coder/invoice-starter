@@ -118,7 +118,7 @@ export default function CompanySettingsPage() {
 
     if (res.data) {
       mutateProfile(res.data, { revalidate: false });
-      toast.success('Company profile saved successfully.');
+      toast.success('Профилът на фирмата е запазен успешно.');
     }
   };
 
@@ -160,9 +160,10 @@ export default function CompanySettingsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <ShieldAlert className="h-12 w-12 text-gray-400 mb-4" />
-            <h2 className="text-lg font-medium mb-2">Access denied</h2>
+            <h2 className="text-lg font-medium mb-2">Достъпът е отказан</h2>
             <p className="text-sm text-muted-foreground">
-              Only the company owner can edit company settings.
+              Само собственикът на фирмата може да редактира настройките на
+              фирмата.
             </p>
           </CardContent>
         </Card>
@@ -184,14 +185,13 @@ export default function CompanySettingsPage() {
     <PageShell>
       <div className="flex items-center gap-3 mb-6">
         <Building2 className="h-6 w-6 text-primary" />
-        <h1 className="text-lg lg:text-2xl font-medium">Company Settings</h1>
+        <h1 className="text-lg lg:text-2xl font-medium">Настройки на фирмата</h1>
       </div>
 
       {!profile && (
         <Alert variant="warning" className="mb-6">
-          You need to complete your company profile before you can create
-          invoices. This data is used as the Supplier (Доставчик) on every
-          invoice.
+          Трябва да попълните профила на фирмата, преди да можете да създавате
+          фактури. Тези данни се използват като Доставчик във всяка фактура.
         </Alert>
       )}
 
@@ -259,12 +259,12 @@ export default function CompanySettingsPage() {
           {saving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
+              Запазване…
             </>
           ) : (
             <>
               <Save className="mr-2 h-4 w-4" />
-              Save company profile
+              Запази профила на фирмата
             </>
           )}
         </Button>

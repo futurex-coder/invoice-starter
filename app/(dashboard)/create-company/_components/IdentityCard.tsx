@@ -49,13 +49,13 @@ export function IdentityCard({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Company identity</CardTitle>
-        <CardDescription>Legal name and registration numbers</CardDescription>
+        <CardTitle>Идентификация на фирмата</CardTitle>
+        <CardDescription>Наименование и регистрационни номера</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <FormField
           name="legalName"
-          label="Legal name"
+          label="Наименование"
           required
           errors={validationErrors}
         >
@@ -70,7 +70,7 @@ export function IdentityCard({
         <div>
           <FormField
             name="eik"
-            label="ЕИК (EIK / BULSTAT)"
+            label="ЕИК / Булстат"
             required
             errors={validationErrors}
           >
@@ -103,17 +103,17 @@ export function IdentityCard({
           </FormField>
           {eikStatus === 'taken' && (
             <p className="mt-1.5 text-sm text-red-600">
-              A company with this EIK already exists. Please ask the company owner to invite you instead.
+              Фирма с този ЕИК вече съществува. Помолете собственика на фирмата да ви покани.
             </p>
           )}
           {eikStatus === 'available' && (
-            <p className="mt-1.5 text-sm text-green-600">EIK is available.</p>
+            <p className="mt-1.5 text-sm text-green-600">ЕИК е свободен.</p>
           )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">
-            <Label>VAT registered?</Label>
+            <Label>Регистрация по ДДС?</Label>
             <RadioGroup
               value={isVatRegistered ? 'yes' : 'no'}
               onValueChange={(v) => onIsVatRegisteredChange(v === 'yes')}
@@ -121,18 +121,18 @@ export function IdentityCard({
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="yes" id="vat-yes" />
-                <Label htmlFor="vat-yes">Yes</Label>
+                <Label htmlFor="vat-yes">Да</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="no" id="vat-no" />
-                <Label htmlFor="vat-no">No</Label>
+                <Label htmlFor="vat-no">Не</Label>
               </div>
             </RadioGroup>
           </div>
           {isVatRegistered && (
             <FormField
               name="vatNumber"
-              label="ДДС № (VAT number)"
+              label="ДДС номер"
               errors={validationErrors}
             >
               <Input
@@ -147,7 +147,7 @@ export function IdentityCard({
 
         <FormField
           name="mol"
-          label="МОЛ / Representative"
+          label="МОЛ / Представител"
           errors={validationErrors}
         >
           <Input

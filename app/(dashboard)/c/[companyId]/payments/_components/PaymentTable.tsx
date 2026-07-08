@@ -20,6 +20,12 @@ interface Props {
 const HEADER_CELL =
   'px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-600';
 
+const STATUS_LABELS: Record<string, string> = {
+  unpaid: 'Неплатена',
+  partial: 'Частично',
+  paid: 'Платена',
+};
+
 export function PaymentTable({
   rows,
   companyId,
@@ -34,13 +40,13 @@ export function PaymentTable({
       <thead>
         <tr className="border-b border-gray-200 bg-gray-50/80">
           <th className="w-8 px-2 py-3" />
-          <th className={HEADER_CELL}>Supplier</th>
-          <th className={HEADER_CELL}>Number</th>
-          <th className={HEADER_CELL}>Issue date</th>
-          {isToPay && <th className={HEADER_CELL}>Due date</th>}
-          <th className={cn(HEADER_CELL, 'text-right')}>Amount</th>
-          {isToPay && <th className={HEADER_CELL}>Status</th>}
-          <th className={cn(HEADER_CELL, 'text-right')}>Actions</th>
+          <th className={HEADER_CELL}>Доставчик</th>
+          <th className={HEADER_CELL}>Номер</th>
+          <th className={HEADER_CELL}>Дата на издаване</th>
+          {isToPay && <th className={HEADER_CELL}>Падеж</th>}
+          <th className={cn(HEADER_CELL, 'text-right')}>Сума</th>
+          {isToPay && <th className={HEADER_CELL}>Статус</th>}
+          <th className={cn(HEADER_CELL, 'text-right')}>Действия</th>
         </tr>
       </thead>
       <tbody>
@@ -60,8 +66,8 @@ export function PaymentTable({
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                  title="Open original file"
-                  aria-label="Open original file"
+                  title="Отвори оригинала"
+                  aria-label="Отвори оригинала"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
@@ -78,7 +84,7 @@ export function PaymentTable({
                   {overdue ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
                       <AlertTriangle className="h-3 w-3" />
-                      {formatDate(row.dueDate)} · overdue
+                      {formatDate(row.dueDate)} · просрочена
                     </span>
                   ) : (
                     formatDate(row.dueDate)
@@ -98,7 +104,7 @@ export function PaymentTable({
                         : 'bg-red-100 text-red-700'
                     )}
                   >
-                    {row.paymentStatus}
+                    {STATUS_LABELS[row.paymentStatus] ?? row.paymentStatus}
                   </span>
                 </td>
               )}
@@ -114,7 +120,7 @@ export function PaymentTable({
                           onClick={() => onMark(row.id, 'partial')}
                           className="h-7 text-xs"
                         >
-                          Partial
+                          Частично
                         </Button>
                       )}
                       <Button
@@ -126,7 +132,7 @@ export function PaymentTable({
                         {pendingId === row.id ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
                         ) : (
-                          'Mark paid'
+                          'Отбележи като платена'
                         )}
                       </Button>
                     </>
@@ -137,9 +143,9 @@ export function PaymentTable({
                       disabled={pendingId === row.id}
                       onClick={() => onMark(row.id, 'unpaid')}
                       className="h-7 text-xs"
-                      title="Mark as unpaid (in case of mistake)"
+                      title="Отбележи като неплатена (при грешка)"
                     >
-                      Undo
+                      Отмени
                     </Button>
                   )}
                   <Button asChild size="sm" variant="ghost" className="h-7">
@@ -147,7 +153,7 @@ export function PaymentTable({
                       href={`/c/${companyId}/received-invoices/${row.id}`}
                       className="text-xs"
                     >
-                      Open →
+                      Отвори →
                     </Link>
                   </Button>
                 </div>

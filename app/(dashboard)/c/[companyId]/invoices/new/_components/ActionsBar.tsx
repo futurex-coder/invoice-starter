@@ -21,7 +21,7 @@ export function ActionsBar({
     <div className="flex flex-wrap gap-3">
       <Button onClick={onSaveDraft} disabled={saving}>
         {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-        Save draft
+        Запази чернова
       </Button>
       <Button
         className="bg-green-600 hover:bg-green-700"
@@ -29,7 +29,7 @@ export function ActionsBar({
         disabled={saving}
       >
         {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-        Finalize (issue)
+        Издай
       </Button>
     </div>
   );

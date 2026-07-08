@@ -15,6 +15,12 @@ import type { Company } from '@/lib/db/schema';
 import { isPaymentMethod } from '@/src/features/bulgarian-invoicing/parsers';
 import { PAYMENT_METHODS, type PaymentMethod } from './types';
 
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  bank: 'Банков път',
+  cash: 'В брой',
+  barter: 'Бартер',
+};
+
 interface Props {
   paymentMethod: PaymentMethod;
   onPaymentMethodChange: (method: PaymentMethod) => void;
@@ -37,11 +43,11 @@ export function PaymentCard({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Payment</CardTitle>
+        <CardTitle>Плащане</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label>Method</Label>
+          <Label>Начин на плащане</Label>
           <RadioGroup
             value={paymentMethod}
             onValueChange={(v) => {
@@ -52,14 +58,14 @@ export function PaymentCard({
             {PAYMENT_METHODS.map((m) => (
               <div key={m} className="flex items-center space-x-2">
                 <RadioGroupItem value={m} id={`pay-${m}`} />
-                <Label htmlFor={`pay-${m}`}>{m}</Label>
+                <Label htmlFor={`pay-${m}`}>{PAYMENT_METHOD_LABELS[m]}</Label>
               </div>
             ))}
           </RadioGroup>
         </div>
         {paymentMethod === 'bank' && companyProfile?.iban && (
           <div className="rounded-md bg-gray-50 p-3 text-sm">
-            <p className="font-medium">Bank details (from company profile)</p>
+            <p className="font-medium">Банкови данни (от профила на фирмата)</p>
             <p>{companyProfile.bankName}</p>
             <p>IBAN: {companyProfile.iban}</p>
             {companyProfile.bicSwift && <p>BIC/SWIFT: {companyProfile.bicSwift}</p>}
@@ -67,7 +73,7 @@ export function PaymentCard({
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="dueDate">Due date (optional)</Label>
+            <Label htmlFor="dueDate">Падеж (по желание)</Label>
             <Input
               id="dueDate"
               type="date"
@@ -76,15 +82,15 @@ export function PaymentCard({
             />
           </div>
           <div>
-            <Label>Payment status</Label>
+            <Label>Статус на плащане</Label>
             <Select value={paymentStatus} onValueChange={onPaymentStatusChange}>
               <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unpaid">Unpaid</SelectItem>
-                <SelectItem value="partial">Partial</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="unpaid">Неплатена</SelectItem>
+                <SelectItem value="partial">Частично</SelectItem>
+                <SelectItem value="paid">Платена</SelectItem>
               </SelectContent>
             </Select>
           </div>

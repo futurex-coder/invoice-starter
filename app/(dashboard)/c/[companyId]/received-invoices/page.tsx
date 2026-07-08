@@ -308,9 +308,9 @@ export default function ReceivedInvoicesPage() {
       : `#${target.item.id}`;
     const supplier = supplierName(target.item);
     if (target.mode === 'discard') {
-      return `Draft ${numberPart} from ${supplier} will not count in any totals. You can still find it under the Discarded filter.`;
+      return `Чернова ${numberPart} от ${supplier} няма да участва в никакви суми. Ще я намерите чрез филтъра „Отхвърлени“.`;
     }
-    return `${numberPart} from ${supplier} and the original file will be permanently removed. This cannot be undone.`;
+    return `${numberPart} от ${supplier} и оригиналният файл ще бъдат изтрити окончателно. Това действие е необратимо.`;
   };
 
   return (
@@ -319,15 +319,15 @@ export default function ReceivedInvoicesPage() {
         <div>
           <h1 className="flex items-center gap-2 text-lg font-medium lg:text-2xl">
             <Inbox className="h-5 w-5" />
-            Received invoices
+            Получени фактури
           </h1>
           <p className="text-sm text-gray-500">
-            Invoices your partners sent — what you have paid and what you owe.
+            Фактури, изпратени от вашите контрагенти — какво сте платили и какво дължите.
           </p>
         </div>
         <Button onClick={goUpload} className="bg-primary hover:bg-primary/90">
           <Plus className="mr-2 h-4 w-4" />
-          Upload invoices
+          Качи фактури
         </Button>
       </div>
 
@@ -340,11 +340,11 @@ export default function ReceivedInvoicesPage() {
       {data && (
         <PendingReviewBanner
           count={data.pendingCount}
-          description=" awaiting review — analyzed and saved as drafts below."
+          description=" — анализирани и запазени като чернови по-долу."
           className="mb-4 items-center"
           action={
             <Button size="sm" variant="outline" onClick={reviewNextPending}>
-              Review next
+              Прегледай следващата
             </Button>
           }
         />
@@ -362,7 +362,7 @@ export default function ReceivedInvoicesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Received invoice list</CardTitle>
+          <CardTitle>Списък с получени фактури</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           {list.loading ? (
@@ -372,9 +372,9 @@ export default function ReceivedInvoicesPage() {
           ) : !data?.items.length ? (
             <div className="flex flex-col items-center gap-3 px-6 py-12 text-center text-sm text-gray-500">
               <FileText className="h-8 w-8 text-gray-300" />
-              <p>No received invoices match these filters.</p>
+              <p>Няма получени фактури, отговарящи на филтрите.</p>
               <Button onClick={goUpload} variant="outline">
-                Upload an invoice
+                Качи фактура
               </Button>
             </div>
           ) : (
@@ -411,12 +411,12 @@ export default function ReceivedInvoicesPage() {
         onOpenChange={(open) => !open && setConfirmTarget(null)}
         title={
           confirmTarget?.mode === 'hardDelete'
-            ? 'Permanently delete invoice?'
-            : 'Discard draft?'
+            ? 'Окончателно изтриване на фактурата?'
+            : 'Отхвърляне на черновата?'
         }
         description={buildDescription(confirmTarget)}
         confirmText={
-          confirmTarget?.mode === 'hardDelete' ? 'Permanently delete' : 'Discard'
+          confirmTarget?.mode === 'hardDelete' ? 'Изтрий окончателно' : 'Отхвърли'
         }
         variant="destructive"
         onConfirm={handleConfirmAction}

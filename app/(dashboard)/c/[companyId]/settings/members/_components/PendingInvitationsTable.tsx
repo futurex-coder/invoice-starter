@@ -19,7 +19,7 @@ export function PendingInvitationsTable({ invitations }: Props) {
     <Card>
       <CardHeader>
         <CardTitle>
-          Pending invitations{' '}
+          Чакащи покани{' '}
           <span className="text-sm font-normal text-muted-foreground">
             ({invitations.length})
           </span>
@@ -30,13 +30,13 @@ export function PendingInvitationsTable({ invitations }: Props) {
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50/80">
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                Email
+                Имейл
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                Role
+                Роля
               </th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                Invited
+                Поканен на
               </th>
             </tr>
           </thead>
@@ -54,7 +54,7 @@ export function PendingInvitationsTable({ invitations }: Props) {
                 </td>
                 <td className="px-4 py-3">
                   <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 capitalize">
-                    {inv.role}
+                    {inv.role === 'owner' ? 'Собственик' : 'Счетоводител'}
                   </span>
                 </td>
                 <td className="px-4 py-3">

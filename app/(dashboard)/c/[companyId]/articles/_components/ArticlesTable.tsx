@@ -6,8 +6,8 @@ import { RowActionsMenu } from '@/components/list-page/RowActionsMenu';
 import { Pencil, Trash2 } from 'lucide-react';
 
 const TYPE_LABELS: Record<string, string> = {
-  service: 'Service',
-  goods: 'Goods',
+  service: 'Услуга',
+  goods: 'Стока',
 };
 
 interface Props {
@@ -21,12 +21,12 @@ export function ArticlesTable({ articles, onEdit, onDelete }: Props) {
     <table className="w-full">
       <DataTableHead
         columns={[
-          { label: 'Name' },
-          { label: 'Unit' },
-          { label: 'Default Price' },
-          { label: 'Currency' },
-          { label: 'Type' },
-          { label: 'Actions', align: 'right' },
+          { label: 'Наименование' },
+          { label: 'Мярка' },
+          { label: 'Цена по подразбиране' },
+          { label: 'Валута' },
+          { label: 'Вид' },
+          { label: 'Действия', align: 'right' },
         ]}
       />
       <tbody>
@@ -49,8 +49,8 @@ export function ArticlesTable({ articles, onEdit, onDelete }: Props) {
             <td className="px-4 py-3 text-right">
               <RowActionsMenu
                 actions={[
-                  { icon: Pencil, label: 'Edit', onClick: () => onEdit(a) },
-                  { icon: Trash2, label: 'Delete', onClick: () => onDelete(a), destructive: true },
+                  { icon: Pencil, label: 'Редактирай', onClick: () => onEdit(a) },
+                  { icon: Trash2, label: 'Изтрий', onClick: () => onDelete(a), destructive: true },
                 ]}
               />
             </td>

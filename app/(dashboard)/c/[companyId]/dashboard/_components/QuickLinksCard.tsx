@@ -18,7 +18,7 @@ export function QuickLinksCard({ links }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Quick Links</CardTitle>
+        <CardTitle>Бързи връзки</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         {links.map((link) => {

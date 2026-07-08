@@ -42,11 +42,11 @@ export function InvoiceFilters({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Filters</CardTitle>
+        <CardTitle>Филтри</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-4 items-end">
         <div className="w-full sm:w-48">
-          <Label htmlFor="status">Status</Label>
+          <Label htmlFor="status">Статус</Label>
           <Select
             value={filters.status ?? 'all'}
             onValueChange={(v) => {
@@ -61,15 +61,15 @@ export function InvoiceFilters({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="finalized">Finalized</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="all">Всички</SelectItem>
+              <SelectItem value="draft">Чернова</SelectItem>
+              <SelectItem value="finalized">Издадена</SelectItem>
+              <SelectItem value="cancelled">Анулирана</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="w-full sm:w-48">
-          <Label htmlFor="paymentStatus">Payment</Label>
+          <Label htmlFor="paymentStatus">Плащане</Label>
           <Select
             value={filters.paymentStatus ?? 'all'}
             onValueChange={(v) =>
@@ -83,15 +83,15 @@ export function InvoiceFilters({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="unpaid">Unpaid</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
+              <SelectItem value="all">Всички</SelectItem>
+              <SelectItem value="unpaid">Неплатена</SelectItem>
+              <SelectItem value="paid">Платена</SelectItem>
+              <SelectItem value="partial">Частично</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="w-full sm:w-48">
-          <Label htmlFor="accountingStatus">Accounting</Label>
+          <Label htmlFor="accountingStatus">Осчетоводяване</Label>
           <Select
             value={filters.accountingStatus ?? 'all'}
             onValueChange={(v) =>
@@ -105,16 +105,16 @@ export function InvoiceFilters({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="accounted">Accounted</SelectItem>
+              <SelectItem value="all">Всички</SelectItem>
+              <SelectItem value="pending">Чака</SelectItem>
+              <SelectItem value="accounted">Осчетоводена</SelectItem>
             </SelectContent>
           </Select>
         </div>
         {/* OI-5: accountants work by month — one month picker instead of a
             from/to range. */}
         <div className="w-full sm:w-44">
-          <Label htmlFor="month">Month</Label>
+          <Label htmlFor="month">Месец</Label>
           <Input
             id="month"
             type="month"
@@ -126,17 +126,17 @@ export function InvoiceFilters({
           />
         </div>
         <div className="w-full sm:w-48">
-          <Label htmlFor="search">Number / Client</Label>
+          <Label htmlFor="search">Номер / Клиент</Label>
           <div className="flex gap-2 mt-1">
             <Input
               id="search"
-              placeholder="Search..."
+              placeholder="Търсене..."
               value={searchInput}
               onChange={(e) => onSearchInputChange(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onSearchSubmit()}
             />
             <Button variant="outline" onClick={onSearchSubmit}>
-              Search
+              Търсене
             </Button>
           </div>
         </div>

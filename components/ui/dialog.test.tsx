@@ -55,7 +55,7 @@ describe('Dialog', () => {
     const user = userEvent.setup();
     await user.click(screen.getByText('Open dialog'));
     expect(await screen.findByText('Test dialog')).toBeInTheDocument();
-    await user.click(screen.getByText('Close'));
+    await user.click(screen.getByText('Затвори'));
     expect(screen.queryByText('Test dialog')).not.toBeInTheDocument();
   });
 });

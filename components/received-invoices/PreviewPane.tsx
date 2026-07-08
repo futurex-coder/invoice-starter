@@ -61,10 +61,10 @@ export function PreviewPane({
             return;
           }
         }
-        setError('Could not load preview');
+        setError('Визуализацията не можа да бъде заредена.');
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Network error');
+          setError(e instanceof Error ? e.message : 'Мрежова грешка.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -90,7 +90,7 @@ export function PreviewPane({
         variant="error"
         className="flex h-full min-h-[400px] w-full items-center justify-center"
       >
-        {error ?? 'Preview unavailable'}
+        {error ?? 'Визуализацията не е налична'}
       </Alert>
     );
   }
@@ -111,7 +111,7 @@ export function PreviewPane({
                 size="sm"
                 className="h-7 w-7 px-0"
                 onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-                aria-label="Zoom out"
+                aria-label="Намали"
               >
                 <ZoomOut className="h-3.5 w-3.5" />
               </Button>
@@ -123,7 +123,7 @@ export function PreviewPane({
                 size="sm"
                 className="h-7 w-7 px-0"
                 onClick={() => setZoom((z) => Math.min(4, z + 0.25))}
-                aria-label="Zoom in"
+                aria-label="Увеличи"
               >
                 <ZoomIn className="h-3.5 w-3.5" />
               </Button>
@@ -132,7 +132,7 @@ export function PreviewPane({
                 size="sm"
                 className="h-7 w-7 px-0"
                 onClick={() => setZoom(1)}
-                aria-label="Reset zoom"
+                aria-label="Нулирай мащаба"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
@@ -146,7 +146,7 @@ export function PreviewPane({
             className="h-7 px-2 lg:hidden"
             onClick={() => setCollapsed((c) => !c)}
             aria-expanded={!collapsed}
-            aria-label={collapsed ? 'Show document' : 'Hide document'}
+            aria-label={collapsed ? 'Покажи документа' : 'Скрий документа'}
           >
             {collapsed ? (
               <ChevronDown className="h-3.5 w-3.5" />
@@ -157,7 +157,7 @@ export function PreviewPane({
           <Button asChild variant="ghost" size="sm" className="h-7 px-2">
             <a href={url} target="_blank" rel="noreferrer">
               <ExternalLink className="mr-1 h-3 w-3" />
-              Open
+              Отвори
             </a>
           </Button>
         </div>

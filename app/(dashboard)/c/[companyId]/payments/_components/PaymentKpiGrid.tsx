@@ -14,21 +14,21 @@ export function PaymentKpiGrid({ totals, loading }: Props) {
     <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
       <KpiCard
         icon={<Clock className="h-5 w-5 text-rose-600" />}
-        label="To pay"
+        label="За плащане"
         value={`${formatMoney(totals?.toPayAmount ?? 0)} EUR`}
         color="rose"
         loading={loading}
       />
       <KpiCard
         icon={<TrendingDown className="h-5 w-5 text-purple-600" />}
-        label="Paid this month"
+        label="Платени този месец"
         value={`${formatMoney(totals?.paidThisMonthAmount ?? 0)} EUR`}
         color="purple"
         loading={loading}
       />
       <KpiCard
         icon={<AlertTriangle className="h-5 w-5 text-red-600" />}
-        label="Overdue"
+        label="Просрочени"
         value={
           overdueCount > 0
             ? `${overdueCount} · ${formatMoney(totals?.overdueAmount ?? 0)} EUR`

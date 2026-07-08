@@ -44,7 +44,7 @@ export function Terminal() {
           <button
             onClick={copyToClipboard}
             className="text-gray-400 hover:text-white transition-colors"
-            aria-label="Copy to clipboard"
+            aria-label="Копирай"
           >
             {copied ? (
               <Check className="h-5 w-5" />

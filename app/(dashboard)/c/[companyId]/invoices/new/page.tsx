@@ -113,14 +113,14 @@ export default function NewInvoicePage() {
       if (editingInvoice.accountingStatus === 'accounted') {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setError(
-          'This invoice is marked accounted and is locked. Set it back to pending accounting to edit it.'
+          'Тази фактура е маркирана като осчетоводена и е заключена. Върнете я към чакащо осчетоводяване, за да я редактирате.'
         );
         hydratedRef.current = true;
         return;
       }
       if (editingInvoice.status === 'cancelled') {
         setError(
-          'This invoice is cancelled. Reinstate it from the invoice list before editing.'
+          'Тази фактура е анулирана. Възстановете я от списъка с фактури, преди да я редактирате.'
         );
         hydratedRef.current = true;
         return;
@@ -213,7 +213,7 @@ export default function NewInvoicePage() {
   /** Persist the current form as a draft. Returns the draft id, or null on failure. */
   const saveDraft = async (): Promise<number | null> => {
     if (!companyProfile) {
-      setError('Company profile (Supplier) is required. Complete it in Settings.');
+      setError('Профилът на фирмата (Доставчик) е задължителен. Попълнете го в Настройки.');
       return null;
     }
     setSaving(true);
@@ -248,7 +248,7 @@ export default function NewInvoicePage() {
 
   const handleFinalize = async () => {
     if (!companyProfile) {
-      setError('Company profile (Supplier) is required. Complete it in Settings.');
+      setError('Профилът на фирмата (Доставчик) е задължителен. Попълнете го в Настройки.');
       return;
     }
     setSaving(true);
@@ -294,13 +294,13 @@ export default function NewInvoicePage() {
   return (
     <PageShell maxWidth="4xl" className="mx-auto">
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" asChild aria-label="Back to invoices">
+        <Button variant="ghost" size="icon" asChild aria-label="Назад към фактурите">
           <Link href={`/c/${companyId}/invoices`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <h1 className="text-lg lg:text-2xl font-medium">
-          {draftId ? 'Edit invoice' : 'New invoice'}
+          {draftId ? 'Редактиране на фактура' : 'Нова фактура'}
         </h1>
       </div>
 

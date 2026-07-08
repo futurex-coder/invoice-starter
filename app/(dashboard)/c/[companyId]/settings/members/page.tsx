@@ -74,7 +74,7 @@ export default function MembersPage() {
       }
       return;
     }
-    toast.success('Invitation sent successfully');
+    toast.success('Поканата е изпратена успешно');
     setInviteEmail('');
     setShowInvite(false);
     refetch();
@@ -95,7 +95,7 @@ export default function MembersPage() {
       setActionError(res.error);
       throw new Error(res.error);
     }
-    toast.success('Member removed');
+    toast.success('Членът е премахнат');
     refetch();
   };
 
@@ -114,7 +114,7 @@ export default function MembersPage() {
   return (
     <PageShell>
       <ListPageHeader
-        title="Members"
+        title="Екип"
         action={
           canInviteMembers(role) && (
             <Button
@@ -122,7 +122,7 @@ export default function MembersPage() {
               onClick={() => setShowInvite(true)}
             >
               <UserPlus className="mr-2 h-4 w-4" />
-              Invite member
+              Покани член
             </Button>
           )
         }
@@ -161,13 +161,13 @@ export default function MembersPage() {
       <ConfirmDialog
         open={confirmRemove !== null}
         onOpenChange={(open) => !open && setConfirmRemove(null)}
-        title="Remove member?"
+        title="Премахване на член?"
         description={
           confirmRemove
-            ? `${confirmRemove.name} will lose access to this company. You can invite them back later.`
+            ? `${confirmRemove.name} ще загуби достъп до тази фирма. Можете да го поканите отново по-късно.`
             : undefined
         }
-        confirmText="Remove member"
+        confirmText="Премахни член"
         variant="destructive"
         onConfirm={handleRemoveConfirmed}
       />

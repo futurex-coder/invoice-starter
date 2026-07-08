@@ -61,15 +61,15 @@ export function CompanyStep({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Company Details</CardTitle>
+        <CardTitle>Данни за фирмата</CardTitle>
         <CardDescription>
-          Legal information used as the supplier on every invoice.
+          Правни данни, използвани като доставчик във всяка фактура.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="ob-legalName">Legal name *</Label>
+            <Label htmlFor="ob-legalName">Наименование *</Label>
             <Input
               id="ob-legalName"
               value={legalName}
@@ -78,7 +78,7 @@ export function CompanyStep({
             />
           </div>
           <div>
-            <Label htmlFor="ob-eik">ЕИК (EIK / BULSTAT) *</Label>
+            <Label htmlFor="ob-eik">ЕИК / Булстат *</Label>
             <Input
               id="ob-eik"
               value={eik}
@@ -91,7 +91,7 @@ export function CompanyStep({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>VAT registered?</Label>
+            <Label>Регистрация по ДДС?</Label>
             <RadioGroup
               value={isVatRegistered ? 'yes' : 'no'}
               onValueChange={(v) => onIsVatRegisteredChange(v === 'yes')}
@@ -99,17 +99,17 @@ export function CompanyStep({
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="yes" id="ob-vat-yes" />
-                <Label htmlFor="ob-vat-yes">Yes</Label>
+                <Label htmlFor="ob-vat-yes">Да</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="no" id="ob-vat-no" />
-                <Label htmlFor="ob-vat-no">No</Label>
+                <Label htmlFor="ob-vat-no">Не</Label>
               </div>
             </RadioGroup>
           </div>
           {isVatRegistered && (
             <div>
-              <Label htmlFor="ob-vatNumber">ДДС № (VAT number)</Label>
+              <Label htmlFor="ob-vatNumber">ДДС номер</Label>
               <Input
                 id="ob-vatNumber"
                 value={vatNumber}
@@ -122,7 +122,7 @@ export function CompanyStep({
         </div>
 
         <div>
-          <Label htmlFor="ob-mol">МОЛ / Contact person</Label>
+          <Label htmlFor="ob-mol">МОЛ / Лице за контакт</Label>
           <Input
             id="ob-mol"
             value={mol}
@@ -134,7 +134,7 @@ export function CompanyStep({
         <hr className="my-2" />
 
         <div>
-          <Label htmlFor="ob-street">Street *</Label>
+          <Label htmlFor="ob-street">Улица *</Label>
           <Input
             id="ob-street"
             value={street}
@@ -144,7 +144,7 @@ export function CompanyStep({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <Label htmlFor="ob-city">City *</Label>
+            <Label htmlFor="ob-city">Град *</Label>
             <Input
               id="ob-city"
               value={city}
@@ -153,7 +153,7 @@ export function CompanyStep({
             />
           </div>
           <div>
-            <Label htmlFor="ob-postCode">Post code</Label>
+            <Label htmlFor="ob-postCode">Пощенски код</Label>
             <Input
               id="ob-postCode"
               value={postCode}
@@ -162,7 +162,7 @@ export function CompanyStep({
             />
           </div>
           <div>
-            <Label htmlFor="ob-country">Country code</Label>
+            <Label htmlFor="ob-country">Код на държавата</Label>
             <Input
               id="ob-country"
               value={country}
@@ -184,7 +184,7 @@ export function CompanyStep({
             ) : (
               <ArrowRight className="mr-2 h-4 w-4" />
             )}
-            Save &amp; Continue
+            Запази и продължи
           </Button>
         </div>
       </CardContent>

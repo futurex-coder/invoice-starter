@@ -66,8 +66,8 @@ function Row(props: RowProps) {
           target="_blank"
           rel="noreferrer"
           className="inline-flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          title={`Open original (${item.fileMimeType === 'application/pdf' ? 'PDF' : 'image'})`}
-          aria-label="Open original file"
+          title={`Отвори оригинала (${item.fileMimeType === 'application/pdf' ? 'PDF' : 'изображение'})`}
+          aria-label="Отвори оригиналния файл"
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
@@ -76,7 +76,7 @@ function Row(props: RowProps) {
         {isAnalyzing ? (
           <span className="inline-flex items-center gap-1.5 text-gray-500">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Analyzing…
+            Анализира се…
           </span>
         ) : (
           (item.invoiceNumber ?? <span className="text-gray-400">—</span>)
@@ -98,7 +98,7 @@ function Row(props: RowProps) {
         />
         {overdue && (
           <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-            Overdue
+            Просрочена
           </span>
         )}
       </td>
@@ -128,7 +128,7 @@ function Row(props: RowProps) {
               disabled={props.pending}
               className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50"
             >
-              Retry
+              Опитай отново
             </button>
           )}
         </div>
@@ -164,14 +164,14 @@ export function ReceivedInvoicesTable(props: TableProps) {
       <thead>
         <tr className="border-b border-gray-200 bg-gray-50/80">
           <th className="w-8 px-2 py-3" />
-          <th className={HEADER_CELL_CLASS}>Number</th>
-          <th className={HEADER_CELL_CLASS}>Supplier</th>
-          <th className={HEADER_CELL_CLASS}>Date</th>
-          <th className={HEADER_CELL_CLASS}>Total</th>
-          <th className={HEADER_CELL_CLASS}>Paid</th>
-          <th className={HEADER_CELL_CLASS}>Accounted</th>
-          <th className={HEADER_CELL_CLASS}>Status</th>
-          <th className={cn(HEADER_CELL_CLASS, 'text-right')}>Actions</th>
+          <th className={HEADER_CELL_CLASS}>Номер</th>
+          <th className={HEADER_CELL_CLASS}>Доставчик</th>
+          <th className={HEADER_CELL_CLASS}>Дата</th>
+          <th className={HEADER_CELL_CLASS}>Общо</th>
+          <th className={HEADER_CELL_CLASS}>Платена</th>
+          <th className={HEADER_CELL_CLASS}>Осчетоводена</th>
+          <th className={HEADER_CELL_CLASS}>Статус</th>
+          <th className={cn(HEADER_CELL_CLASS, 'text-right')}>Действия</th>
         </tr>
       </thead>
       <tbody>

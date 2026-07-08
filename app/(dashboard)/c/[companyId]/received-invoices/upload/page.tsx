@@ -30,24 +30,24 @@ export default function ReceivedInvoicesUploadPage() {
   return (
     <section className="mx-auto max-w-3xl flex-1 p-4 lg:p-8">
       <div className="mb-6 flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild aria-label="Back to received invoices">
+        <Button variant="ghost" size="icon" asChild aria-label="Назад към получените фактури">
           <Link href={`/c/${companyId}/received-invoices`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
-        <h1 className="text-lg font-medium lg:text-2xl">Upload received invoices</h1>
+        <h1 className="text-lg font-medium lg:text-2xl">Качване на получени фактури</h1>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Drop the files</CardTitle>
+          <CardTitle className="text-base">Пуснете файловете</CardTitle>
         </CardHeader>
         <CardContent>
           <ReceivedInvoiceUploader onAllUploaded={handleUploaded} />
           <p className="mt-3 text-xs text-gray-500">
-            Files upload instantly, then analyze in the background. You&apos;ll
-            see them in the list right away and can review each one as soon as
-            it&apos;s ready — nothing is lost, everything is saved as a draft.
+            Файловете се качват веднага, след което се анализират във фонов
+            режим. Ще ги видите в списъка веднага и можете да прегледате всеки,
+            щом е готов — нищо не се губи, всичко се запазва като чернова.
           </p>
         </CardContent>
       </Card>

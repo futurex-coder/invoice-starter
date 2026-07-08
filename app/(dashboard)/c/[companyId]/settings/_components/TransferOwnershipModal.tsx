@@ -36,14 +36,14 @@ export function TransferOwnershipModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={!loading}>
         <DialogHeader>
-          <DialogTitle>Transfer ownership</DialogTitle>
+          <DialogTitle>Прехвърляне на собствеността</DialogTitle>
           <DialogDescription>
-            Select a member to become the new owner. You will be demoted to accountant.
+            Изберете член, който да стане новият собственик. Вие ще бъдете понижени до счетоводител.
           </DialogDescription>
         </DialogHeader>
         {otherMembers.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No other members to transfer to. Invite someone first.
+            Няма други членове, на които да прехвърлите. Първо поканете някого.
           </p>
         ) : (
           <div className="space-y-2">
@@ -67,7 +67,7 @@ export function TransferOwnershipModal({
                 <div>
                   <p className="text-sm font-medium">{m.userName || m.userEmail}</p>
                   <p className="text-xs text-muted-foreground">
-                    {m.userEmail} · {m.role}
+                    {m.userEmail} · {m.role === 'owner' ? 'Собственик' : 'Счетоводител'}
                   </p>
                 </div>
               </label>
@@ -80,7 +80,7 @@ export function TransferOwnershipModal({
             onClick={() => onOpenChange(false)}
             disabled={loading}
           >
-            Cancel
+            Отказ
           </Button>
           <Button
             className="bg-primary hover:bg-primary/90"
@@ -88,7 +88,7 @@ export function TransferOwnershipModal({
             onClick={onConfirm}
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirm transfer
+            Потвърди прехвърлянето
           </Button>
         </DialogFooter>
       </DialogContent>

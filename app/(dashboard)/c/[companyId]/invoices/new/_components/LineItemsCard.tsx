@@ -46,15 +46,15 @@ export function LineItemsCard({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Items</CardTitle>
+        <CardTitle>Артикули</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {!isVatRegistered && (
-          <p className="text-sm text-amber-700">Supplier is not VAT registered. VAT is 0%.</p>
+          <p className="text-sm text-amber-700">Доставчикът не е регистриран по ДДС. ДДС е 0%.</p>
         )}
         {isVatRegistered && (
           <div>
-            <Label>VAT</Label>
+            <Label>ДДС</Label>
             <RadioGroup
               value={vatMode}
               onValueChange={(v) => onVatModeChange(v === 'no_vat' ? 'no_vat' : 'standard')}
@@ -62,17 +62,17 @@ export function LineItemsCard({
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="standard" id="vat-standard" />
-                <Label htmlFor="vat-standard">Standard ({defaultVatRate}%)</Label>
+                <Label htmlFor="vat-standard">Стандартна ({defaultVatRate}%)</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="no_vat" id="vat-no" />
-                <Label htmlFor="vat-no">No VAT</Label>
+                <Label htmlFor="vat-no">Без ДДС</Label>
               </div>
             </RadioGroup>
             {vatMode === 'no_vat' && (
               <Input
                 className="mt-2"
-                placeholder="Reason for no VAT"
+                placeholder="Основание за неначисляване на ДДС"
                 value={noVatReason}
                 onChange={(e) => onNoVatReasonChange(e.target.value)}
               />
@@ -83,12 +83,12 @@ export function LineItemsCard({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b">
-                <th className="text-left py-2">Article / Description</th>
-                <th className="text-left py-2 w-20">Qty</th>
-                <th className="text-left py-2 w-20">Unit</th>
-                <th className="text-left py-2 w-24">Unit price</th>
-                <th className="text-left py-2 w-20">Disc.%</th>
-                <th className="text-right py-2 w-24">Total</th>
+                <th className="text-left py-2">Артикул / Описание</th>
+                <th className="text-left py-2 w-20">Кол.</th>
+                <th className="text-left py-2 w-20">Мярка</th>
+                <th className="text-left py-2 w-24">Ед. цена</th>
+                <th className="text-left py-2 w-20">Отст. %</th>
+                <th className="text-right py-2 w-24">Общо</th>
                 <th className="w-10" />
               </tr>
             </thead>
@@ -123,13 +123,13 @@ export function LineItemsCard({
                           getKey={(a) => a.id}
                           getLabel={(a) => a.name}
                           getSearchText={(a) => `${a.name} ${a.unit}`}
-                          placeholder="From article..."
-                          clearLabel="From article..."
-                          emptyMessage="No articles match"
+                          placeholder="От артикул..."
+                          clearLabel="От артикул..."
+                          emptyMessage="Няма съвпадащи артикули"
                         />
                         <Input
                           className="max-w-[200px]"
-                          placeholder="Description *"
+                          placeholder="Описание *"
                           value={line.description}
                           onChange={(e) => onUpdateLine(i, { description: e.target.value })}
                         />
@@ -181,7 +181,7 @@ export function LineItemsCard({
                         size="sm"
                         onClick={() => onRemoveLine(i)}
                         disabled={lineItems.length <= 1}
-                        aria-label="Remove line"
+                        aria-label="Премахни ред"
                       >
                         ×
                       </Button>
@@ -193,7 +193,7 @@ export function LineItemsCard({
           </table>
         </div>
         <Button type="button" variant="outline" size="sm" onClick={onAddLine}>
-          + Add line
+          + Добави ред
         </Button>
       </CardContent>
     </Card>

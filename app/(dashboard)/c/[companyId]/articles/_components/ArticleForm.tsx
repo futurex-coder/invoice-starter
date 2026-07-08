@@ -65,26 +65,26 @@ export function ArticleFormCard({
   return (
     <Card className="mb-6">
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{isEditing ? 'Edit article' : 'New article'}</CardTitle>
+        <CardTitle>{isEditing ? 'Редактиране на артикул' : 'Нов артикул'}</CardTitle>
         <Button
           variant="ghost"
           size="icon"
           onClick={onCancel}
-          aria-label="Close form"
+          aria-label="Затвори формата"
         >
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField name="name" label="Name" required errors={validationErrors}>
+          <FormField name="name" label="Наименование" required errors={validationErrors}>
             <Input
               value={form.name}
               onChange={(e) => onFormChange({ name: e.target.value })}
-              placeholder="Article name"
+              placeholder="Наименование на артикула"
             />
           </FormField>
-          <FormField name="unit" label="Unit" required errors={validationErrors}>
+          <FormField name="unit" label="Мярка" required errors={validationErrors}>
             <Input
               value={form.unit}
               onChange={(e) => onFormChange({ unit: e.target.value })}
@@ -95,7 +95,7 @@ export function ArticleFormCard({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField
             name="defaultUnitPrice"
-            label="Default price"
+            label="Цена по подразбиране"
             errors={validationErrors}
           >
             <Input
@@ -107,7 +107,7 @@ export function ArticleFormCard({
               placeholder="0.00"
             />
           </FormField>
-          <FormField name="currency" label="Currency" errors={validationErrors}>
+          <FormField name="currency" label="Валута" errors={validationErrors}>
             <Select
               value={form.currency}
               onValueChange={(v) => onFormChange({ currency: v })}
@@ -121,7 +121,7 @@ export function ArticleFormCard({
               </SelectContent>
             </Select>
           </FormField>
-          <FormField name="type" label="Type" errors={validationErrors}>
+          <FormField name="type" label="Вид" errors={validationErrors}>
             <Select
               value={form.type}
               onValueChange={(v) => {
@@ -132,31 +132,31 @@ export function ArticleFormCard({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="service">Service</SelectItem>
-                <SelectItem value="goods">Goods</SelectItem>
+                <SelectItem value="service">Услуга</SelectItem>
+                <SelectItem value="goods">Стока</SelectItem>
               </SelectContent>
             </Select>
           </FormField>
         </div>
         <FormField
           name="tags"
-          label="Tags"
-          hint="comma-separated tags (optional)"
+          label="Етикети"
+          hint="етикети, разделени със запетая (по желание)"
           errors={validationErrors}
         >
           <Input
             value={form.tags}
             onChange={(e) => onFormChange({ tags: e.target.value })}
-            placeholder="comma-separated tags"
+            placeholder="етикети, разделени със запетая"
           />
         </FormField>
         <div className="flex gap-2 pt-2">
           <Button onClick={onSave} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isEditing ? 'Update' : 'Create'}
+            {isEditing ? 'Запази' : 'Създай'}
           </Button>
           <Button variant="outline" onClick={onCancel}>
-            Cancel
+            Отказ
           </Button>
         </div>
       </CardContent>

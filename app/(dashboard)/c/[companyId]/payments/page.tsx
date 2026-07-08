@@ -79,16 +79,16 @@ export default function PaymentsPage() {
       <div className="mb-6">
         <h1 className="flex items-center gap-2 text-lg font-medium lg:text-2xl">
           <CreditCard className="h-5 w-5" />
-          Payments
+          Плащания
         </h1>
         <p className="text-sm text-gray-500">
-          What your company owes and what it has paid. Only confirmed received
-          invoices count here — drafts are still in{' '}
+          Какво дължи фирмата и какво вече е платила. Тук се броят само
+          потвърдените получени фактури — черновите са все още в{' '}
           <Link
             href={`/c/${companyId}/received-invoices`}
             className="text-primary/90 hover:underline"
           >
-            received invoices
+            получени фактури
           </Link>
           .
         </p>
@@ -102,7 +102,7 @@ export default function PaymentsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Clock className="h-4 w-4 text-rose-600" />
-            To pay
+            За плащане
             {data && (
               <span className="text-xs font-normal text-gray-500">
                 ({data.toPay.length})
@@ -114,7 +114,7 @@ export default function PaymentsPage() {
           {list.loading ? (
             <PaymentLoadingRow />
           ) : !data?.toPay.length ? (
-            <PaymentEmptyRow text="Nothing to pay. You're all caught up." accent="green" />
+            <PaymentEmptyRow text="Няма нищо за плащане. Всичко е изрядно." accent="green" />
           ) : (
             <PaymentTable
               rows={data.toPay}
@@ -132,7 +132,7 @@ export default function PaymentsPage() {
         <CardHeader className="flex-row items-end justify-between space-y-0">
           <CardTitle className="flex items-center gap-2 text-base">
             <CheckCircle2 className="h-4 w-4 text-purple-600" />
-            Paid
+            Платени
             {data && (
               <span className="text-xs font-normal text-gray-500">
                 ({data.paid.length})
@@ -154,7 +154,7 @@ export default function PaymentsPage() {
           {list.loading ? (
             <PaymentLoadingRow />
           ) : !data?.paid.length ? (
-            <PaymentEmptyRow text="No paid invoices in this date range." accent="gray" />
+            <PaymentEmptyRow text="Няма платени фактури в този период." accent="gray" />
           ) : (
             <PaymentTable
               rows={data.paid}

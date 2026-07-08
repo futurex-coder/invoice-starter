@@ -37,8 +37,10 @@ export function PendingReviewBanner({
     <Alert variant="warning" icon={Inbox} className={className}>
       <div className="flex items-center justify-between gap-3">
         <span>
-          <strong>{count}</strong> received{' '}
-          {count === 1 ? 'invoice' : 'invoices'} awaiting review
+          <strong>{count}</strong>{' '}
+          {count === 1
+            ? 'получена фактура за преглед'
+            : 'получени фактури за преглед'}
           {description && (
             <span className="ml-1 text-amber-700">{description}</span>
           )}

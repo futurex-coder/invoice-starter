@@ -30,9 +30,9 @@ import {
 import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  finalized: 'Finalized',
-  cancelled: 'Cancelled',
+  draft: 'Чернова',
+  finalized: 'Издадена',
+  cancelled: 'Анулирана',
 };
 const DOC_TYPE_BADGES: Record<string, string> = {
   credit_note: 'КИ',
@@ -66,18 +66,18 @@ function ExpandedDetail({ invoice }: { invoice: Invoice }) {
     <tr className="border-b border-gray-200 bg-gray-50/60">
       <td colSpan={8} className="px-6 py-3">
         {items.length === 0 ? (
-          <p className="text-sm text-gray-500">No line items.</p>
+          <p className="text-sm text-gray-500">Няма редове.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full max-w-3xl text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                  <th className="py-1 pr-4">Article / Description</th>
-                  <th className="py-1 pr-4">Qty</th>
-                  <th className="py-1 pr-4">Unit</th>
-                  <th className="py-1 pr-4 text-right">Unit price</th>
-                  <th className="py-1 pr-4 text-right">Disc.%</th>
-                  <th className="py-1 text-right">Total</th>
+                  <th className="py-1 pr-4">Артикул / Описание</th>
+                  <th className="py-1 pr-4">Кол.</th>
+                  <th className="py-1 pr-4">Мярка</th>
+                  <th className="py-1 pr-4 text-right">Ед. цена</th>
+                  <th className="py-1 pr-4 text-right">Отст. %</th>
+                  <th className="py-1 text-right">Общо</th>
                 </tr>
               </thead>
               <tbody>
@@ -104,8 +104,8 @@ function ExpandedDetail({ invoice }: { invoice: Invoice }) {
               <tfoot>
                 <tr className="border-t border-gray-300 font-medium">
                   <td colSpan={5} className="py-1.5 pr-4 text-right">
-                    Net {formatMoney(totals.netAmount)} · VAT{' '}
-                    {formatMoney(totals.vatAmount)} · Total
+                    Данъчна основа {formatMoney(totals.netAmount)} · ДДС{' '}
+                    {formatMoney(totals.vatAmount)} · Общо
                   </td>
                   <td className="py-1.5 text-right">
                     {formatMoney(totals.grossAmount)} {invoice.currency}
@@ -155,29 +155,29 @@ function InvoiceRow({
     new Date(invoice.dueDate) < new Date(new Date().toISOString().split('T')[0]);
 
   const actions: RowAction[] = [
-    { icon: Eye, label: 'View', onClick: () => onView(invoice.id) },
+    { icon: Eye, label: 'Преглед', onClick: () => onView(invoice.id) },
     ...(canEdit
-      ? [{ icon: Pencil, label: 'Edit', onClick: () => onEdit(invoice.id) }]
+      ? [{ icon: Pencil, label: 'Редактирай', onClick: () => onEdit(invoice.id) }]
       : []),
-    { icon: Printer, label: 'Print / Preview', onClick: () => onPrint(invoice.id) },
+    { icon: Printer, label: 'Печат', onClick: () => onPrint(invoice.id) },
     ...(!isCancelled && isIssued
-      ? [{ icon: XCircle, label: 'Cancel', onClick: () => onCancel(invoice) }]
+      ? [{ icon: XCircle, label: 'Анулирай', onClick: () => onCancel(invoice) }]
       : []),
     // Credit/debit notes can only be raised against a real invoice.
     ...(!isCancelled && isIssued && isRealInvoice
       ? [
-          { icon: Copy, label: 'Copy', onClick: () => onCopy(invoice.id) },
-          { icon: FileDown, label: 'Create credit note', onClick: () => onCreditNote(invoice.id) },
-          { icon: FileUp, label: 'Create debit note', onClick: () => onDebitNote(invoice.id) },
+          { icon: Copy, label: 'Копирай', onClick: () => onCopy(invoice.id) },
+          { icon: FileDown, label: 'Създай кредитно известие', onClick: () => onCreditNote(invoice.id) },
+          { icon: FileUp, label: 'Създай дебитно известие', onClick: () => onDebitNote(invoice.id) },
         ]
       : []),
     // PROF-1: a proforma converts into a real invoice (reuses the copy flow →
     // a fresh invoice draft; the proforma itself is left as-is).
     ...(!isCancelled && isIssued && isProforma
-      ? [{ icon: FileCheck2, label: 'Convert to invoice', onClick: () => onCopy(invoice.id) }]
+      ? [{ icon: FileCheck2, label: 'Преобразувай във фактура', onClick: () => onCopy(invoice.id) }]
       : []),
     ...(isCancelled
-      ? [{ icon: RotateCcw, label: 'Reinstate (uncancel)', onClick: () => onUncancel(invoice.id) }]
+      ? [{ icon: RotateCcw, label: 'Възстанови', onClick: () => onUncancel(invoice.id) }]
       : []),
   ];
 
@@ -188,7 +188,7 @@ function InvoiceRow({
           type="button"
           onClick={() => onToggleExpand(invoice.id)}
           aria-expanded={expanded}
-          aria-label={expanded ? 'Collapse line items' : 'Expand line items'}
+          aria-label={expanded ? 'Свий редовете' : 'Разгъни редовете'}
           className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700"
         >
           <ChevronRight
@@ -214,7 +214,7 @@ function InvoiceRow({
             href={`/c/${companyId}/invoices/${invoice.referencedInvoiceId}`}
             className="ml-2 text-xs text-blue-600 hover:underline"
           >
-            → parent
+            → основна фактура
           </Link>
         )}
       </td>
@@ -243,7 +243,7 @@ function InvoiceRow({
         />
         {isOverdue && (
           <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-            Overdue
+            Просрочена
           </span>
         )}
       </td>
@@ -301,14 +301,14 @@ export function InvoicesTable(props: TableProps) {
     <table className="w-full">
       <DataTableHead
         columns={[
-          { label: 'Number' },
-          { label: 'Client' },
-          { label: 'Date' },
-          { label: 'Total' },
-          { label: 'Paid' },
-          { label: 'Accounted' },
-          { label: 'Status' },
-          { label: 'Actions', align: 'right' },
+          { label: 'Номер' },
+          { label: 'Клиент' },
+          { label: 'Дата' },
+          { label: 'Общо' },
+          { label: 'Платена' },
+          { label: 'Осчетоводена' },
+          { label: 'Статус' },
+          { label: 'Действия', align: 'right' },
         ]}
       />
       <tbody>

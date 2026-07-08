@@ -167,12 +167,12 @@ export default function InvoicesPage() {
   return (
     <PageShell>
       <ListPageHeader
-        title="Invoices"
+        title="Фактури"
         action={
           <Button asChild className="bg-primary hover:bg-primary/90">
             <Link href={`/c/${companyId}/invoices/new`}>
               <Plus className="mr-2 h-4 w-4" />
-              New invoice
+              Нова фактура
             </Link>
           </Button>
         }
@@ -191,10 +191,10 @@ export default function InvoicesPage() {
       <ErrorAlert message={list.error} className="mb-4" />
 
       <ListCard
-        title="Invoice list"
+        title="Списък с фактури"
         loading={list.loading}
         isEmpty={!result?.invoices.length}
-        emptyMessage='No invoices found. Create one with "New invoice".'
+        emptyMessage='Няма намерени фактури. Създайте с „Нова фактура“.'
         page={list.page}
         pageSize={list.pageSize}
         total={result?.total}
@@ -220,14 +220,14 @@ export default function InvoicesPage() {
       <ConfirmDialog
         open={confirmCancel !== null}
         onOpenChange={(open) => !open && setConfirmCancel(null)}
-        title="Cancel invoice?"
+        title="Анулиране на фактура?"
         description={
           confirmCancel
-            ? `Invoice ${confirmCancel.label} will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.`
+            ? `Фактура ${confirmCancel.label} ще бъде маркирана като анулирана. Това действие е необратимо — вместо това издайте кредитно известие, ако трябва да я сторнирате.`
             : undefined
         }
-        confirmText="Cancel invoice"
-        cancelText="Keep invoice"
+        confirmText="Анулирай фактурата"
+        cancelText="Запази фактурата"
         variant="destructive"
         onConfirm={handleCancelConfirmed}
       />

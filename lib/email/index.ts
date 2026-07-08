@@ -12,19 +12,25 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendInvitationEmail(to: string, companyName: string, role: string, inviteLink: string) {
+  const roleLabels: Record<string, string> = {
+    owner: 'собственик',
+    accountant: 'счетоводител',
+  };
+  const roleLabel = roleLabels[role] ?? role;
+
   const mailOptions = {
     from: process.env.EMAIL_FROM,
     to,
-    subject: `Join ${companyName} on Invoice Manager`,
-    text: `You've been invited to join ${companyName} as a ${role}. Accept here: ${inviteLink}`,
+    subject: `Покана да се присъедините към ${companyName} в Invoicly`,
+    text: `Поканени сте да се присъедините към ${companyName} като ${roleLabel}. Приемете тук: ${inviteLink}`,
     html: `
       <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
-        <h2 style="color: #f97316;">You're Invited!</h2>
-        <p>You've been invited to join <strong>${companyName}</strong> as a <strong>${role}</strong>.</p>
+        <h2 style="color: #f97316;">Поканени сте!</h2>
+        <p>Поканени сте да се присъедините към <strong>${companyName}</strong> като <strong>${roleLabel}</strong>.</p>
         <p style="margin: 30px 0;">
-          <a href="${inviteLink}" style="background-color: #f97316; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Accept Invitation</a>
+          <a href="${inviteLink}" style="background-color: #f97316; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Приемете поканата</a>
         </p>
-        <p style="color: #666; font-size: 14px;">If you didn't expect this invitation, you can safely ignore this email.</p>
+        <p style="color: #666; font-size: 14px;">Ако не очаквахте тази покана, можете спокойно да пренебрегнете този имейл.</p>
       </div>
     `,
   };

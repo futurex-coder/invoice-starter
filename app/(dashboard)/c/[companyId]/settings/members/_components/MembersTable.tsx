@@ -25,7 +25,7 @@ export function MembersTable({ members, canRemove, removingId, onRemove }: Props
     <Card className="mb-6">
       <CardHeader>
         <CardTitle>
-          Company members{' '}
+          Членове на фирмата{' '}
           <span className="text-sm font-normal text-muted-foreground">
             ({members.length})
           </span>
@@ -34,20 +34,20 @@ export function MembersTable({ members, canRemove, removingId, onRemove }: Props
       <CardContent className="p-0">
         {members.length === 0 ? (
           <p className="px-6 py-8 text-muted-foreground text-sm">
-            No members found.
+            Няма намерени членове.
           </p>
         ) : (
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50/80">
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Member
+                  Член
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Role
+                  Роля
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
-                  Actions
+                  Действия
                 </th>
               </tr>
             </thead>
@@ -82,7 +82,7 @@ export function MembersTable({ members, canRemove, removingId, onRemove }: Props
                       )}
                     >
                       {m.role === 'owner' && <Crown className="h-3 w-3" />}
-                      {m.role === 'owner' ? 'Owner' : 'Accountant'}
+                      {m.role === 'owner' ? 'Собственик' : 'Счетоводител'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">

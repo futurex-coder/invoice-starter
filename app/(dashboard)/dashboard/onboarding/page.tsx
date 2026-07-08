@@ -91,11 +91,11 @@ export default function OnboardingPage() {
 
   const handleSaveCompany = async () => {
     setError(null);
-    if (!form.legalName.trim()) return setError('Legal name is required');
+    if (!form.legalName.trim()) return setError('Наименованието е задължително');
     if (!form.eik.trim() || !/^\d{9,10}$/.test(form.eik.trim()))
-      return setError('EIK must be 9 or 10 digits');
-    if (!form.street.trim()) return setError('Street is required');
-    if (!form.city.trim()) return setError('City is required');
+      return setError('ЕИК трябва да е 9 или 10 цифри');
+    if (!form.street.trim()) return setError('Улицата е задължителна');
+    if (!form.city.trim()) return setError('Градът е задължителен');
 
     setSaving(true);
     const res = await upsertCompanyProfile(buildProfileInput());
@@ -172,9 +172,9 @@ export default function OnboardingPage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Set up your account</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Настройте профила си</h1>
         <p className="text-gray-500 mt-1">
-          Complete these steps to start creating invoices.
+          Завършете тези стъпки, за да започнете да създавате фактури.
         </p>
       </div>
 

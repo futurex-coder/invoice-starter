@@ -32,21 +32,21 @@ export default function RootError({
     <div className="flex min-h-[100dvh] items-center justify-center p-4">
       <div className="w-full max-w-md space-y-4">
         <Alert variant="error">
-          <AlertTitle>Something went wrong.</AlertTitle>
+          <AlertTitle>Възникна грешка.</AlertTitle>
           <AlertDescription>
-            An unexpected error occurred. You can try the page again or go back
-            home.
+            Възникна неочаквана грешка. Можете да опитате отново или да се
+            върнете към началото.
             {error.digest && (
               <span className="mt-2 block font-mono text-xs opacity-70">
-                ref: {error.digest}
+                реф: {error.digest}
               </span>
             )}
           </AlertDescription>
         </Alert>
         <div className="flex gap-2">
-          <Button onClick={reset}>Try again</Button>
+          <Button onClick={reset}>Опитай отново</Button>
           <Button variant="outline" asChild>
-            <Link href="/dashboard">Back to dashboard</Link>
+            <Link href="/dashboard">Към таблото</Link>
           </Button>
         </div>
       </div>

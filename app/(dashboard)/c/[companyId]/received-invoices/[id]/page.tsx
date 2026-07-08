@@ -54,11 +54,11 @@ export default function ReceivedInvoiceDetailPage() {
     return (
       <PageShell>
         <ErrorAlert
-          message={fetchError ? fetchError.message : 'Not found'}
+          message={fetchError ? fetchError.message : 'Не е намерено.'}
           className="mb-4"
         />
         <Button variant="outline" asChild>
-          <Link href={`/c/${companyId}/received-invoices`}>← Back to list</Link>
+          <Link href={`/c/${companyId}/received-invoices`}>← Назад към списъка</Link>
         </Button>
       </PageShell>
     );

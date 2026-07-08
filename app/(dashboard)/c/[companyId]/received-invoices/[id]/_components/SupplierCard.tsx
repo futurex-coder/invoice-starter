@@ -10,12 +10,12 @@ export function SupplierCard({ supplier }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Supplier</CardTitle>
+        <CardTitle className="text-base">Доставчик</CardTitle>
       </CardHeader>
       <CardContent className="space-y-1 text-sm">
         <p className="font-medium">{supplier.legalName ?? '—'}</p>
-        {supplier.eik && <p>EIK: {supplier.eik}</p>}
-        {supplier.vatNumber && <p>VAT: {supplier.vatNumber}</p>}
+        {supplier.eik && <p>ЕИК: {supplier.eik}</p>}
+        {supplier.vatNumber && <p>ДДС номер: {supplier.vatNumber}</p>}
         {addressParts.length > 0 && (
           <p className="text-gray-600">{addressParts.join(', ')}</p>
         )}

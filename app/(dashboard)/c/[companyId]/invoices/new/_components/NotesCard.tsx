@@ -15,17 +15,17 @@ export function NotesCard({ internalComment, onInternalCommentChange }: Props) {
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Notes</CardTitle>
+        <CardTitle>Бележки</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label htmlFor="internalComment">Internal comment (not on invoice)</Label>
+          <Label htmlFor="internalComment">Вътрешен коментар (не се отпечатва на фактурата)</Label>
           <textarea
             id="internalComment"
             className="mt-1 block w-full min-h-[80px] rounded-md border border-input bg-transparent px-3 py-2 text-sm"
             value={internalComment}
             onChange={(e) => onInternalCommentChange(e.target.value)}
-            placeholder="Optional"
+            placeholder="По желание"
           />
         </div>
       </CardContent>

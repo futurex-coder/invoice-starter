@@ -46,15 +46,17 @@ export function InvoiceDefaultsCard({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Invoice defaults</CardTitle>
-        <CardDescription>Pre-filled values for new invoices</CardDescription>
+        <CardTitle>Стойности по подразбиране за фактури</CardTitle>
+        <CardDescription>
+          Предварително попълнени стойности за нови фактури
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField
             name="defaultCurrency"
-            label="Company currency"
-            hint="Everything is shown in this currency; documents in another currency are converted automatically."
+            label="Валута на фирмата"
+            hint="Всичко се показва в тази валута; документите в друга валута се преобразуват автоматично."
             errors={validationErrors}
           >
             <Select
@@ -75,7 +77,7 @@ export function InvoiceDefaultsCard({
           </FormField>
           <FormField
             name="defaultVatRate"
-            label="Default VAT rate (%)"
+            label="ДДС ставка по подразбиране (%)"
             errors={validationErrors}
           >
             <Input
@@ -88,7 +90,7 @@ export function InvoiceDefaultsCard({
           </FormField>
           <FormField
             name="defaultPaymentMethod"
-            label="Default payment method"
+            label="Начин на плащане по подразбиране"
             errors={validationErrors}
           >
             <Select

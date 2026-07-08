@@ -24,14 +24,14 @@ export function ActivityFeed({ activity }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-        <CardDescription>Last 5 actions in this company</CardDescription>
+        <CardTitle>Скорошна активност</CardTitle>
+        <CardDescription>Последните 5 действия в тази фирма</CardDescription>
       </CardHeader>
       <CardContent>
         {activity.length === 0 ? (
           <div className="flex flex-col items-center py-8 text-center text-muted-foreground">
             <Activity className="h-8 w-8 mb-2 text-gray-300" />
-            <p className="text-sm">No activity yet</p>
+            <p className="text-sm">Все още няма активност</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -42,7 +42,7 @@ export function ActivityFeed({ activity }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p>
-                    <span className="font-medium">{a.userName || 'Unknown'}</span>{' '}
+                    <span className="font-medium">{a.userName || 'Неизвестен'}</span>{' '}
                     <span className="text-muted-foreground">
                       {formatActivityAction(a.action)}
                     </span>

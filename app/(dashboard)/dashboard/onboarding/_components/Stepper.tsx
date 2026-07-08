@@ -2,9 +2,9 @@ import { Building2, Landmark, Package, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const STEPS = [
-  { label: 'Company', icon: Building2 },
-  { label: 'Bank Details', icon: Landmark },
-  { label: 'Articles', icon: Package },
+  { label: 'Фирма', icon: Building2 },
+  { label: 'Банкови данни', icon: Landmark },
+  { label: 'Артикули', icon: Package },
 ] as const;
 
 interface Props {

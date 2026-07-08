@@ -23,7 +23,7 @@ export function PaymentDateFilters({
     <div className="flex flex-wrap items-end gap-3">
       <div>
         <Label htmlFor="paidFrom" className="text-xs">
-          From
+          От
         </Label>
         <Input
           id="paidFrom"
@@ -35,7 +35,7 @@ export function PaymentDateFilters({
       </div>
       <div>
         <Label htmlFor="paidTo" className="text-xs">
-          To
+          До
         </Label>
         <Input
           id="paidTo"
@@ -46,7 +46,7 @@ export function PaymentDateFilters({
         />
       </div>
       <Button variant="ghost" size="sm" onClick={onClear}>
-        Clear
+        Изчисти
       </Button>
     </div>
   );

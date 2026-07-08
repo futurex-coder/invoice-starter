@@ -12,19 +12,19 @@ export function LineItemsTable({ row, lines }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Items</CardTitle>
+        <CardTitle className="text-base">Артикули</CardTitle>
       </CardHeader>
       <CardContent className="overflow-x-auto p-0">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-gray-50/80">
               <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-600">
-                Description
+                Описание
               </th>
-              <th className={HEADER_CELL}>Qty</th>
-              <th className={HEADER_CELL}>Unit price</th>
-              <th className={HEADER_CELL}>VAT</th>
-              <th className={HEADER_CELL}>Gross</th>
+              <th className={HEADER_CELL}>Количество</th>
+              <th className={HEADER_CELL}>Ед. цена</th>
+              <th className={HEADER_CELL}>ДДС</th>
+              <th className={HEADER_CELL}>Стойност</th>
             </tr>
           </thead>
           <tbody>
@@ -47,21 +47,21 @@ export function LineItemsTable({ row, lines }: Props) {
           <tfoot>
             <tr className="bg-gray-50/50 text-sm">
               <td className="px-4 py-2" colSpan={3} />
-              <td className="px-4 py-2 text-right text-gray-600">Net</td>
+              <td className="px-4 py-2 text-right text-gray-600">Данъчна основа</td>
               <td className="px-4 py-2 text-right">
                 {Number(row.netAmount).toFixed(2)} {row.currency}
               </td>
             </tr>
             <tr className="bg-gray-50/50 text-sm">
               <td className="px-4 py-2" colSpan={3} />
-              <td className="px-4 py-2 text-right text-gray-600">VAT</td>
+              <td className="px-4 py-2 text-right text-gray-600">ДДС</td>
               <td className="px-4 py-2 text-right">
                 {Number(row.vatAmount).toFixed(2)} {row.currency}
               </td>
             </tr>
             <tr className="bg-gray-50 font-medium">
               <td className="px-4 py-2" colSpan={3} />
-              <td className="px-4 py-2 text-right">Total</td>
+              <td className="px-4 py-2 text-right">Общо</td>
               <td className="px-4 py-2 text-right">
                 {Number(row.grossAmount).toFixed(2)} {row.currency}
               </td>

@@ -10,23 +10,23 @@ export function DocumentCard({ row }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Document</CardTitle>
+        <CardTitle className="text-base">Документ</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <span className="text-gray-500">Invoice number</span>
+          <span className="text-gray-500">Номер на фактура</span>
           <p>{row.invoiceNumber ?? '—'}</p>
         </div>
         <div>
-          <span className="text-gray-500">Currency</span>
+          <span className="text-gray-500">Валута</span>
           <p>{row.currency}</p>
         </div>
         <div>
-          <span className="text-gray-500">Issue date</span>
+          <span className="text-gray-500">Дата на издаване</span>
           <p>{formatDate(row.issueDate)}</p>
         </div>
         <div>
-          <span className="text-gray-500">Due date</span>
+          <span className="text-gray-500">Падеж</span>
           <p>{formatDate(row.dueDate)}</p>
         </div>
       </CardContent>

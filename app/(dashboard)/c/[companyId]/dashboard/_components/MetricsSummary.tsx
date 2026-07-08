@@ -30,28 +30,28 @@ export function MetricsSummary({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <MetricCard
           icon={<DollarSign className="h-5 w-5 text-green-600" />}
-          label="Revenue"
+          label="Приходи"
           value={`${formatMoney(metrics.revenue)} ${currency}`}
           color="green"
           href={`${base}/invoices?paymentStatus=paid`}
         />
         <MetricCard
           icon={<Clock className="h-5 w-5 text-amber-600" />}
-          label="Outstanding"
+          label="Вземания"
           value={`${formatMoney(metrics.outstanding)} ${currency}`}
           color="amber"
           href={`${base}/invoices?paymentStatus=unpaid`}
         />
         <MetricCard
           icon={<FileText className="h-5 w-5 text-blue-600" />}
-          label="Invoices This Month"
+          label="Фактури този месец"
           value={String(metrics.invoiceCountThisMonth)}
           color="blue"
           href={`${base}/invoices`}
         />
         <MetricCard
           icon={<AlertTriangle className="h-5 w-5 text-red-600" />}
-          label="Overdue"
+          label="Просрочени"
           value={String(metrics.overdueCount)}
           color={metrics.overdueCount > 0 ? 'red' : 'gray'}
           highlight={metrics.overdueCount > 0}
@@ -62,28 +62,28 @@ export function MetricsSummary({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <MetricCard
           icon={<TrendingDown className="h-5 w-5 text-purple-600" />}
-          label="Expenses Paid"
+          label="Платени разходи"
           value={`${formatMoney(expenseMetrics.expensesPaid)} ${currency}`}
           color="purple"
           href={`${base}/payments`}
         />
         <MetricCard
           icon={<TrendingDown className="h-5 w-5 text-rose-600" />}
-          label="Expenses Outstanding"
+          label="Задължения"
           value={`${formatMoney(expenseMetrics.expensesOutstanding)} ${currency}`}
           color="rose"
           href={`${base}/payments`}
         />
         <MetricCard
           icon={<Inbox className="h-5 w-5 text-blue-600" />}
-          label="Received This Month"
+          label="Получени този месец"
           value={String(expenseMetrics.receivedThisMonth)}
           color="blue"
           href={`${base}/received-invoices`}
         />
         <MetricCard
           icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
-          label="Pending Review"
+          label="За преглед"
           value={String(expenseMetrics.pendingReviewCount)}
           color={expenseMetrics.pendingReviewCount > 0 ? 'amber' : 'gray'}
           highlight={expenseMetrics.pendingReviewCount > 0}

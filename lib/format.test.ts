@@ -30,24 +30,36 @@ describe('formatDate', () => {
 });
 
 describe('formatMoney', () => {
+  // Deterministic, locale-independent: "1 234.56" (space thousands, dot
+  // decimal) so on-screen amounts always match the printed invoices.
   it('formats with two decimal places', () => {
-    expect(formatMoney(100)).toMatch(/^100[.,]00$/);
-    expect(formatMoney(1.5)).toMatch(/^1[.,]50$/);
+    expect(formatMoney(100)).toBe('100.00');
+    expect(formatMoney(1.5)).toBe('1.50');
+  });
+
+  it('groups thousands with a space, regardless of browser locale', () => {
+    expect(formatMoney(1234567.89)).toBe('1 234 567.89');
+    expect(formatMoney(1000)).toBe('1 000.00');
   });
 
   it('pads sub-cent values to 2 decimals', () => {
-    expect(formatMoney(0)).toMatch(/^0[.,]00$/);
-    expect(formatMoney(0.1)).toMatch(/^0[.,]10$/);
+    expect(formatMoney(0)).toBe('0.00');
+    expect(formatMoney(0.1)).toBe('0.10');
   });
 
-  it('truncates to 2 decimals (does not extend precision)', () => {
-    const r = formatMoney(1.236);
-    // toLocaleString rounds — exact behavior depends on locale
-    expect(r).toMatch(/^1[.,]24$/);
+  it('rounds to 2 decimals (does not extend precision)', () => {
+    expect(formatMoney(1.236)).toBe('1.24');
   });
 
   it('handles negative amounts', () => {
-    expect(formatMoney(-100)).toMatch(/^-100[.,]00$/);
+    expect(formatMoney(-100)).toBe('-100.00');
+    expect(formatMoney(-1500)).toBe('-1 500.00');
+  });
+
+  it('accepts custom separators (used by the invoice BGN line)', () => {
+    expect(
+      formatMoney(1234.5, { thousandsSeparator: '.', decimalSeparator: ',' })
+    ).toBe('1.234,50');
   });
 });
 

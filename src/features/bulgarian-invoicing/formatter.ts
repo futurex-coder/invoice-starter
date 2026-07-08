@@ -5,8 +5,14 @@
  */
 
 import type { InvoiceDocument, LineItem, PartySnapshot } from './types';
-import { MONEY_PRECISION, QUANTITY_PRECISION } from './rules';
+import { QUANTITY_PRECISION } from './rules';
 import { EUR_BGN_FIXED, roundTo } from '@/lib/fx/convert';
+// Money formatting is defined once in the dependency-light @/lib/format so the
+// app chrome and the printed documents share one deterministic implementation.
+// Imported for use below and re-exported so existing `./formatter` consumers
+// keep working.
+import { formatMoney } from '@/lib/format';
+export { formatMoney };
 import {
   parsePartySnapshotStrict,
   parseInvoiceTotalsStrict,
@@ -24,22 +30,6 @@ import {
 export function formatInvoiceNumber(n: number | null | undefined): string {
   if (n === null || n === undefined) return '';
   return String(n).padStart(10, '0');
-}
-
-/**
- * Format a monetary amount with 2 decimals and optional thousands separator.
- */
-export function formatMoney(
-  amount: number,
-  options?: { thousandsSeparator?: string; decimalSeparator?: string }
-): string {
-  const sep = options?.thousandsSeparator ?? ' ';
-  const dec = options?.decimalSeparator ?? '.';
-  const fixed = Math.abs(amount).toFixed(MONEY_PRECISION);
-  const [intPart = '', decPart = ''] = fixed.split('.');
-  const withSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-  const sign = amount < 0 ? '-' : '';
-  return `${sign}${withSep}${dec}${decPart}`;
 }
 
 /**

@@ -33,14 +33,26 @@ export function formatDate(value: Date | string | null | undefined): string {
 }
 
 /**
- * Format a monetary amount with thousand-separator grouping and exactly
- * 2 decimal places, using the viewer's browser locale.
+ * Format a monetary amount deterministically: thousand-separator grouping and
+ * exactly 2 decimal places, independent of the viewer's browser locale.
+ *
+ * Defaults to the Bulgarian invoice convention "1 234.56" (space thousands,
+ * dot decimal) so amounts in the app chrome match the printed documents on
+ * every browser. This is the single source of truth for money formatting —
+ * the invoice formatter re-exports it (see bulgarian-invoicing/formatter.ts).
  */
-export function formatMoney(amount: number): string {
-  return amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+export function formatMoney(
+  amount: number,
+  options?: { thousandsSeparator?: string; decimalSeparator?: string }
+): string {
+  // Money is always shown to 2 decimals (matches invoice MONEY_PRECISION).
+  const sep = options?.thousandsSeparator ?? ' ';
+  const dec = options?.decimalSeparator ?? '.';
+  const fixed = Math.abs(amount).toFixed(2);
+  const [intPart = '', decPart = ''] = fixed.split('.');
+  const withSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+  const sign = amount < 0 ? '-' : '';
+  return `${sign}${withSep}${dec}${decPart}`;
 }
 
 /**

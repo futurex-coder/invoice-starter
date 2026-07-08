@@ -26,8 +26,8 @@ raw-enum bugs** (see §1). Verify: build + grep for leftover English + tests.
       `DocType` enum comment (`schema.ts`); confirm insertability (works via trigger). **LOW**
 - [ ] **Reusable 0%/exempt legal-grounds list** (VAT-2) — replace the free-text "Reason for no
       VAT" with a saved чл.-reference list. Accountants distrust free text. **LOW**, pairs w/ VAT.
-- [ ] **Two diverging `formatMoney`** — dashboard uses browser locale, docs use deterministic
-      `1 234.56`. Unify money formatting. **LOW-MED**
+- [x] **Two diverging `formatMoney`** — dashboard used browser locale, docs used deterministic
+      `1 234.56`. Unified: one impl in `lib/format`, re-exported by the invoice formatter. **LOW-MED** → this commit
 
 ## 2. Core BG compliance artefacts (MED, high value — the accountant's real job)
 - [ ] **ДДС дневник продажби / покупки** — per-document sales & purchase ledgers in НАП column

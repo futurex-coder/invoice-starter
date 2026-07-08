@@ -105,21 +105,19 @@ export function MonthCloseCard({
         </ul>
         <div className="mt-3 border-t border-gray-100 pt-2 text-sm">
           <span className="text-gray-500">ДДС за месеца: </span>
-          {status.vatNet.length === 0 ? (
-            <span className="text-gray-600">0.00</span>
+          {status.vatNet === 0 ? (
+            <span className="text-gray-600">
+              0.00 {status.baseCurrency}
+            </span>
           ) : (
-            status.vatNet.map((v, i) => (
-              <span
-                key={v.currency}
-                className={cn(
-                  'font-medium',
-                  v.net > 0 ? 'text-red-700' : 'text-green-700'
-                )}
-              >
-                {i > 0 && <span className="text-gray-400"> · </span>}
-                {formatMoney(v.net)} {v.currency}
-              </span>
-            ))
+            <span
+              className={cn(
+                'font-medium',
+                status.vatNet > 0 ? 'text-red-700' : 'text-green-700'
+              )}
+            >
+              {formatMoney(status.vatNet)} {status.baseCurrency}
+            </span>
           )}
           <Link
             href={`${base}/vat`}

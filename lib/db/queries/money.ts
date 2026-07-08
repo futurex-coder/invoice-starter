@@ -14,16 +14,21 @@ import { invoices } from '../schema';
  * - On notes, `paymentStatus` means "has the refund/offset been settled":
  *   a paid CN reduces collected cash; an unpaid CN reduces the receivable.
  *
- * ⚠️ Amounts are still summed in the documents' own currencies — converting
- * to the company base currency is GEN-1 (blocked on D-FX). Keep any new
- * aggregate on these helpers so the FX conversion lands in one place.
+ * GEN-1: amounts are converted to the company base currency here — each row's
+ * signed amount is multiplied by its frozen `fxRate` (amount_base = amount_doc
+ * × fxRate), so every SUM below is already in the base currency. This is the
+ * single insertion point; keep any new aggregate on these helpers.
  */
 
-/** Signed gross amount: credit notes negative, everything else positive. */
+/**
+ * Signed gross amount in the COMPANY BASE currency: credit notes negative,
+ * everything else positive, each converted via its frozen fxRate.
+ */
 export const signedGrossSql: SQL<string> = sql`
-  CASE WHEN ${invoices.docType} = 'credit_note'
-       THEN -(${invoices.totals}->>'grossAmount')::numeric
-       ELSE (${invoices.totals}->>'grossAmount')::numeric END`;
+  (CASE WHEN ${invoices.docType} = 'credit_note'
+        THEN -(${invoices.totals}->>'grossAmount')::numeric
+        ELSE (${invoices.totals}->>'grossAmount')::numeric END)
+  * ${invoices.fxRate}::numeric`;
 
 /** Collected money (cash view): finalized docs whose payment is settled. */
 export const collectedSumSql: SQL<string> = sql`
@@ -59,11 +64,15 @@ export const overdueCountSql: SQL<number> = sql`
       AND ${invoices.dueDate}::date < CURRENT_DATE
   )`;
 
-/** Signed VAT amount: credit notes negative, everything else positive. */
+/**
+ * Signed VAT amount in the COMPANY BASE currency: credit notes negative,
+ * everything else positive, each converted via its frozen fxRate.
+ */
 export const signedVatSql: SQL<string> = sql`
-  CASE WHEN ${invoices.docType} = 'credit_note'
-       THEN -(${invoices.totals}->>'vatAmount')::numeric
-       ELSE (${invoices.totals}->>'vatAmount')::numeric END`;
+  (CASE WHEN ${invoices.docType} = 'credit_note'
+        THEN -(${invoices.totals}->>'vatAmount')::numeric
+        ELSE (${invoices.totals}->>'vatAmount')::numeric END)
+  * ${invoices.fxRate}::numeric`;
 
 /**
  * VAT charged on issued documents — ACCRUAL basis: every finalized document

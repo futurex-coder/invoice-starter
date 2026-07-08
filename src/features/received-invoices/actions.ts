@@ -1269,10 +1269,10 @@ export async function getPaymentsOverview(filters?: {
         .limit(200),
       db
         .select({
-          toPayAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} <> 'paid' then ${receivedInvoices.grossAmount}::numeric else 0 end), 0)`,
-          paidThisMonthAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} = 'paid' and date_trunc('month', ${receivedInvoices.issueDate}::timestamp) = date_trunc('month', now()) then ${receivedInvoices.grossAmount}::numeric else 0 end), 0)`,
+          toPayAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} <> 'paid' then ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric else 0 end), 0)`,
+          paidThisMonthAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} = 'paid' and date_trunc('month', ${receivedInvoices.issueDate}::timestamp) = date_trunc('month', now()) then ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric else 0 end), 0)`,
           overdueCount: sql<number>`count(*) filter (where ${receivedInvoices.paymentStatus} <> 'paid' and ${receivedInvoices.dueDate} is not null and ${receivedInvoices.dueDate}::date < ${today}::date)`,
-          overdueAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} <> 'paid' and ${receivedInvoices.dueDate} is not null and ${receivedInvoices.dueDate}::date < ${today}::date then ${receivedInvoices.grossAmount}::numeric else 0 end), 0)`,
+          overdueAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} <> 'paid' and ${receivedInvoices.dueDate} is not null and ${receivedInvoices.dueDate}::date < ${today}::date then ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric else 0 end), 0)`,
         })
         .from(receivedInvoices)
         .where(and(...baseConditions)),

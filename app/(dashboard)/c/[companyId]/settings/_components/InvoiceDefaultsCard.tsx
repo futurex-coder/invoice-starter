@@ -53,7 +53,8 @@ export function InvoiceDefaultsCard({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField
             name="defaultCurrency"
-            label="Default currency"
+            label="Company currency"
+            hint="Everything is shown in this currency; documents in another currency are converted automatically."
             errors={validationErrors}
           >
             <Select

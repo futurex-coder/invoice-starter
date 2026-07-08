@@ -1312,8 +1312,6 @@ export async function getNextNumber(): Promise<ActionResult<number>> {
 export interface VatMonthRow {
   /** ISO month, e.g. "2026-07" */
   month: string;
-  /** Document currency — rows are per currency until GEN-1 lands FX. */
-  currency: string;
   /** VAT charged on issued documents (accrual: all finalized; CN subtract). */
   vatIssued: number;
   /** VAT paid on received documents (confirmed, non-archived). */
@@ -1322,17 +1320,31 @@ export interface VatMonthRow {
   vatNet: number;
 }
 
+export interface VatSummary {
+  /** The company base currency all figures are expressed in (GEN-1). */
+  baseCurrency: string;
+  rows: VatMonthRow[];
+}
+
 export async function getVatSummary(input?: {
   months?: number;
-}): Promise<ActionResult<VatMonthRow[]>> {
+}): Promise<ActionResult<VatSummary>> {
   return action(async () => {
     const { companyId } = await requireCompanyAccess();
     const months = Math.min(Math.max(input?.months ?? 12, 1), 36);
 
+    // GEN-1: all figures convert to the company base currency (× frozen
+    // fxRate), so the summary is per month — no per-currency split.
+    const [companyRow] = await db
+      .select({ base: companies.defaultCurrency })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+    const baseCurrency = companyRow?.base ?? 'EUR';
+
     const issued = await db
       .select({
         month: sql<string>`to_char(${invoices.issueDate}::date, 'YYYY-MM')`,
-        currency: invoices.currency,
         vat: issuedVatSumSql,
       })
       .from(invoices)
@@ -1342,19 +1354,15 @@ export async function getVatSummary(input?: {
           sql`${invoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
         )
       )
-      .groupBy(
-        sql`to_char(${invoices.issueDate}::date, 'YYYY-MM')`,
-        invoices.currency
-      );
+      .groupBy(sql`to_char(${invoices.issueDate}::date, 'YYYY-MM')`);
 
     const paid = await db
       .select({
         month: sql<string>`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`,
-        currency: receivedInvoices.currency,
         vat: sql<string>`COALESCE(SUM(
           CASE WHEN ${receivedInvoices.status} = 'confirmed'
                AND ${receivedInvoices.archivedAt} IS NULL
-          THEN ${receivedInvoices.vatAmount}::numeric
+          THEN ${receivedInvoices.vatAmount}::numeric * ${receivedInvoices.fxRate}::numeric
           ELSE 0 END
         ), 0)`,
       })
@@ -1365,37 +1373,33 @@ export async function getVatSummary(input?: {
           sql`${receivedInvoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
         )
       )
-      .groupBy(
-        sql`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`,
-        receivedInvoices.currency
-      );
+      .groupBy(sql`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`);
 
-    const byKey = new Map<string, VatMonthRow>();
-    const upsert = (month: string | null, currency: string | null) => {
+    const byMonth = new Map<string, VatMonthRow>();
+    const upsert = (month: string | null) => {
       const m = month ?? 'unknown';
-      const c = currency ?? 'EUR';
-      const key = `${m}|${c}`;
-      let row = byKey.get(key);
+      let row = byMonth.get(m);
       if (!row) {
-        row = { month: m, currency: c, vatIssued: 0, vatPaid: 0, vatNet: 0 };
-        byKey.set(key, row);
+        row = { month: m, vatIssued: 0, vatPaid: 0, vatNet: 0 };
+        byMonth.set(m, row);
       }
       return row;
     };
     for (const r of issued) {
-      const row = upsert(r.month, r.currency);
-      row.vatIssued = Math.round(parseFloat(r.vat) * 100) / 100;
+      upsert(r.month).vatIssued = Math.round(parseFloat(r.vat) * 100) / 100;
     }
     for (const r of paid) {
-      const row = upsert(r.month, r.currency);
-      row.vatPaid = Math.round(parseFloat(r.vat) * 100) / 100;
+      upsert(r.month).vatPaid = Math.round(parseFloat(r.vat) * 100) / 100;
     }
-    for (const row of byKey.values()) {
+    for (const row of byMonth.values()) {
       row.vatNet = Math.round((row.vatIssued - row.vatPaid) * 100) / 100;
     }
 
-    return [...byKey.values()].sort(
-      (a, b) => b.month.localeCompare(a.month) || a.currency.localeCompare(b.currency)
-    );
+    return {
+      baseCurrency,
+      rows: [...byMonth.values()].sort((a, b) =>
+        b.month.localeCompare(a.month)
+      ),
+    };
   });
 }

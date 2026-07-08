@@ -82,8 +82,8 @@ export async function getDashboardMetrics(userId: number) {
       ),
     // Received-invoice (expense) aggregates: only confirmed + non-archived rows
     // count in the totals. Drafts/discarded are intentionally excluded.
-    // Amounts are reported in their original currency; multiply by fx_rate to
-    // convert to the company's default currency / BGN if needed.
+    // GEN-1: amounts are converted to the company base currency via the frozen
+    // fx_rate (amount_base = amount_doc × fx_rate).
     db
       .select({
         companyId: receivedInvoices.companyId,
@@ -92,7 +92,7 @@ export async function getDashboardMetrics(userId: number) {
             CASE WHEN ${receivedInvoices.status} = 'confirmed'
                  AND ${receivedInvoices.archivedAt} IS NULL
                  AND ${receivedInvoices.paymentStatus} = 'paid'
-            THEN ${receivedInvoices.grossAmount}::numeric
+            THEN ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric
             ELSE 0 END
           ), 0)
         `,
@@ -101,7 +101,7 @@ export async function getDashboardMetrics(userId: number) {
             CASE WHEN ${receivedInvoices.status} = 'confirmed'
                  AND ${receivedInvoices.archivedAt} IS NULL
                  AND ${receivedInvoices.paymentStatus} <> 'paid'
-            THEN ${receivedInvoices.grossAmount}::numeric
+            THEN ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric
             ELSE 0 END
           ), 0)
         `,

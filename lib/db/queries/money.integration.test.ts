@@ -194,6 +194,18 @@ beforeAll(async () => {
     number: 9,
     totals: gross(5000),
   });
+  // GEN-1: a paid BGN invoice must be CONVERTED to the EUR base via its frozen
+  // fxRate (1955.83 BGN × 0.511292 ≈ 1000 EUR), not summed raw.
+  await db.insert(invoices).values({
+    ...base,
+    docType: 'invoice',
+    currency: 'BGN',
+    fxRate: '0.511292',
+    status: 'finalized',
+    paymentStatus: 'paid',
+    number: 10,
+    totals: gross(1955.83),
+  });
 }, 60_000);
 
 afterAll(async () => {
@@ -208,14 +220,15 @@ describe('AGG-1 money-aggregation rules (real DB)', () => {
     expect(co).toBeDefined();
     if (!co) return;
 
-    // collected: 1000 (paid invoice) − 200 (paid CN)
-    expect(co.revenue).toBe(800);
+    // collected: 1000 (paid EUR invoice) − 200 (paid CN) + ~1000 (paid BGN
+    // invoice converted to EUR base) = ~1800
+    expect(co.revenue).toBeCloseTo(1800, 1);
     // outstanding: 600 (unpaid) + 300 (partial) − 150 (unpaid CN) + 50 (DN)
     expect(co.outstanding).toBe(800);
     // overdue: unpaid B + partial C — partial no longer vanishes
     expect(co.overdueCount).toBe(2);
 
-    // drafts + cancelled never count anywhere
-    expect(co.revenue + co.outstanding).toBe(1600);
+    // drafts + cancelled + proforma never count; BGN converted, not raw
+    expect(co.revenue + co.outstanding).toBeCloseTo(2600, 1);
   });
 });

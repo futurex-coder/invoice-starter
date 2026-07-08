@@ -239,10 +239,12 @@ Feature work starts off a clean `main`.
 - Verify by running: load a real multi-page scan **including a foreign-supplier invoice** and
   confirm the whole review → confirm flow is smooth end-to-end.
 
-**RV-1 — Better scanned-invoice viewer** · M/L · *frontend (part of RV-3)*
-- Desktop: use more screen width; show **one page at a time** with **pagination + zoom**.
-- Mobile: a **bottom drawer** that shrinks/expands.
-- Accept: a multi-page scan is readable on desktop and phone without the current cramped view.
+**RV-1 — Better scanned-invoice viewer** · M/L · 🟡 **first slice shipped 2026-07-08**
+- Shipped: **image zoom** (50–400% with ± / reset — scanned images previously had no zoom
+  at all; PDFs already page/zoom natively in the embed) and a **mobile collapse toggle**
+  on the pane so the form gets the screen (approximation of the bottom-drawer idea).
+- Remaining for the full RV-3 treatment: true bottom drawer on mobile, wider desktop
+  layout, page-at-a-time for images (multi-page TIFF/scan sets), pinch zoom.
 
 **RV-4 — "Save as partner" needs only a name** · S · ✅ **done 2026-07-08**
 - Shipped: `partners.eik` is now **nullable** with a partial unique index (unique per company

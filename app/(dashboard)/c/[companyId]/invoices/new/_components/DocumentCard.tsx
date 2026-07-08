@@ -33,8 +33,6 @@ interface Props {
   onLanguageChange: (value: string) => void;
   currency: string;
   onCurrencyChange: (value: string) => void;
-  fxRate: number;
-  onFxRateChange: (value: number) => void;
 }
 
 export function DocumentCard({
@@ -50,8 +48,6 @@ export function DocumentCard({
   onLanguageChange,
   currency,
   onCurrencyChange,
-  fxRate,
-  onFxRateChange,
 }: Props) {
   return (
     <Card className="mb-6">
@@ -130,19 +126,6 @@ export function DocumentCard({
             </Select>
           </div>
         </div>
-        {currency === 'EUR' && (
-          <div>
-            <Label htmlFor="fxRate">FX rate (to BGN)</Label>
-            <Input
-              id="fxRate"
-              type="number"
-              step="0.000001"
-              min="0"
-              value={fxRate}
-              onChange={(e) => onFxRateChange(Number(e.target.value) || 1)}
-            />
-          </div>
-        )}
       </CardContent>
     </Card>
   );

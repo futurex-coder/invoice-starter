@@ -613,25 +613,9 @@ export function ReviewForm({
             </div>
             {/* Due date removed per RV-2 — state still carries `dueDate` so
                 re-saving an old row preserves its stored value. */}
+            {/* FX rate input removed — GEN-1 freezes the rate to the company
+                base currency automatically at confirm. */}
           </div>
-          {currency !== 'EUR' && (
-            <div>
-              <Label htmlFor="fxRate">FX rate to EUR</Label>
-              <Input
-                id="fxRate"
-                type="number"
-                step="0.000001"
-                min="0"
-                value={fxRate}
-                onChange={(e) =>
-                  dispatch({
-                    type: 'SET',
-                    patch: { fxRate: Number(e.target.value) || 1 },
-                  })
-                }
-              />
-            </div>
-          )}
         </CardContent>
       </Card>
 

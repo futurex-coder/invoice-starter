@@ -338,8 +338,6 @@ export default function NewInvoicePage() {
         onLanguageChange={(v) => update({ language: v })}
         currency={state.currency}
         onCurrencyChange={(v) => update({ currency: v })}
-        fxRate={state.fxRate}
-        onFxRateChange={(v) => update({ fxRate: v })}
       />
 
       <LineItemsCard

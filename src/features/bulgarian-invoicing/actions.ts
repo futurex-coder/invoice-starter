@@ -133,7 +133,11 @@ export interface ListInvoicesFilters {
   status?: InvoiceStatus;
   docType?: DocType;
   paymentStatus?: string;
+  /** OI-4: 'pending' | 'accounted'. */
+  accountingStatus?: string;
   search?: string;
+  /** OI-5: ISO month ("2026-07") — accountants work by month. */
+  month?: string;
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -1128,6 +1132,14 @@ export async function listInvoices(
     }
     if (filters.paymentStatus) {
       conditions.push(eq(invoices.paymentStatus, filters.paymentStatus));
+    }
+    if (filters.accountingStatus) {
+      conditions.push(eq(invoices.accountingStatus, filters.accountingStatus));
+    }
+    if (filters.month && /^\d{4}-\d{2}$/.test(filters.month)) {
+      conditions.push(
+        sql`date_trunc('month', ${invoices.issueDate}::date) = ${`${filters.month}-01`}::date`
+      );
     }
     if (filters.dateFrom) {
       conditions.push(gte(invoices.issueDate, filters.dateFrom));

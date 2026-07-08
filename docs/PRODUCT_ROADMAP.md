@@ -132,14 +132,15 @@ Feature work starts off a clean `main`.
   Accounted sky). Verified live: column + pills render on all rows.
 - Unblocks: OI-4, OI-6/OI-9, TRANS-2, VAT-1.
 
-**OI-4 — Filter by accounted status** · S · *depends on OI-1*
-- Add an `accountingStatus` filter to the invoice-list `useListPageState` defaults +
-  server query. URL-syncs like the existing filters.
+**OI-4 — Filter by accounted status** · S · ✅ **done 2026-07-08**
+- `accountingStatus` filter (All/Pending/Accounted) in the invoice list — URL-synced.
+  Verified live: `?accountingStatus=accounted` → exactly the one accounted document.
 
-**OI-5 — Month-only filter (drop from/to)** · M
-- Accountants work by month. Replace the from/to date range with a single month picker
-  (year+month). Update `useListPageState` filter shape + the server query to bound on
-  `issueDate` within the selected month. Keep it URL-bookmarkable.
+**OI-5 — Month-only filter (drop from/to)** · M · ✅ **done 2026-07-08**
+- From/to range replaced by a single `<input type="month">`; server query bounds
+  `date_trunc('month', issue_date)`; `month` stays in `ListInvoicesFilters` alongside the
+  (still-supported) dateFrom/dateTo for API callers. Verified live: `?month=2026-07` →
+  exactly the 3 July documents, picker hydrates from the URL.
 
 **OI-6 — Row context-menu status setters** · M · *depends on OI-1*
 - Extend `RowActionsMenu` on each invoice row with quick setters: mark paid/unpaid,

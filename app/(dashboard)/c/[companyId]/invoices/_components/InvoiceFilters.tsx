@@ -90,27 +90,38 @@ export function InvoiceFilters({
             </SelectContent>
           </Select>
         </div>
-        <div className="w-full sm:w-40">
-          <Label htmlFor="dateFrom">From date</Label>
-          <Input
-            id="dateFrom"
-            type="date"
-            className="mt-1"
-            value={filters.dateFrom ?? ''}
-            onChange={(e) =>
-              onFiltersChange({ dateFrom: e.target.value || undefined, page: 1 })
+        <div className="w-full sm:w-48">
+          <Label htmlFor="accountingStatus">Accounting</Label>
+          <Select
+            value={filters.accountingStatus ?? 'all'}
+            onValueChange={(v) =>
+              onFiltersChange({
+                accountingStatus: v === 'all' ? undefined : v,
+                page: 1,
+              })
             }
-          />
+          >
+            <SelectTrigger id="accountingStatus" className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="accounted">Accounted</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <div className="w-full sm:w-40">
-          <Label htmlFor="dateTo">To date</Label>
+        {/* OI-5: accountants work by month — one month picker instead of a
+            from/to range. */}
+        <div className="w-full sm:w-44">
+          <Label htmlFor="month">Month</Label>
           <Input
-            id="dateTo"
-            type="date"
+            id="month"
+            type="month"
             className="mt-1"
-            value={filters.dateTo ?? ''}
+            value={filters.month ?? ''}
             onChange={(e) =>
-              onFiltersChange({ dateTo: e.target.value || undefined, page: 1 })
+              onFiltersChange({ month: e.target.value || undefined, page: 1 })
             }
           />
         </div>

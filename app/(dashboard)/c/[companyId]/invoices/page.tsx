@@ -32,16 +32,16 @@ type InvoicesFilterState = {
   search: string;
   status: string;
   paymentStatus: string;
-  dateFrom: string;
-  dateTo: string;
+  accountingStatus: string;
+  month: string;
 };
 
 const INVOICES_DEFAULTS: InvoicesFilterState = {
   search: '',
   status: 'all',
   paymentStatus: 'all',
-  dateFrom: '',
-  dateTo: '',
+  accountingStatus: 'all',
+  month: '',
 };
 
 function isInvoiceStatusEnum(value: string): value is InvoiceStatus {
@@ -58,8 +58,9 @@ function buildActionFilters(
     pageSize,
     status: f.status === 'all' || !isInvoiceStatusEnum(f.status) ? undefined : f.status,
     paymentStatus: f.paymentStatus === 'all' ? undefined : f.paymentStatus,
-    dateFrom: f.dateFrom || undefined,
-    dateTo: f.dateTo || undefined,
+    accountingStatus:
+      f.accountingStatus === 'all' ? undefined : f.accountingStatus,
+    month: f.month || undefined,
     search: f.search || undefined,
   };
 }
@@ -73,8 +74,9 @@ function buildFilterProps(f: InvoicesFilterState): ListInvoicesFilters {
           ? f.status
           : undefined,
     paymentStatus: f.paymentStatus === 'all' ? undefined : f.paymentStatus,
-    dateFrom: f.dateFrom || undefined,
-    dateTo: f.dateTo || undefined,
+    accountingStatus:
+      f.accountingStatus === 'all' ? undefined : f.accountingStatus,
+    month: f.month || undefined,
   };
 }
 
@@ -99,8 +101,10 @@ export default function InvoicesPage() {
     if ('paymentStatus' in patch) {
       list.setFilter('paymentStatus', patch.paymentStatus ?? 'all');
     }
-    if ('dateFrom' in patch) list.setFilter('dateFrom', patch.dateFrom ?? '');
-    if ('dateTo' in patch) list.setFilter('dateTo', patch.dateTo ?? '');
+    if ('accountingStatus' in patch) {
+      list.setFilter('accountingStatus', patch.accountingStatus ?? 'all');
+    }
+    if ('month' in patch) list.setFilter('month', patch.month ?? '');
   };
 
   const handleCancelClick = (invoice: Invoice) => {

@@ -56,6 +56,11 @@ export default function DashboardPage() {
   const companies = metrics?.companies ?? [];
   const totals = metrics?.totals ?? EMPTY_TOTALS;
 
+  // GEN-1: cross-company totals sum raw amounts, so a single currency label is
+  // only honest when every company shares one base currency.
+  const currencies = Array.from(new Set(companies.map((c) => c.currency)));
+  const totalsCurrency = currencies.length === 1 ? currencies[0] ?? null : null;
+
   const toggleActivity = useCallback(() => {
     setOnlyOwn((v) => !v);
   }, []);
@@ -137,7 +142,7 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      <SummaryGrid totals={totals} />
+      <SummaryGrid totals={totals} currency={totalsCurrency} />
 
       <CompaniesGrid companies={companies} />
 

@@ -33,19 +33,21 @@ it appends an entry using the template below and then either:
 _(The agent appends below. Seeded with the known-open product decisions from
 `PRODUCT_ROADMAP.md` §2 so they live in one place.)_
 
-### GEN-1-LABELS — hardcoded "EUR" labels after currency conversion — PROCEEDED (minor)
-- **When:** GEN-1 A3/A4 (run 2, 2026-07-09).
+### GEN-1-LABELS — hardcoded "EUR" labels after currency conversion — ✅ RESOLVED (run 3)
+- **When:** logged GEN-1 A3/A4 (run 2, 2026-07-09); fixed run 3.
 - **Context:** GEN-1 converts every aggregate to the company base currency. Two display spots
-  still hardcode the literal `" EUR"` suffix: `dashboard/_components/SummaryGrid.tsx` (cross-
-  company totals) and `payments/_components/PaymentKpiGrid.tsx` (payment KPIs). Correct **today**
-  because every company's base currency is EUR, but they should read the base currency instead.
-- **What I did:** left them (correct for current data); the underlying sums are now properly
-  converted. Logged here as a low-priority cleanup.
-- **Also:** the cross-company dashboard sums per-company base totals; if one user ever owns
-  companies with *different* base currencies, that cross-company total mixes bases. Edge only
-  (all bases EUR now). If multi-base becomes real, convert each company to one display base.
-- **Needs from you:** nothing now. Pick up when convenient (thread `baseCurrency` into those two
-  components).
+  hardcoded the literal `" EUR"` suffix: `dashboard/_components/SummaryGrid.tsx` (cross-
+  company totals) and `payments/_components/PaymentKpiGrid.tsx` (payment KPIs).
+- **Fix:** `PaymentKpiGrid` now takes a `baseCurrency` prop, fed from `useCompany().company.
+  defaultCurrency` (per-company, unambiguous). `SummaryGrid` takes `currency: string | null`,
+  derived on the dashboard page from the distinct set of the user's companies' base currencies:
+  one shared currency → label with it; **mixed → `null`, which drops the suffix and shows a
+  muted "смесени валути" caption** (the cross-company sum isn't a single currency, so a suffix
+  would lie). Derivation asserted across uniform/mixed/empty/single branches; real data is all
+  EUR (6/6), so the happy path shows "EUR" with no caption.
+- **Note:** the mixed-currency *sum itself* is still a raw add across bases (documented in
+  `getDashboardMetrics`). If multi-base ownership becomes common, convert each company to one
+  display base before summing. Out of scope for a label fix; caption makes today's behavior honest.
 
 ### D-CANCEL — Invoice "Cancel" behavior — ✅ RESOLVED (2026-07-08)
 - **Needs from you:** Ask Koceto how Cancel should work. Today it marks the invoice

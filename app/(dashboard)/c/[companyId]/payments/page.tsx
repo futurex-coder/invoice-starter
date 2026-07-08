@@ -16,6 +16,7 @@ import {
 } from '@/src/features/received-invoices/actions';
 import type { PaymentStatus } from '@/src/features/received-invoices/types';
 import { useListPageState } from '@/lib/swr/use-list-page-state';
+import { useCompany } from '@/lib/context/company-context';
 import { requireStringParam } from '@/lib/route-params';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { PaymentKpiGrid } from './_components/PaymentKpiGrid';
@@ -37,6 +38,7 @@ type PaymentsFilterState = {
 export default function PaymentsPage() {
   const params = useParams();
   const companyId = requireStringParam(params, 'companyId');
+  const { company } = useCompany();
 
   // ninetyDaysAgo() is computed once at mount via the lazy defaults object.
   const defaults = useMemo<PaymentsFilterState>(
@@ -96,7 +98,11 @@ export default function PaymentsPage() {
 
       <ErrorAlert message={list.error} className="mb-4" />
 
-      <PaymentKpiGrid totals={data?.totals} loading={list.loading} />
+      <PaymentKpiGrid
+        totals={data?.totals}
+        loading={list.loading}
+        baseCurrency={company.defaultCurrency}
+      />
 
       <Card className="mb-6">
         <CardHeader>

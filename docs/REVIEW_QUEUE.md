@@ -122,6 +122,21 @@ _(The agent appends below. Seeded with the known-open product decisions from
 - **Needs from you:** nothing unless you dislike drafts being created by Preview — say so
   and it becomes a pure client-side render when RV-3 lands.
 
+### INV11-CANCEL — Stray cancel of seed invoice 11 during UI testing, restored — PROCEEDED
+- **When:** AGG-1 verification (2026-07-08, ~02:46 local).
+- **Context:** While the run was driving the UI through the embedded preview, a stray
+  synthetic click cancelled seed invoice 11 (Алфа № 0000000001, paid, 1920) — most likely
+  a pointer-event landing on the row menu's "Cancel" (adjacent to Copy/CN). The new signed
+  aggregates caught it immediately: company 5's collected went **negative** (−480).
+- **What I did:** restored the row to its known prior state (`finalized`; payment_status
+  was untouched) with a guarded SQL update. The CANCEL_INVOICE activity entry remains in
+  the log (user 7, honest history). Also surfaced a real product edge: **credit notes keep
+  counting after their parent invoice is cancelled** — noted in
+  `knowledge/money-aggregation-rules.md`, pairs with D-CANCEL.
+- **Needs from you:** nothing for the data (verified reconciled: collected 1440 /
+  outstanding 360). When answering D-CANCEL, also decide whether notes follow their
+  parent's cancellation.
+
 ### D-EMAIL — Email transport + ingestion scope — OPEN
 - **Needs from you:** (1) SMTP/deliverability provider for sending. (2) Scope of "look over
   all emails" — recommend limiting to invoice-relevant emails auto-matched to partners.

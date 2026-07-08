@@ -294,21 +294,19 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
   still needing review/accounting, missing docs, VAT-ready status. Kills the "do you have everything
   for НАП this month?" back-and-forth. Depends on OI-1 (accounted status) + OI-5 (month filter).
 
-**DASH-1 — Audit all money-aggregation rules** · M · *research/audit, pairs with GEN-1*
-- Before GEN-1 lands, map every place that sums money (dashboard metrics, list totals,
-  reports) and document the current rules — a `Discover`-gear task (subagents or a Workflow
-  scanning `getDashboardMetrics` + all `totals` consumers). Output feeds the GEN-1 ADR.
-- **Head start:** `knowledge/func-audit-2026-07.md` already reconciled the dashboard
-  numbers by hand and found the three holes below (AGG-1).
+**DASH-1 — Audit all money-aggregation rules** · M · ✅ **done 2026-07-08**
+- Shipped `docs/knowledge/money-aggregation-rules.md` — the canonical rules (code:
+  `lib/db/queries/money.ts`), the complete map of money-summing sites, the known gaps
+  (currency-blind sums → GEN-1; CN-vs-cancelled-parent → D-CANCEL; overdue count-vs-amount;
+  cash-vs-accrual "revenue" for VAT-1), and the invoice-11 incident note. Feeds the GEN-1 ADR.
 
-**AGG-1 — Fix the decision-free aggregation holes** · M · *bug, from FUNC-AUDIT*
-- (1) `paymentStatus='partial'` counts in **neither** revenue nor outstanding (invoice
-  side); (2) credit/debit-note **amounts** never subtract from any bucket (Алфа's true
-  net revenue is 1 440, dashboard says 1 920); (3) notes carry a meaningless default
-  `paymentStatus='unpaid'` — define note payment-semantics while fixing.
-- Explicitly **not** in scope: FX conversion of mixed-currency sums (that's GEN-1 / D-FX).
-- Verify by running: dashboard + company cards reconcile by hand against SQL buckets for
-  a company with partial payments and credit notes.
+**AGG-1 — Fix the decision-free aggregation holes** · M · *bug, from FUNC-AUDIT* · ✅ **done 2026-07-08**
+- Shipped `lib/db/queries/money.ts` — canonical signed-sum fragments (CN subtracts, DN
+  adds; `partial` counts as outstanding; note paymentStatus = "is the refund settled") —
+  wired into both `getCompanyMetrics` and `getDashboardMetrics`. Real-DB integration
+  suite pins an 8-document ledger (collected 800 / outstanding 800 / overdue 2); live
+  data reconciles by hand (Алфа: 1440 / 360, was 1920 / 600). FX conversion explicitly
+  deferred to GEN-1 — it will land inside money.ts so every consumer inherits it.
 
 **NAP-1 — NAP (НАП) compliance requirements** · L · ⚠️ *compliance — high priority*
 - The attached `NAP.pdf` specifies requirements the app must meet. **Blocked on getting the PDF

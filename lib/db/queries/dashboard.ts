@@ -6,6 +6,11 @@ import {
   invoices,
   receivedInvoices,
 } from '../schema';
+import {
+  collectedSumSql,
+  outstandingSumSql,
+  overdueCountSql,
+} from './money';
 
 // ─────────────────────────────────────────────
 // DASHBOARD METRICS (CROSS-COMPANY)
@@ -54,24 +59,10 @@ export async function getDashboardMetrics(userId: number) {
         companyId: invoices.companyId,
         companyName: companies.legalName,
         currency: companies.defaultCurrency,
-        revenue: sql<string>`
-          COALESCE(SUM(
-            CASE WHEN ${invoices.docType} = 'invoice'
-                 AND ${invoices.status} = 'finalized'
-                 AND ${invoices.paymentStatus} = 'paid'
-            THEN (${invoices.totals}->>'grossAmount')::numeric
-            ELSE 0 END
-          ), 0)
-        `,
-        outstanding: sql<string>`
-          COALESCE(SUM(
-            CASE WHEN ${invoices.docType} = 'invoice'
-                 AND ${invoices.status} = 'finalized'
-                 AND ${invoices.paymentStatus} = 'unpaid'
-            THEN (${invoices.totals}->>'grossAmount')::numeric
-            ELSE 0 END
-          ), 0)
-        `,
+        // AGG-1: signed sums — credit notes subtract, partial counts as
+        // outstanding. Rules live in ./money.ts.
+        revenue: collectedSumSql,
+        outstanding: outstandingSumSql,
         invoiceCountThisMonth: sql<number>`
           COUNT(*) FILTER (
             WHERE ${invoices.docType} = 'invoice'
@@ -79,14 +70,7 @@ export async function getDashboardMetrics(userId: number) {
                 = date_trunc('month', NOW())
           )
         `,
-        overdueCount: sql<number>`
-          COUNT(*) FILTER (
-            WHERE ${invoices.docType} = 'invoice'
-              AND ${invoices.status} = 'finalized'
-              AND ${invoices.paymentStatus} = 'unpaid'
-              AND ${invoices.dueDate}::date < CURRENT_DATE
-          )
-        `,
+        overdueCount: overdueCountSql,
       })
       .from(invoices)
       .innerJoin(companies, eq(invoices.companyId, companies.id))

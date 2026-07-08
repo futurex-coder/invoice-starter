@@ -3,6 +3,11 @@ import { db } from '@/lib/db/drizzle';
 import { invoices, receivedInvoices } from '@/lib/db/schema';
 import { requireUser } from '@/lib/auth/guards';
 import { verifyCompanyAccess } from '@/lib/db/queries';
+import {
+  collectedSumSql,
+  outstandingSumSql,
+  overdueCountSql,
+} from '@/lib/db/queries/money';
 
 /**
  * Verify the current user has access to `companyId`. Throws otherwise.
@@ -34,28 +39,15 @@ export async function getCompanyMetrics(companyId: number): Promise<CompanyMetri
   await ensureCompanyAccess(companyId);
   const [row] = await db
     .select({
-      revenue: sql<string>`coalesce(sum(
-        case when ${invoices.docType} = 'invoice'
-             and ${invoices.status} = 'finalized'
-             and ${invoices.paymentStatus} = 'paid'
-        then (${invoices.totals}->>'grossAmount')::numeric else 0 end
-      ), 0)`,
-      outstanding: sql<string>`coalesce(sum(
-        case when ${invoices.docType} = 'invoice'
-             and ${invoices.status} = 'finalized'
-             and ${invoices.paymentStatus} = 'unpaid'
-        then (${invoices.totals}->>'grossAmount')::numeric else 0 end
-      ), 0)`,
+      // AGG-1: signed sums — credit notes subtract, partial counts as
+      // outstanding. Rules live in lib/db/queries/money.ts.
+      revenue: collectedSumSql,
+      outstanding: outstandingSumSql,
       invoiceCountThisMonth: sql<number>`count(*) filter (
         where ${invoices.docType} = 'invoice'
           and date_trunc('month', ${invoices.issueDate}::timestamp) = date_trunc('month', now())
       )`,
-      overdueCount: sql<number>`count(*) filter (
-        where ${invoices.docType} = 'invoice'
-          and ${invoices.status} = 'finalized'
-          and ${invoices.paymentStatus} = 'unpaid'
-          and ${invoices.dueDate}::date < current_date
-      )`,
+      overdueCount: overdueCountSql,
       totalInvoices: sql<number>`count(*) filter (where ${invoices.docType} = 'invoice')`,
       draftCount: sql<number>`count(*) filter (
         where ${invoices.docType} = 'invoice' and ${invoices.status} = 'draft'

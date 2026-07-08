@@ -22,6 +22,11 @@ describe('fx/convert', () => {
     expect(convert(1, 'EUR', 'BGN', { BGN: 999 })).toBeCloseTo(1.95583, 6);
   });
 
+  it('matches the НАП accountants-guide worked example (653.96 BGN → 334.36 EUR, half-up 2dp)', () => {
+    // BGN→EUR = divide by 1.95583, round half-up to 2 decimals.
+    expect(roundTo(convert(653.96, 'BGN', 'EUR', {}), 2)).toBe(334.36);
+  });
+
   it('identity conversion returns the amount unchanged', () => {
     expect(convert(123.45, 'EUR', 'EUR', RATES)).toBe(123.45);
     expect(convert(50, 'USD', 'USD', RATES)).toBe(50);

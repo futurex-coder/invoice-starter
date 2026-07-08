@@ -286,10 +286,15 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 - Follow-ups when unblocked: FX-converted single-currency view (GEN-1/D-FX); month detail
   drill-down (дневник-style doc list per month) — natural next slice with OI-5.
 
-**TRANS-1 — Notifications on new/changed documents** · M · ⭐ *core value (transparency)*
-- Both directions: notify the **accountant** when the owner adds/changes an invoice (income) or a
-  received/expense doc, and notify the **owner** of accountant actions. In-app first; email (Gmail,
-  EMAIL-1) later. Builds on the existing activity log.
+**TRANS-1 — Notifications on new/changed documents** · M · ⭐ *core value* · ✅ **v1 done 2026-07-08**
+- In-app **notification bell** in the header: everything OTHER members did in your
+  companies (accountant sees owner actions and vice versa — both directions fall out of
+  the membership join). Unread = after your per-company `notifications_seen_at` high-water
+  mark (migration `0004`; join date bounds history for new members). Opening the bell
+  marks all seen (optimistic + persisted). 60s SWR polling; items deep-link to the
+  company's activity page.
+- Verified live: alice's bell showed 5 unread of Bob's Бета actions with labels + relative
+  times; mark-seen survives a full reload. Email channel stays with EMAIL-1/D-EMAIL.
 
 **TRANS-2 — Shared "what's left this month" status view** · M · ⭐ *core value (transparency)*
 - One view both owner and accountant see: for the current month, **done vs pending** — invoices

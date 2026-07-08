@@ -1,0 +1,1 @@
+ALTER TABLE "company_members" ADD COLUMN "notifications_seen_at" timestamp;

@@ -10,6 +10,7 @@ import {
   invoices,
   invitations,
   users,
+  activityLogs,
   ActivityType,
   type Company,
   type CompanyWithMembers,
@@ -554,6 +555,111 @@ export async function deleteCompanyAction(): Promise<ActionResult<void>> {
       throw new Error('Only the company owner can delete the company');
     }
     await softDeleteCompany(companyId);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// H2) Notifications (TRANS-1) — activity by OTHER members of your companies
+// ---------------------------------------------------------------------------
+
+export interface NotificationItem {
+  id: number;
+  companyId: number;
+  companyName: string;
+  actorName: string;
+  /** Raw ActivityType — the client renders it via ACTIVITY_LABELS. */
+  action: string;
+  /** ISO timestamp. */
+  timestamp: string;
+  unread: boolean;
+}
+
+export interface NotificationsPayload {
+  items: NotificationItem[];
+  unreadCount: number;
+}
+
+/**
+ * The transparency feed: everything OTHER members did in companies you
+ * belong to — the accountant sees the owner's uploads/edits and vice
+ * versa. "Unread" = after your per-company notifications_seen_at
+ * high-water mark (member join date for first-time viewers, so new
+ * members aren't flooded with history).
+ */
+export async function getNotifications(): Promise<
+  ActionResult<NotificationsPayload>
+> {
+  return action(async () => {
+    const user = await requireUser();
+
+    const seenBoundary = sql`COALESCE(${companyMembers.notificationsSeenAt}, ${companyMembers.joinedAt})`;
+
+    const rows = await db
+      .select({
+        id: activityLogs.id,
+        companyId: activityLogs.companyId,
+        companyName: companies.legalName,
+        actorName: sql<string>`COALESCE(${users.name}, 'Someone')`,
+        action: activityLogs.action,
+        timestamp: activityLogs.timestamp,
+        unread: sql<boolean>`${activityLogs.timestamp} > ${seenBoundary}`,
+      })
+      .from(activityLogs)
+      .innerJoin(
+        companyMembers,
+        and(
+          eq(companyMembers.companyId, activityLogs.companyId),
+          eq(companyMembers.userId, user.id)
+        )
+      )
+      .innerJoin(companies, eq(companies.id, activityLogs.companyId))
+      .leftJoin(users, eq(users.id, activityLogs.userId))
+      .where(
+        and(
+          sql`${activityLogs.userId} IS DISTINCT FROM ${user.id}`,
+          sql`${companies.deletedAt} IS NULL`
+        )
+      )
+      .orderBy(desc(activityLogs.timestamp))
+      .limit(15);
+
+    const [unread] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(activityLogs)
+      .innerJoin(
+        companyMembers,
+        and(
+          eq(companyMembers.companyId, activityLogs.companyId),
+          eq(companyMembers.userId, user.id)
+        )
+      )
+      .innerJoin(companies, eq(companies.id, activityLogs.companyId))
+      .where(
+        and(
+          sql`${activityLogs.userId} IS DISTINCT FROM ${user.id}`,
+          sql`${companies.deletedAt} IS NULL`,
+          sql`${activityLogs.timestamp} > ${seenBoundary}`
+        )
+      );
+
+    return {
+      items: rows.map((r) => ({
+        ...r,
+        timestamp: r.timestamp.toISOString(),
+      })),
+      unreadCount: unread?.count ?? 0,
+    };
+  });
+}
+
+/** Mark every notification as seen (all memberships of the current user). */
+export async function markNotificationsSeen(): Promise<ActionResult<void>> {
+  return action(async () => {
+    const user = await requireUser();
+    await db
+      .update(companyMembers)
+      .set({ notificationsSeenAt: new Date() })
+      .where(eq(companyMembers.userId, user.id));
   });
 }
 

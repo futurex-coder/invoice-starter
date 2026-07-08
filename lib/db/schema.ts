@@ -112,6 +112,9 @@ export const companyMembers = pgTable(
       .references(() => companies.id),
     role: varchar('role', { length: 50 }).notNull(),
     joinedAt: timestamp('joined_at').notNull().defaultNow(),
+    // TRANS-1: high-water mark for the in-app notification bell — activity
+    // by OTHER members after this instant counts as unread.
+    notificationsSeenAt: timestamp('notifications_seen_at'),
   },
   (t) => [
     // A user can only have one role per company

@@ -15,6 +15,7 @@ import { signOut } from '@/app/(login)/actions';
 import { useRouter } from 'next/navigation';
 import { mutate } from 'swr';
 import { useCurrentUser } from '@/lib/swr/use-current-user';
+import { NotificationsBell } from '@/components/notifications-bell';
 
 function UserMenu() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -96,6 +97,7 @@ function Header() {
         </Link>
         <div className="flex items-center space-x-4">
           <Suspense fallback={<div className="h-9" />}>
+            <NotificationsBell />
             <UserMenu />
           </Suspense>
         </div>

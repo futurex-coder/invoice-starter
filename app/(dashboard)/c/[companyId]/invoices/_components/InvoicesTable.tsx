@@ -24,6 +24,7 @@ import {
   FileDown,
   FileUp,
   ChevronRight,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +49,7 @@ interface RowProps {
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
   onCancel: (invoice: Invoice) => void;
+  onUncancel: (id: number) => void;
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
@@ -127,6 +129,7 @@ function InvoiceRow({
   onEdit,
   onPrint,
   onCancel,
+  onUncancel,
   onCopy,
   onCreditNote,
   onDebitNote,
@@ -138,6 +141,9 @@ function InvoiceRow({
   const isDraft = invoice.status === 'draft';
   const isIssued = invoice.status === 'finalized';
   const isCancelled = invoice.status === 'cancelled';
+  const isAccounted = invoice.accountingStatus === 'accounted';
+  // EDIT-RULE: editable until accounted; a cancelled invoice is reinstated first.
+  const canEdit = (isDraft || isIssued) && !isAccounted;
   const isNote = invoice.docType === 'credit_note' || invoice.docType === 'debit_note';
   const isOverdue =
     invoice.status === 'finalized' &&
@@ -147,8 +153,8 @@ function InvoiceRow({
 
   const actions: RowAction[] = [
     { icon: Eye, label: 'View', onClick: () => onView(invoice.id) },
-    ...(isDraft
-      ? [{ icon: Pencil, label: 'Edit draft', onClick: () => onEdit(invoice.id) }]
+    ...(canEdit
+      ? [{ icon: Pencil, label: 'Edit', onClick: () => onEdit(invoice.id) }]
       : []),
     { icon: Printer, label: 'Print / Preview', onClick: () => onPrint(invoice.id) },
     ...(!isCancelled && isIssued
@@ -158,6 +164,9 @@ function InvoiceRow({
           { icon: FileDown, label: 'Create credit note', onClick: () => onCreditNote(invoice.id) },
           { icon: FileUp, label: 'Create debit note', onClick: () => onDebitNote(invoice.id) },
         ]
+      : []),
+    ...(isCancelled
+      ? [{ icon: RotateCcw, label: 'Reinstate (uncancel)', onClick: () => onUncancel(invoice.id) }]
       : []),
   ];
 
@@ -264,6 +273,7 @@ interface TableProps {
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
   onCancel: (invoice: Invoice) => void;
+  onUncancel: (id: number) => void;
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
@@ -305,6 +315,7 @@ export function InvoicesTable(props: TableProps) {
               onEdit={props.onEdit}
               onPrint={props.onPrint}
               onCancel={props.onCancel}
+              onUncancel={props.onUncancel}
               onCopy={props.onCopy}
               onCreditNote={props.onCreditNote}
               onDebitNote={props.onDebitNote}

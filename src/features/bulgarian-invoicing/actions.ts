@@ -555,8 +555,17 @@ export async function updateInvoiceDraft(
     if (!existing) {
       throw new Error('Invoice not found');
     }
-    if (existing.status !== 'draft') {
-      throw new Error('Only draft invoices can be updated');
+    // EDIT-RULE (D-EDIT): an invoice is freely editable until it is marked
+    // `accounted`; then it locks. Cancelled invoices must be uncancelled first
+    // (there's nothing meaningful to edit while void). Draft + finalized (not
+    // accounted) are both editable; the number and status are preserved.
+    if (existing.accountingStatus === 'accounted') {
+      throw new Error(
+        'This invoice is marked accounted and is locked. Set it back to pending accounting to edit it.'
+      );
+    }
+    if (existing.status === 'cancelled') {
+      throw new Error('Uncancel this invoice before editing it.');
     }
 
     const supplier = input.supplier ?? parsePartySnapshotStrict(existing.supplierSnapshot);
@@ -578,9 +587,11 @@ export async function updateInvoiceDraft(
 
     const doc: InvoiceDocument = {
       docType: isDocType(existing.docType) ? existing.docType : 'invoice',
-      status: 'draft',
+      // Validate against the invoice's ACTUAL status (a finalized edit must
+      // still satisfy the finalized rules), preserving its allocated number.
+      status: isDomainStatus(existing.status) ? existing.status : 'draft',
       series: existing.series,
-      number: null,
+      number: existing.number,
       issueDate,
       supplyDate: supplyDate ?? null,
       currency,
@@ -783,6 +794,55 @@ export async function cancelInvoice(
     await logActivity(companyId, user.id, ActivityType.CANCEL_INVOICE);
 
     return parseInvoiceRow(cancelled);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// uncancelInvoice — EDIT-RULE (D-CANCEL): cancel is reversible.
+// ---------------------------------------------------------------------------
+
+export async function uncancelInvoice(
+  invoiceId: number
+): Promise<ActionResult<ParsedInvoice>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    const [existing] = await db
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error('Invoice not found');
+    }
+    if (existing.status !== 'cancelled') {
+      throw new Error('Only cancelled invoices can be reinstated');
+    }
+
+    // Cancel is only offered on issued (finalized) invoices, so the pre-cancel
+    // state is always 'finalized'. Guard the status in the WHERE for concurrency.
+    const [restored] = await db
+      .update(invoices)
+      .set({ status: 'finalized', updatedAt: new Date() })
+      .where(
+        and(
+          eq(invoices.id, invoiceId),
+          eq(invoices.companyId, companyId),
+          eq(invoices.status, 'cancelled')
+        )
+      )
+      .returning();
+
+    if (!restored) {
+      throw new Error(
+        'Failed to reinstate — invoice may have been modified concurrently'
+      );
+    }
+
+    await logActivity(companyId, user.id, ActivityType.UNCANCEL_INVOICE);
+
+    return parseInvoiceRow(restored);
   });
 }
 

@@ -40,6 +40,8 @@ import {
   updateInvoiceDraft,
   finalizeInvoice,
   cancelInvoice,
+  uncancelInvoice,
+  updateInvoiceAccountingStatus,
   createCreditNoteFromInvoice,
   getInvoice,
 } from './actions';
@@ -333,10 +335,52 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     expect(unwrapError(result, 'double finalize')).toMatch(/Cannot finalize/);
   });
 
-  it('refuses to update a finalized invoice', async () => {
-    const result = await updateInvoiceDraft(draftId, { internalComment: 'nope' });
-    expect(unwrapError(result, 'update finalized')).toMatch(
-      /Only draft invoices can be updated/
+  it('edits a finalized (not accounted) invoice, then locks it once accounted (EDIT-RULE)', async () => {
+    // Finalized + pending accounting → still editable; status + number preserved.
+    const ok = await updateInvoiceDraft(draftId, {
+      internalComment: 'edited-after-finalize',
+    });
+    const updated = unwrap(ok, 'update finalized');
+    expect(updated.status).toBe('finalized');
+    expect(updated.number).toBe(draftNumber);
+    expect(updated.internalComment).toBe('edited-after-finalize');
+
+    // Mark accounted → the invoice locks.
+    unwrap(
+      await updateInvoiceAccountingStatus(draftId, 'accounted'),
+      'mark accounted'
+    );
+    const locked = await updateInvoiceDraft(draftId, {
+      internalComment: 'should-be-blocked',
+    });
+    expect(unwrapError(locked, 'update accounted')).toMatch(/accounted/i);
+
+    // Reset to pending so later tests see the original lifecycle state.
+    unwrap(
+      await updateInvoiceAccountingStatus(draftId, 'pending'),
+      'reset accounting to pending'
+    );
+  });
+
+  it('reinstates a cancelled invoice (EDIT-RULE: cancel is reversible)', async () => {
+    // Use a throwaway finalized invoice so the shared draftId lifecycle is untouched.
+    const created = unwrap(
+      await createInvoiceDraft(baseDraftInput()),
+      'create for uncancel'
+    );
+    unwrap(await finalizeInvoice(created.id), 'finalize for uncancel');
+    unwrap(await cancelInvoice(created.id), 'cancel for uncancel');
+
+    const restored = unwrap(
+      await uncancelInvoice(created.id),
+      'uncancelInvoice'
+    );
+    expect(restored.status).toBe('finalized');
+
+    // Uncancelling a non-cancelled invoice is rejected.
+    const again = await uncancelInvoice(created.id);
+    expect(unwrapError(again, 'uncancel non-cancelled')).toMatch(
+      /Only cancelled/i
     );
   });
 

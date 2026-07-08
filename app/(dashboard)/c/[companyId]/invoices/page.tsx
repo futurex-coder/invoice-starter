@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   listInvoices,
   cancelInvoice,
+  uncancelInvoice,
   createCreditNoteFromInvoice,
   createDebitNoteFromInvoice,
   updateInvoicePaymentInfo,
@@ -120,6 +121,11 @@ export default function InvoicesPage() {
     await list.runMutation(() => cancelInvoice(confirmCancel.id));
   };
 
+  // EDIT-RULE: cancel is reversible.
+  const handleUncancel = (id: number) => {
+    void list.runMutation(() => uncancelInvoice(id));
+  };
+
   const [pendingId, setPendingId] = useState<number | null>(null);
 
   // OI-9: inline paid / accounted toggles with the N11 optimistic pattern.
@@ -202,6 +208,7 @@ export default function InvoicesPage() {
           onEdit={(id) => router.push(`/c/${companyId}/invoices/new?edit=${id}`)}
           onPrint={(id) => router.push(`/c/${companyId}/invoices/${id}?print=1`)}
           onCancel={handleCancelClick}
+          onUncancel={handleUncancel}
           onCopy={(id) => router.push(`/c/${companyId}/invoices/new?copy=${id}`)}
           onCreditNote={handleCreditNote}
           onDebitNote={handleDebitNote}

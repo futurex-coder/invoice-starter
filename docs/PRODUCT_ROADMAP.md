@@ -225,18 +225,26 @@ Feature work starts off a clean `main`.
 
 ### Phase 1.6 — Editability, numbering & new-invoice rules (from 2026-07-08 owner answers)
 
-**EDIT-RULE — `accounted` is the single edit/delete lock** · M · *unblocks OI-3, OI-10 outgoing*
+**EDIT-RULE — `accounted` is the single edit/delete lock** · M · *unblocks OI-3, OI-10 outgoing* · 🟡 **edit + uncancel done 2026-07-08; delete deferred**
 - Rule (D-CANCEL + D-EDIT): an invoice is **freely editable and deletable while its
-  `accountingStatus` ≠ `accounted`**; once `accounted` it locks (edits + delete blocked). The
-  Accounted toggle is always available, so un-accounting re-opens editing. **Cancel is
-  reversible** — add an **Uncancel** action alongside Cancel.
-- Work: gate the outgoing edit path on `accountingStatus !== 'accounted'` (not on
-  draft/finalized); add Uncancel action + row menu; add **Delete** (hard or soft — pick soft/
-  archive if it protects numbering continuity) for non-accounted invoices; enforce the lock
-  server-side in the actions, not just the UI. Keep an **activity/audit entry** for edits to
-  finalized documents (compliance caveat — see REVIEW_QUEUE D-EDIT).
-- Edge cases: editing a finalized doc that has credit notes against it; deleting a doc that
-  leaves a numbering gap (decide: reuse vs. gap — pairs with NUM-1); cancel→uncancel→edit chain.
+  `accountingStatus` ≠ `accounted`**; once `accounted` it locks. The Accounted toggle is always
+  available, so un-accounting re-opens editing. **Cancel is reversible** (Uncancel).
+- **Shipped (outgoing):** `updateInvoiceDraft` now gates on `accountingStatus !== 'accounted'`
+  (was draft-only) — finalized invoices are editable while pending accounting, preserving their
+  status + number, and re-validated against the finalized rules; accounted → locked
+  (server-enforced, not just UI). New **`uncancelInvoice`** action (cancelled → finalized) +
+  `UNCANCEL_INVOICE` activity type. Invoice list row menu: **Edit** now shows for finalized
+  (not accounted); **Reinstate (uncancel)** shows for cancelled. New-invoice edit page allows
+  loading a finalized invoice (blocks accounted + cancelled with a clear message). Verified via
+  the real-DB lifecycle integration suite (finalized-editable, accounted-locks, uncancel
+  restores, uncancel-rejects-non-cancelled) — 223 tests green.
+- **Deferred — DELETE** (its own slice): safest as a **soft delete** (`invoices.deletedAt` +
+  filter it out of every list / dashboard / money / VAT aggregation) so a deleted invoice can't
+  silently corrupt totals and the number isn't reused. That query-sweep is wide and risky to do
+  while the owner is live-creating documents, so it's split out. Decide hard-vs-soft + numbering-
+  gap handling (pairs with NUM-1) before building.
+- **Compliance caveat (logged):** editing a finalized фактура in place diverges from BG
+  immutability; the UPDATE_INVOICE activity entry is the audit trail. Per owner decision.
 
 **NUM-1 — Unique number per document, all types** · L · *schema/trigger* · *reverses run-1 CN-numbering*
 - Rule (D-NUM): every document — invoice, credit note, debit note, proforma — gets its **own
@@ -254,11 +262,14 @@ Feature work starts off a clean `main`.
 - Make `proforma` insertable (trigger accepts it after NUM-1), with its own numbering and a
   convert-to-invoice flow. Needed so the new-invoice form can offer it.
 
-**NEWINV-1 — New-invoice form: Invoice + Proforma only, remove Preview** · S · *depends on PROF-1*
-- DocumentCard offers **Invoice and Proforma only** (drop credit_note/debit_note — notes come
-  from a finalized invoice's row menu). Remove the **Preview** button from the new-invoice
-  ActionsBar — leave only **Save draft** and **Finalize** (per NI1-PREVIEW). Preview/print stays
-  on the saved-invoice detail/row menu.
+**NEWINV-1 — New-invoice form: Invoice + Proforma only, remove Preview** · S · *depends on PROF-1* · 🟡 **Preview removed 2026-07-08; doc-type restriction pending PROF-1**
+- **Shipped:** the **Preview** button is gone from the new-invoice ActionsBar — only **Save
+  draft** and **Finalize** remain (per NI1-PREVIEW). Preview/print stays reachable from a saved
+  invoice's detail/row menu.
+- **Remaining (with PROF-1):** restrict DocumentCard to **Invoice + Proforma** (drop
+  credit_note/debit_note — notes come from a finalized invoice's row menu). Held until proforma
+  is a real insertable doc type (NUM-1 trigger → PROF-1); offering broken options now would just
+  error, so the selector is left as-is until then.
 
 ---
 

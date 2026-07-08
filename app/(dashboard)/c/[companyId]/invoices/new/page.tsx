@@ -109,9 +109,19 @@ export default function NewInvoicePage() {
     if (!editingInvoice || !editingLines || !partnersList) return;
 
     if (editId) {
-      if (editingInvoice.status !== 'draft') {
+      // EDIT-RULE: editable until accounted; cancelled must be reinstated first.
+      if (editingInvoice.accountingStatus === 'accounted') {
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setError('Only drafts can be edited'); // one-shot hydration from SWR
+        setError(
+          'This invoice is marked accounted and is locked. Set it back to pending accounting to edit it.'
+        );
+        hydratedRef.current = true;
+        return;
+      }
+      if (editingInvoice.status === 'cancelled') {
+        setError(
+          'This invoice is cancelled. Reinstate it from the invoice list before editing.'
+        );
         hydratedRef.current = true;
         return;
       }
@@ -273,13 +283,6 @@ export default function NewInvoicePage() {
     router.push(`/c/${companyId}/invoices/${res.data.id}`);
   };
 
-  const handlePreview = async () => {
-    // NI-1: previewing an unsaved form implicitly saves the draft first, then
-    // opens the print preview — no manual "Save draft" step required.
-    const id = draftId ?? (await saveDraft());
-    if (id) router.push(`/c/${companyId}/invoices/${id}?print=1`);
-  };
-
   if (loading) {
     return (
       <PageShell className="flex items-center justify-center">
@@ -297,7 +300,7 @@ export default function NewInvoicePage() {
           </Link>
         </Button>
         <h1 className="text-lg lg:text-2xl font-medium">
-          {draftId ? 'Edit draft invoice' : 'New invoice'}
+          {draftId ? 'Edit invoice' : 'New invoice'}
         </h1>
       </div>
 
@@ -379,7 +382,6 @@ export default function NewInvoicePage() {
       <ActionsBar
         saving={saving}
         onSaveDraft={handleSaveDraft}
-        onPreview={handlePreview}
         onFinalize={handleFinalize}
       />
     </PageShell>

@@ -1,22 +1,20 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, FileText, CheckCircle } from 'lucide-react';
+import { Loader2, Save, CheckCircle } from 'lucide-react';
 
 interface Props {
   saving: boolean;
   onSaveDraft: () => void;
-  onPreview: () => void;
   onFinalize: () => void;
 }
 
-// NI-1: Preview and Finalize work from an unsaved form — Preview saves the
-// draft implicitly, Finalize creates + issues in one server transaction — so
-// neither is gated on a prior manual draft save anymore.
+// NEWINV-1: only Save draft + Finalize. Preview was removed (it just saved a
+// draft and opened the print view — reachable from a saved invoice instead).
+// Finalize works from an unsaved form (createInvoiceDraft + finalizeImmediately).
 export function ActionsBar({
   saving,
   onSaveDraft,
-  onPreview,
   onFinalize,
 }: Props) {
   return (
@@ -24,10 +22,6 @@ export function ActionsBar({
       <Button onClick={onSaveDraft} disabled={saving}>
         {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
         Save draft
-      </Button>
-      <Button variant="outline" onClick={onPreview} disabled={saving}>
-        <FileText className="mr-2 h-4 w-4" />
-        Preview
       </Button>
       <Button
         className="bg-green-600 hover:bg-green-700"

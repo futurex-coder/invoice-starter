@@ -15,7 +15,6 @@ import {
   Menu,
   LayoutDashboard,
   Settings,
-  Inbox,
   Calculator,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';

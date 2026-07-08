@@ -148,10 +148,14 @@ Feature work starts off a clean `main`.
   `mutate(...,{revalidate:false})` (pattern from N11). Reuse `updateInvoicePaymentInfo`
   for payment; add an `updateInvoiceAccountingStatus` action.
 
-**OI-7 — Expandable row detail** · M
-- Each list row expands to a dropdown showing line items + total sum (read-only). Lazy-load
-  the detail or reuse the already-loaded row snapshot. Mobile-friendly.
-- *Competitor research (RESEARCH-1) informs the exact layout.*
+**OI-7 — Expandable row detail** · M · ✅ **done 2026-07-08 (outgoing list)**
+- Chevron on each outgoing row expands a read-only line-item mini-table (Description ·
+  Qty · Unit · Unit price · Disc.% · Total + Net/VAT/Total footer) rendered from the
+  row's **already-loaded items snapshot** — zero extra queries; one row expanded at a
+  time; scrolls horizontally on mobile.
+- Verified live: invoice #1 expands to its line (20 × 80) with Net 1 600 · VAT 320 ·
+  Total 1 920 — reconciled; collapse restores the plain list. Received-side expansion
+  deferred (list items don't carry lines; the review/detail pages serve that need).
 
 **OI-9 — Simplify both lists + inline paid/accounted editing** · M · ✅ **done 2026-07-08**
 - Both lists now: **Number · Client/Supplier · Date · Total · Paid · Accounted · Status ·

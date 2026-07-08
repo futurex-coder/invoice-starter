@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { FileText, Inbox } from 'lucide-react';
+import { FileText, Inbox, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type Tab = 'outgoing' | 'received';
+type Tab = 'all' | 'outgoing' | 'received';
 
 interface Props {
   companyId: string;
@@ -12,6 +12,12 @@ interface Props {
 
 export function InvoicesTabsNav({ companyId, active, pendingReceivedCount }: Props) {
   const tabs: { id: Tab; label: string; href: string; icon: typeof FileText; badge?: number }[] = [
+    {
+      id: 'all',
+      label: 'All',
+      href: `/c/${companyId}/invoices/all`,
+      icon: Layers,
+    },
     {
       id: 'outgoing',
       label: 'Outgoing',

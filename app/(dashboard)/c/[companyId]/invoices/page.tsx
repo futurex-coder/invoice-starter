@@ -9,6 +9,8 @@ import {
   cancelInvoice,
   createCreditNoteFromInvoice,
   createDebitNoteFromInvoice,
+  updateInvoicePaymentInfo,
+  updateInvoiceAccountingStatus,
   type ListInvoicesFilters,
 } from '@/src/features/bulgarian-invoicing/actions';
 import { formatInvoiceNumber } from '@/src/features/bulgarian-invoicing/formatter';
@@ -30,16 +32,16 @@ type InvoicesFilterState = {
   search: string;
   status: string;
   paymentStatus: string;
-  dateFrom: string;
-  dateTo: string;
+  accountingStatus: string;
+  month: string;
 };
 
 const INVOICES_DEFAULTS: InvoicesFilterState = {
   search: '',
   status: 'all',
   paymentStatus: 'all',
-  dateFrom: '',
-  dateTo: '',
+  accountingStatus: 'all',
+  month: '',
 };
 
 function isInvoiceStatusEnum(value: string): value is InvoiceStatus {
@@ -56,8 +58,9 @@ function buildActionFilters(
     pageSize,
     status: f.status === 'all' || !isInvoiceStatusEnum(f.status) ? undefined : f.status,
     paymentStatus: f.paymentStatus === 'all' ? undefined : f.paymentStatus,
-    dateFrom: f.dateFrom || undefined,
-    dateTo: f.dateTo || undefined,
+    accountingStatus:
+      f.accountingStatus === 'all' ? undefined : f.accountingStatus,
+    month: f.month || undefined,
     search: f.search || undefined,
   };
 }
@@ -71,8 +74,9 @@ function buildFilterProps(f: InvoicesFilterState): ListInvoicesFilters {
           ? f.status
           : undefined,
     paymentStatus: f.paymentStatus === 'all' ? undefined : f.paymentStatus,
-    dateFrom: f.dateFrom || undefined,
-    dateTo: f.dateTo || undefined,
+    accountingStatus:
+      f.accountingStatus === 'all' ? undefined : f.accountingStatus,
+    month: f.month || undefined,
   };
 }
 
@@ -97,8 +101,10 @@ export default function InvoicesPage() {
     if ('paymentStatus' in patch) {
       list.setFilter('paymentStatus', patch.paymentStatus ?? 'all');
     }
-    if ('dateFrom' in patch) list.setFilter('dateFrom', patch.dateFrom ?? '');
-    if ('dateTo' in patch) list.setFilter('dateTo', patch.dateTo ?? '');
+    if ('accountingStatus' in patch) {
+      list.setFilter('accountingStatus', patch.accountingStatus ?? 'all');
+    }
+    if ('month' in patch) list.setFilter('month', patch.month ?? '');
   };
 
   const handleCancelClick = (invoice: Invoice) => {
@@ -112,6 +118,32 @@ export default function InvoicesPage() {
   const handleCancelConfirmed = async () => {
     if (!confirmCancel) return;
     await list.runMutation(() => cancelInvoice(confirmCancel.id));
+  };
+
+  const [pendingId, setPendingId] = useState<number | null>(null);
+
+  // OI-9: inline paid / accounted toggles with the N11 optimistic pattern.
+  const handleMarkPayment = async (id: number, status: 'paid' | 'unpaid') => {
+    setPendingId(id);
+    try {
+      await list.runMutation(() =>
+        updateInvoicePaymentInfo(id, { paymentStatus: status })
+      );
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const handleMarkAccounting = async (
+    id: number,
+    status: 'accounted' | 'pending'
+  ) => {
+    setPendingId(id);
+    try {
+      await list.runMutation(() => updateInvoiceAccountingStatus(id, status));
+    } finally {
+      setPendingId(null);
+    }
   };
 
   const handleCreditNote = async (id: number) => {
@@ -165,13 +197,16 @@ export default function InvoicesPage() {
         <InvoicesTable
           invoices={result?.invoices ?? []}
           companyId={companyId}
+          pendingId={pendingId}
           onView={(id) => router.push(`/c/${companyId}/invoices/${id}`)}
           onEdit={(id) => router.push(`/c/${companyId}/invoices/new?edit=${id}`)}
           onPrint={(id) => router.push(`/c/${companyId}/invoices/${id}?print=1`)}
           onCancel={handleCancelClick}
-          onCopy={() => {}}
+          onCopy={(id) => router.push(`/c/${companyId}/invoices/new?copy=${id}`)}
           onCreditNote={handleCreditNote}
           onDebitNote={handleDebitNote}
+          onMarkPayment={handleMarkPayment}
+          onMarkAccounting={handleMarkAccounting}
         />
       </ListCard>
 

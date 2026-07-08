@@ -30,3 +30,7 @@ be glad someone wrote down goes here — so we never re-learn the same thing twi
 ## Index
 _(add a line per file as you create them)_
 - [nap-compliance.md](nap-compliance.md) — NAP/НАП requirements (STUB — source PDF not yet extracted). Supports NAP-1.
+- [competitor-invoicing.md](competitor-invoicing.md) — how inv.bg/fakturi.bg/Microinvest + Stripe/Xero/QBO/FreshBooks/Zoho/Invoice Ninja actually work, by capability; data-model lessons + gap list. Supports RESEARCH-1, OI-*, GEN-1, RV-3, VAT-1, D-CANCEL/D-EDIT/D-FX. (2026-07-07)
+- [func-audit-2026-07.md](func-audit-2026-07.md) — flow-by-flow audit verdicts, the money-aggregation holes (partial invisible, CN amounts ignored, currency-blind sums) with hand reconciliation, the preview-harness rAF wedge root cause. Supports FUNC-AUDIT, DASH-1, AGG-1, PAY-1. (2026-07-08)
+- [money-aggregation-rules.md](money-aggregation-rules.md) — the canonical aggregation rules (code: `lib/db/queries/money.ts`), the map of every money-summing site, known gaps (FX, CN-vs-cancelled-parent, count-vs-amount overdue), and the invoice-11 incident note. Supports DASH-1, GEN-1, VAT-1. (2026-07-08)
+- [invoice-numbering-triggers.md](invoice-numbering-triggers.md) — the two DB triggers that actually enforce invoice/note numbering (live-DB only, not in migrations); notes inherit the parent's series+number; proforma inserts are impossible. Supports N15/N24/N25, PROF-1, NAP-1. (2026-07-08)

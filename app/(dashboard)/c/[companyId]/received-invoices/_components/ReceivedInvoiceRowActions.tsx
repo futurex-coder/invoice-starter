@@ -39,6 +39,7 @@ interface Props {
   onMarkAccounting: (id: number, status: AccountingStatus) => void;
   onArchive: (id: number, archived: boolean) => void;
   onDiscard: (item: ReceivedInvoiceListItem) => void;
+  onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
 }
 
@@ -52,6 +53,7 @@ export function ReceivedInvoiceRowActions({
   onMarkAccounting,
   onArchive,
   onDiscard,
+  onRestore,
   onHardDelete,
 }: Props) {
   const archived = item.archivedAt != null;
@@ -183,6 +185,10 @@ export function ReceivedInvoiceRowActions({
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Open original file
               </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onRestore(item.id)}>
+              <ArchiveRestore className="mr-2 h-4 w-4" />
+              Restore to draft
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

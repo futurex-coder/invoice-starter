@@ -25,7 +25,7 @@ function recipientFromInvoice(
         selectedPartnerId: inv.partnerId,
         recipient: {
           name: partner.name,
-          eik: partner.eik,
+          eik: partner.eik ?? '',
           vatNumber: partner.vatNumber ?? '',
           country: partner.country,
           city: partner.city,
@@ -106,5 +106,29 @@ export function invoiceToFormState(
     dueDate: inv.dueDate ?? '',
     customerNote: inv.customerNote ?? '',
     internalComment: inv.internalComment ?? '',
+  };
+}
+
+/**
+ * Form state for "copy invoice": clone partner, line items, currency, payment
+ * method and VAT mode from the source, but start a FRESH document — today's
+ * dates, unpaid, always a regular invoice (a copied note would need its own
+ * reference), no notes, and no number (allocated on first save).
+ */
+export function invoiceToCopyFormState(
+  inv: ParsedInvoice,
+  dbLines: ParsedInvoiceLine[],
+  partners: Partner[]
+): FormState {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    ...invoiceToFormState(inv, dbLines, partners),
+    docType: 'invoice',
+    issueDate: today,
+    supplyDate: today,
+    dueDate: '',
+    paymentStatus: 'unpaid',
+    customerNote: '',
+    internalComment: '',
   };
 }

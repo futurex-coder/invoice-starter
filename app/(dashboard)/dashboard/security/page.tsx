@@ -8,6 +8,7 @@ import { Lock, Trash2, Loader2 } from 'lucide-react';
 import { useActionState } from 'react';
 import { updatePassword, deleteAccount } from '@/app/(login)/actions';
 import { PageShell } from '@/components/page-shell';
+import { AccountTabsNav } from '@/components/account-tabs-nav';
 
 type PasswordState = {
   currentPassword?: string;
@@ -36,9 +37,10 @@ export default function SecurityPage() {
 
   return (
     <PageShell>
-      <h1 className="text-lg lg:text-2xl font-medium bold text-gray-900 mb-6">
-        Security Settings
+      <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
+        Account
       </h1>
+      <AccountTabsNav />
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Password</CardTitle>

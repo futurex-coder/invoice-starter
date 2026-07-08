@@ -75,6 +75,19 @@ async function findPartnerByEik(
   return row ?? null;
 }
 
+/** Dedupe fallback for partners without an EIK (RV-4): exact-name match. */
+async function findPartnerByName(
+  companyId: number,
+  name: string
+): Promise<{ id: number } | null> {
+  const [row] = await db
+    .select({ id: partners.id })
+    .from(partners)
+    .where(and(eq(partners.companyId, companyId), eq(partners.name, name)))
+    .limit(1);
+  return row ?? null;
+}
+
 async function findDuplicates(
   companyId: number,
   options: {
@@ -213,7 +226,6 @@ export async function createDraftFromUpload(input: {
     const extractedIssueDate = input.rawExtraction.issue_date?.value ?? null;
     const extractedSupplyDate =
       input.rawExtraction.supply_date?.value ?? null;
-    const extractedDueDate = input.rawExtraction.due_date?.value ?? null;
     const extractedCurrency = input.rawExtraction.currency?.value ?? null;
     const extractedPaymentMethod =
       input.rawExtraction.payment_method?.value ?? null;
@@ -241,7 +253,8 @@ export async function createDraftFromUpload(input: {
           invoiceNumber: extractedInvoiceNumber,
           issueDate: extractedIssueDate,
           supplyDate: extractedSupplyDate,
-          dueDate: extractedDueDate,
+          // dueDate no longer extracted (RV-2); the column stays for
+          // historical rows and manual payment tracking.
           currency: extractedCurrency ?? 'EUR',
           fxRate: '1',
           netAmount: String(Math.round(totals.net * 100) / 100),
@@ -552,21 +565,29 @@ async function applyReviewPatch(
   const calc = calculateReceivedInvoice(patch.lineItems);
 
   let partnerId = patch.partnerId ?? null;
-  if (!partnerId && patch.createPartnerOnConfirm && patch.supplier.eik) {
-    const existing = await findPartnerByEik(companyId, patch.supplier.eik);
+  if (!partnerId && patch.createPartnerOnConfirm) {
+    // RV-4: a name is enough — foreign suppliers have no EIK. Dedupe by EIK
+    // when present, else by exact name.
+    const supplierName = patch.supplier.legalName?.trim() || null;
+    const supplierEik = patch.supplier.eik?.trim() || null;
+    const existing = supplierEik
+      ? await findPartnerByEik(companyId, supplierEik)
+      : supplierName
+        ? await findPartnerByName(companyId, supplierName)
+        : null;
     if (existing) {
       partnerId = existing.id;
-    } else if (patch.supplier.legalName) {
+    } else if (supplierName) {
       const [created] = await db
         .insert(partners)
         .values({
           companyId,
-          name: patch.supplier.legalName,
-          eik: patch.supplier.eik,
-          vatNumber: patch.supplier.vatNumber ?? null,
+          name: supplierName,
+          eik: supplierEik,
+          vatNumber: patch.supplier.vatNumber?.trim() || null,
           country: patch.supplier.country ?? 'BG',
-          city: patch.supplier.city ?? '-',
-          street: patch.supplier.street ?? '-',
+          city: patch.supplier.city ?? '',
+          street: patch.supplier.street ?? '',
           postCode: patch.supplier.postCode ?? null,
         })
         .returning({ id: partners.id });
@@ -792,6 +813,49 @@ export async function discardReceivedInvoice(
       user.id,
       ActivityType.DISCARD_RECEIVED_INVOICE
     );
+
+    return { id };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// restoreDiscardedReceivedInvoice — OI-10 (received side): discard is not a
+// dead end; a discarded document goes back to draft for review.
+// ---------------------------------------------------------------------------
+
+export async function restoreDiscardedReceivedInvoice(
+  id: number
+): Promise<ActionResult<{ id: number }>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    const [existing] = await db
+      .select()
+      .from(receivedInvoices)
+      .where(
+        and(
+          eq(receivedInvoices.id, id),
+          eq(receivedInvoices.companyId, companyId)
+        )
+      )
+      .limit(1);
+
+    if (!existing) throw new Error('Received invoice not found');
+    if (existing.status !== 'discarded') {
+      throw new Error('Only discarded invoices can be restored');
+    }
+
+    await db
+      .update(receivedInvoices)
+      .set({ status: 'draft', updatedAt: new Date() })
+      .where(
+        and(
+          eq(receivedInvoices.id, id),
+          eq(receivedInvoices.companyId, companyId)
+        )
+      );
+
+    await logActivity(companyId, user.id, ActivityType.UPDATE_RECEIVED_INVOICE);
 
     return { id };
   });

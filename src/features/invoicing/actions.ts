@@ -10,6 +10,7 @@ import {
   invoices,
   invitations,
   users,
+  activityLogs,
   ActivityType,
   type Company,
   type CompanyWithMembers,
@@ -554,6 +555,243 @@ export async function deleteCompanyAction(): Promise<ActionResult<void>> {
       throw new Error('Only the company owner can delete the company');
     }
     await softDeleteCompany(companyId);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// H1b) All documents (OI-11) — outgoing + received in one list
+// ---------------------------------------------------------------------------
+
+export interface AllDocumentsFilters {
+  /** ISO month ("2026-07"). */
+  month?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface AllDocumentRow {
+  direction: 'outgoing' | 'received';
+  id: number;
+  /** Display number (formatted outgoing number or raw received number). */
+  number: string | null;
+  counterparty: string | null;
+  issueDate: string | null;
+  currency: string;
+  grossAmount: number;
+  paymentStatus: string;
+  accountingStatus: string;
+  /** Lifecycle in each side's own vocabulary (draft/finalized/cancelled vs draft/confirmed/discarded). */
+  status: string;
+}
+
+export interface AllDocumentsResult {
+  items: AllDocumentRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * OI-11: one place to see every document. Received drafts/discarded and
+ * archived rows are excluded (same visibility as the received list default);
+ * outgoing drafts ARE shown (they're the user's own working documents).
+ */
+export async function listAllDocuments(
+  filters: AllDocumentsFilters = {}
+): Promise<ActionResult<AllDocumentsResult>> {
+  return action(async () => {
+    const { companyId } = await requireCompanyAccess();
+
+    const page = filters.page ?? 1;
+    const pageSize = Math.min(filters.pageSize ?? 20, 100);
+    const offset = (page - 1) * pageSize;
+
+    const month =
+      filters.month && /^\d{4}-\d{2}$/.test(filters.month)
+        ? `${filters.month}-01`
+        : null;
+    const term = filters.search?.trim() ? `%${filters.search.trim()}%` : null;
+
+    const monthCondOut = month
+      ? sql`AND date_trunc('month', i.issue_date::date) = ${month}::date`
+      : sql``;
+    const monthCondIn = month
+      ? sql`AND date_trunc('month', r.issue_date::date) = ${month}::date`
+      : sql``;
+    const searchCondOut = term
+      ? sql`AND (i.number::text LIKE ${term} OR i.recipient_snapshot->>'legalName' ILIKE ${term})`
+      : sql``;
+    const searchCondIn = term
+      ? sql`AND (r.invoice_number ILIKE ${term} OR r.supplier_snapshot->>'legalName' ILIKE ${term})`
+      : sql``;
+
+    const union = sql`
+      SELECT 'outgoing' AS direction, i.id,
+             lpad(i.number::text, 10, '0') AS number,
+             i.recipient_snapshot->>'legalName' AS counterparty,
+             i.issue_date::text AS issue_date, i.currency,
+             (i.totals->>'grossAmount')::numeric AS gross,
+             i.payment_status, i.accounting_status, i.status
+      FROM invoices i
+      WHERE i.company_id = ${companyId} ${monthCondOut} ${searchCondOut}
+      UNION ALL
+      SELECT 'received' AS direction, r.id,
+             r.invoice_number AS number,
+             r.supplier_snapshot->>'legalName' AS counterparty,
+             r.issue_date::text AS issue_date, r.currency,
+             r.gross_amount::numeric AS gross,
+             r.payment_status, r.accounting_status, r.status
+      FROM received_invoices r
+      WHERE r.company_id = ${companyId}
+        AND r.status = 'confirmed'
+        AND r.archived_at IS NULL
+        ${monthCondIn} ${searchCondIn}
+    `;
+
+    const rows = await db.execute<{
+      direction: 'outgoing' | 'received';
+      id: number;
+      number: string | null;
+      counterparty: string | null;
+      issue_date: string | null;
+      currency: string | null;
+      gross: string;
+      payment_status: string;
+      accounting_status: string;
+      status: string;
+    }>(sql`
+      SELECT * FROM (${union}) docs
+      ORDER BY docs.issue_date DESC NULLS LAST, docs.id DESC
+      LIMIT ${pageSize} OFFSET ${offset}
+    `);
+
+    const [countRow] = await db.execute<{ total: string }>(
+      sql`SELECT count(*) AS total FROM (${union}) docs`
+    );
+
+    return {
+      items: rows.map((r) => ({
+        direction: r.direction,
+        id: r.id,
+        number: r.number,
+        counterparty: r.counterparty,
+        issueDate: r.issue_date,
+        currency: r.currency ?? 'EUR',
+        grossAmount: parseFloat(r.gross),
+        paymentStatus: r.payment_status,
+        accountingStatus: r.accounting_status,
+        status: r.status,
+      })),
+      total: Number(countRow?.total ?? 0),
+      page,
+      pageSize,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// H2) Notifications (TRANS-1) — activity by OTHER members of your companies
+// ---------------------------------------------------------------------------
+
+export interface NotificationItem {
+  id: number;
+  companyId: number;
+  companyName: string;
+  actorName: string;
+  /** Raw ActivityType — the client renders it via ACTIVITY_LABELS. */
+  action: string;
+  /** ISO timestamp. */
+  timestamp: string;
+  unread: boolean;
+}
+
+export interface NotificationsPayload {
+  items: NotificationItem[];
+  unreadCount: number;
+}
+
+/**
+ * The transparency feed: everything OTHER members did in companies you
+ * belong to — the accountant sees the owner's uploads/edits and vice
+ * versa. "Unread" = after your per-company notifications_seen_at
+ * high-water mark (member join date for first-time viewers, so new
+ * members aren't flooded with history).
+ */
+export async function getNotifications(): Promise<
+  ActionResult<NotificationsPayload>
+> {
+  return action(async () => {
+    const user = await requireUser();
+
+    const seenBoundary = sql`COALESCE(${companyMembers.notificationsSeenAt}, ${companyMembers.joinedAt})`;
+
+    const rows = await db
+      .select({
+        id: activityLogs.id,
+        companyId: activityLogs.companyId,
+        companyName: companies.legalName,
+        actorName: sql<string>`COALESCE(${users.name}, 'Someone')`,
+        action: activityLogs.action,
+        timestamp: activityLogs.timestamp,
+        unread: sql<boolean>`${activityLogs.timestamp} > ${seenBoundary}`,
+      })
+      .from(activityLogs)
+      .innerJoin(
+        companyMembers,
+        and(
+          eq(companyMembers.companyId, activityLogs.companyId),
+          eq(companyMembers.userId, user.id)
+        )
+      )
+      .innerJoin(companies, eq(companies.id, activityLogs.companyId))
+      .leftJoin(users, eq(users.id, activityLogs.userId))
+      .where(
+        and(
+          sql`${activityLogs.userId} IS DISTINCT FROM ${user.id}`,
+          sql`${companies.deletedAt} IS NULL`
+        )
+      )
+      .orderBy(desc(activityLogs.timestamp))
+      .limit(15);
+
+    const [unread] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(activityLogs)
+      .innerJoin(
+        companyMembers,
+        and(
+          eq(companyMembers.companyId, activityLogs.companyId),
+          eq(companyMembers.userId, user.id)
+        )
+      )
+      .innerJoin(companies, eq(companies.id, activityLogs.companyId))
+      .where(
+        and(
+          sql`${activityLogs.userId} IS DISTINCT FROM ${user.id}`,
+          sql`${companies.deletedAt} IS NULL`,
+          sql`${activityLogs.timestamp} > ${seenBoundary}`
+        )
+      );
+
+    return {
+      items: rows.map((r) => ({
+        ...r,
+        timestamp: r.timestamp.toISOString(),
+      })),
+      unreadCount: unread?.count ?? 0,
+    };
+  });
+}
+
+/** Mark every notification as seen (all memberships of the current user). */
+export async function markNotificationsSeen(): Promise<ActionResult<void>> {
+  return action(async () => {
+    const user = await requireUser();
+    await db
+      .update(companyMembers)
+      .set({ notificationsSeenAt: new Date() })
+      .where(eq(companyMembers.userId, user.id));
   });
 }
 

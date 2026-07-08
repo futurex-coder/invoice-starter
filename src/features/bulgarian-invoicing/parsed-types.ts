@@ -17,7 +17,12 @@ import type {
   LineItemInput,
   PartySnapshot,
 } from './types';
-import type { PaymentMethod, PaymentStatus, VatMode } from './parsers';
+import type {
+  AccountingStatus,
+  PaymentMethod,
+  PaymentStatus,
+  VatMode,
+} from './parsers';
 
 export type StoredLineItem = LineItemInput & { sortOrder?: number };
 
@@ -28,6 +33,7 @@ export type ParsedInvoice = Omit<
   | 'vatMode'
   | 'paymentMethod'
   | 'paymentStatus'
+  | 'accountingStatus'
   | 'supplierSnapshot'
   | 'recipientSnapshot'
   | 'items'
@@ -38,6 +44,7 @@ export type ParsedInvoice = Omit<
   vatMode: VatMode;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  accountingStatus: AccountingStatus;
   supplierSnapshot: Partial<PartySnapshot>;
   recipientSnapshot: Partial<PartySnapshot>;
   items: StoredLineItem[];

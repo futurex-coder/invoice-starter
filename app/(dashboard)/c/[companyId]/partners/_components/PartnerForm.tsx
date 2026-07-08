@@ -99,7 +99,7 @@ export function PartnerFormCard({
               placeholder="Legal name"
             />
           </FormField>
-          <FormField name="eik" label="EIK" required errors={validationErrors}>
+          <FormField name="eik" label="EIK" errors={validationErrors}>
             <div className="relative">
               <Input
                 value={form.eik}
@@ -114,14 +114,14 @@ export function PartnerFormCard({
           </FormField>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField name="city" label="City" required errors={validationErrors}>
+          <FormField name="city" label="City" errors={validationErrors}>
             <Input
               value={form.city}
               onChange={(e) => onFormChange({ city: e.target.value })}
               placeholder="City"
             />
           </FormField>
-          <FormField name="street" label="Street" required errors={validationErrors}>
+          <FormField name="street" label="Street" errors={validationErrors}>
             <Input
               value={form.street}
               onChange={(e) => onFormChange({ street: e.target.value })}

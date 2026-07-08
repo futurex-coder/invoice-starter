@@ -1,9 +1,10 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // PPR was renamed to `cacheComponents` in Next 16 and is opt-in. Keeping
-  // it off for now — re-enabling requires migrating per-route `dynamic` /
-  // `revalidate` exports to the cacheComponents model. Tracked separately.
+  // Partial prerendering (Next 16 model): static shells stream dynamic holes.
+  // Uncached data access must sit under a Suspense/loading.tsx boundary or
+  // inside a 'use cache' scope (see pricing/page.tsx).
+  cacheComponents: true,
 };
 
 export default nextConfig;

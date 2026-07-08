@@ -8,12 +8,14 @@ import {
   companies,
   partners,
   articles,
+  receivedInvoices,
   ActivityType,
   InvoiceStatus,
   type Invoice,
   type NewInvoice,
 } from '@/lib/db/schema';
 import { getNextInvoiceNumber } from '@/lib/db/queries';
+import { issuedVatSumSql } from '@/lib/db/queries/money';
 import { action, failWith, type ActionResult } from '@/lib/actions/result';
 import { requireCompanyAccess } from '@/lib/auth/guards';
 import { logActivity, logActivityInTx } from '@/lib/db/activity';
@@ -90,6 +92,11 @@ interface CreateInvoiceDraftInput {
   amountInWords?: string | null;
   customerNote?: string | null;
   internalComment?: string | null;
+  /**
+   * NI-1: create the document already finalized — one transaction, no
+   * intermediate draft. Validation runs against the `finalized` rules.
+   */
+  finalizeImmediately?: boolean;
 }
 
 interface UpdateInvoiceDraftInput {
@@ -126,7 +133,11 @@ export interface ListInvoicesFilters {
   status?: InvoiceStatus;
   docType?: DocType;
   paymentStatus?: string;
+  /** OI-4: 'pending' | 'accounted'. */
+  accountingStatus?: string;
   search?: string;
+  /** OI-5: ISO month ("2026-07") — accountants work by month. */
+  month?: string;
   dateFrom?: string;
   dateTo?: string;
   page?: number;
@@ -413,9 +424,18 @@ export async function createInvoiceDraft(
       input.amountInWords?.trim() ||
       amountInWordsBg(calc.totals.grossAmount, currency);
 
+    // NI-1: when finalizing immediately, validate against the stricter
+    // `finalized` rules up front and never persist an intermediate draft.
+    const targetStatus = input.finalizeImmediately ? 'finalized' : 'draft';
+    if (input.finalizeImmediately && requiresReference(input.docType)) {
+      throw new Error(
+        `${input.docType} must be created from its original invoice`
+      );
+    }
+
     const doc: InvoiceDocument = {
       docType: input.docType,
-      status: 'draft',
+      status: targetStatus,
       series,
       number: 1,
       issueDate: input.issueDate,
@@ -470,7 +490,7 @@ export async function createInvoiceDraft(
           createdByUserId: user.id,
           partnerId,
           docType: input.docType,
-          status: 'draft',
+          status: targetStatus,
           series,
           number: allocatedNumber,
           issueDate: input.issueDate,
@@ -499,6 +519,14 @@ export async function createInvoiceDraft(
       await saveInvoiceLines(tx, row.id, calc.items, articleIds);
 
       await logActivityInTx(tx, companyId, user.id, ActivityType.CREATE_INVOICE);
+      if (input.finalizeImmediately) {
+        await logActivityInTx(
+          tx,
+          companyId,
+          user.id,
+          ActivityType.FINALIZE_INVOICE
+        );
+      }
 
       return row;
     });
@@ -809,6 +837,54 @@ export async function updateInvoicePaymentInfo(
 }
 
 // ---------------------------------------------------------------------------
+// updateInvoiceAccountingStatus — OI-9 inline "accounted" toggle
+// ---------------------------------------------------------------------------
+
+const VALID_ACCOUNTING_STATUSES = ['pending', 'accounted'] as const;
+
+export async function updateInvoiceAccountingStatus(
+  invoiceId: number,
+  accountingStatus: string
+): Promise<ActionResult<ParsedInvoice>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    if (
+      !(VALID_ACCOUNTING_STATUSES as readonly string[]).includes(
+        accountingStatus
+      )
+    ) {
+      throw new Error(`Invalid accounting status: ${accountingStatus}`);
+    }
+
+    const [existing] = await db
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error('Invoice not found');
+    }
+    // Booking happens on issued documents — drafts have nothing to book yet
+    // and cancelled documents are out of the ledger.
+    if (existing.status !== InvoiceStatus.FINALIZED) {
+      throw new Error('Only finalized documents can change accounting status');
+    }
+
+    const [updated] = await db
+      .update(invoices)
+      .set({ accountingStatus, updatedAt: new Date() })
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
+      .returning();
+
+    await logActivity(companyId, user.id, ActivityType.UPDATE_INVOICE);
+
+    return parseInvoiceRow(updated);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // createCreditNoteFromInvoice
 // ---------------------------------------------------------------------------
 
@@ -851,12 +927,19 @@ async function createNoteFromInvoice(
     if (!original) {
       throw new Error('Original invoice not found');
     }
+    if (original.docType !== 'invoice') {
+      throw new Error('Notes can only be created against regular invoices');
+    }
     if (original.status !== InvoiceStatus.FINALIZED) {
       throw new Error('Can only create notes against finalized invoices');
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const series = DEFAULT_SERIES[noteType];
+    // DB contract (trg_enforce_invoice_numbering): credit/debit notes inherit
+    // the parent invoice's series AND number — they are not numbered from
+    // their own sequence. Multiple notes per parent share the same number.
+    const series = original.series;
+    const number = original.number;
 
     const supplier = overrides?.supplier
       ?? parsePartySnapshotStrict(original.supplierSnapshot);
@@ -867,9 +950,13 @@ async function createNoteFromInvoice(
       : parsePartySnapshotStrict(original.recipientSnapshot);
 
     const issueDate = overrides?.issueDate ?? today;
+    // The note's tax event is the CORRECTION (ЗДДС чл. 115: a note is issued
+    // within 5 days of the circumstance requiring it), not the original
+    // supply — inheriting the original's supplyDate made every note against
+    // an invoice older than 5 days fail ISSUE_DATE_TOO_LATE validation.
     const supplyDate = overrides?.supplyDate !== undefined
       ? overrides.supplyDate
-      : original.supplyDate;
+      : issueDate;
     const currency = overrides?.currency ?? original.currency;
     const fxRate = overrides?.fxRate ?? Number(original.fxRate);
 
@@ -901,7 +988,7 @@ async function createNoteFromInvoice(
       docType: noteType,
       status: 'finalized',
       series,
-      number: 1,
+      number,
       issueDate,
       supplyDate: supplyDate ?? null,
       currency,
@@ -931,8 +1018,6 @@ async function createNoteFromInvoice(
     const articleIds = lineItemInputs.map((l) => l.articleId ?? null);
 
     const result = await db.transaction(async (tx) => {
-      const allocatedNumber = await allocateNumber(tx, companyId, series);
-
       const [created] = await tx
         .insert(invoices)
         .values({
@@ -943,7 +1028,7 @@ async function createNoteFromInvoice(
           docType: noteType,
           status: InvoiceStatus.FINALIZED,
           series,
-          number: allocatedNumber,
+          number,
           issueDate,
           supplyDate: supplyDate ?? null,
           currency,
@@ -1048,6 +1133,14 @@ export async function listInvoices(
     if (filters.paymentStatus) {
       conditions.push(eq(invoices.paymentStatus, filters.paymentStatus));
     }
+    if (filters.accountingStatus) {
+      conditions.push(eq(invoices.accountingStatus, filters.accountingStatus));
+    }
+    if (filters.month && /^\d{4}-\d{2}$/.test(filters.month)) {
+      conditions.push(
+        sql`date_trunc('month', ${invoices.issueDate}::date) = ${`${filters.month}-01`}::date`
+      );
+    }
     if (filters.dateFrom) {
       conditions.push(gte(invoices.issueDate, filters.dateFrom));
     }
@@ -1100,5 +1193,100 @@ export async function getNextNumber(
     const { companyId } = await requireCompanyAccess();
     const nextNumber = await getNextInvoiceNumber(companyId, series ?? 'INV');
     return nextNumber;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// getVatSummary — VAT-1: ДДС received vs paid, net owed to НАП, by month
+// ---------------------------------------------------------------------------
+
+export interface VatMonthRow {
+  /** ISO month, e.g. "2026-07" */
+  month: string;
+  /** Document currency — rows are per currency until GEN-1 lands FX. */
+  currency: string;
+  /** VAT charged on issued documents (accrual: all finalized; CN subtract). */
+  vatIssued: number;
+  /** VAT paid on received documents (confirmed, non-archived). */
+  vatPaid: number;
+  /** vatIssued − vatPaid: positive = owed to НАП, negative = refundable. */
+  vatNet: number;
+}
+
+export async function getVatSummary(input?: {
+  months?: number;
+}): Promise<ActionResult<VatMonthRow[]>> {
+  return action(async () => {
+    const { companyId } = await requireCompanyAccess();
+    const months = Math.min(Math.max(input?.months ?? 12, 1), 36);
+
+    const issued = await db
+      .select({
+        month: sql<string>`to_char(${invoices.issueDate}::date, 'YYYY-MM')`,
+        currency: invoices.currency,
+        vat: issuedVatSumSql,
+      })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.companyId, companyId),
+          sql`${invoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
+        )
+      )
+      .groupBy(
+        sql`to_char(${invoices.issueDate}::date, 'YYYY-MM')`,
+        invoices.currency
+      );
+
+    const paid = await db
+      .select({
+        month: sql<string>`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`,
+        currency: receivedInvoices.currency,
+        vat: sql<string>`COALESCE(SUM(
+          CASE WHEN ${receivedInvoices.status} = 'confirmed'
+               AND ${receivedInvoices.archivedAt} IS NULL
+          THEN ${receivedInvoices.vatAmount}::numeric
+          ELSE 0 END
+        ), 0)`,
+      })
+      .from(receivedInvoices)
+      .where(
+        and(
+          eq(receivedInvoices.companyId, companyId),
+          sql`${receivedInvoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
+        )
+      )
+      .groupBy(
+        sql`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`,
+        receivedInvoices.currency
+      );
+
+    const byKey = new Map<string, VatMonthRow>();
+    const upsert = (month: string | null, currency: string | null) => {
+      const m = month ?? 'unknown';
+      const c = currency ?? 'EUR';
+      const key = `${m}|${c}`;
+      let row = byKey.get(key);
+      if (!row) {
+        row = { month: m, currency: c, vatIssued: 0, vatPaid: 0, vatNet: 0 };
+        byKey.set(key, row);
+      }
+      return row;
+    };
+    for (const r of issued) {
+      const row = upsert(r.month, r.currency);
+      row.vatIssued = Math.round(parseFloat(r.vat) * 100) / 100;
+    }
+    for (const r of paid) {
+      const row = upsert(r.month, r.currency);
+      row.vatPaid = Math.round(parseFloat(r.vat) * 100) / 100;
+    }
+    for (const row of byKey.values()) {
+      row.vatNet = Math.round((row.vatIssued - row.vatPaid) * 100) / 100;
+    }
+
+    return [...byKey.values()].sort(
+      (a, b) => b.month.localeCompare(a.month) || a.currency.localeCompare(b.currency)
+    );
   });
 }

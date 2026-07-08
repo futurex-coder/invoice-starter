@@ -112,6 +112,9 @@ export const companyMembers = pgTable(
       .references(() => companies.id),
     role: varchar('role', { length: 50 }).notNull(),
     joinedAt: timestamp('joined_at').notNull().defaultNow(),
+    // TRANS-1: high-water mark for the in-app notification bell — activity
+    // by OTHER members after this instant counts as unread.
+    notificationsSeenAt: timestamp('notifications_seen_at'),
   },
   (t) => [
     // A user can only have one role per company
@@ -148,7 +151,8 @@ export const partners = pgTable(
 
     // Locally editable partner details (may diverge from linked company)
     name: varchar('name', { length: 255 }).notNull(),
-    eik: varchar('eik', { length: 13 }).notNull(),
+    // Nullable since RV-4: foreign suppliers (US EIN etc.) have no BG EIK.
+    eik: varchar('eik', { length: 13 }),
     vatNumber: varchar('vat_number', { length: 14 }),
     isIndividual: boolean('is_individual').notNull().default(false),
 
@@ -163,8 +167,11 @@ export const partners = pgTable(
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (t) => [
-    // Same EIK can only appear once per company
-    unique('partners_company_eik_unique').on(t.companyId, t.eik),
+    // Same EIK can only appear once per company — but partners WITHOUT an
+    // EIK (foreign suppliers, RV-4) may repeat, hence the partial index.
+    uniqueIndex('partners_company_eik_unique')
+      .on(t.companyId, t.eik)
+      .where(sql`${t.eik} IS NOT NULL`),
     index('idx_partners_company_id').on(t.companyId),
     index('idx_partners_company_name').on(t.companyId, t.name),
     index('idx_partners_company_eik').on(t.companyId, t.eik),
@@ -300,6 +307,11 @@ export const invoices = pgTable(
     paymentStatus: varchar('payment_status', { length: 20 })
       .notNull()
       .default('unpaid'),
+    // 'pending' | 'accounted' — has the accountant booked this document?
+    // Mirrors receivedInvoices.accountingStatus (OI-1).
+    accountingStatus: varchar('accounting_status', { length: 20 })
+      .notNull()
+      .default('pending'),
     dueDate: date('due_date'),
     vatMode: varchar('vat_mode', { length: 20 }).notNull().default('standard'),
     noVatReason: text('no_vat_reason'),
@@ -329,6 +341,10 @@ export const invoices = pgTable(
     index('idx_invoices_company_payment_status').on(
       t.companyId,
       t.paymentStatus
+    ),
+    index('idx_invoices_company_accounting_status').on(
+      t.companyId,
+      t.accountingStatus
     ),
     index('idx_invoices_created_by_user_id')
       .on(t.createdByUserId)

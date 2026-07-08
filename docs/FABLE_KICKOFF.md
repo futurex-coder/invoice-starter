@@ -59,7 +59,7 @@ can cheaply verify.
 **C1 — Static (must all pass):**
 - `npm run type-check` — clean
 - `npm run lint` — 0 warnings
-- `npm test` — ≥ baseline (was 201)
+- `npm test` — ≥ baseline (222 after run 1, 2026-07-08)
 - `npm run build` — when routes / config / deps / schema changed
 
 **C2 — Run it (this is mandatory, not optional):**
@@ -94,6 +94,10 @@ leftover debug/console code? any TS-rule violation? Only then commit. Stop the p
 ---
 
 ## D. AUTONOMY — running till morning
+> **Status after run 1 (2026-07-08):** phases 1–7 below are shipped except **RV-3** (queued
+> with design notes in its roadmap entry); OI-11 landed early. Trust the roadmap's ticked
+> items / done tables + `REFACTOR_BACKLOG.md` session state over this list. Next pickup: RV-3.
+
 **Order of work** (respect dependencies; skip the decision-blocked parts):
 1. **Phase 0 — finish refactor:** N23 (ReviewForm perf) → N22 (PPR/cacheComponents + middleware→proxy)
    → N15 (invoice-lifecycle integration tests). Keep everything green.

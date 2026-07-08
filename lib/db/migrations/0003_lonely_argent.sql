@@ -1,0 +1,2 @@
+ALTER TABLE "invoices" ADD COLUMN "accounting_status" varchar(20) DEFAULT 'pending' NOT NULL;--> statement-breakpoint
+CREATE INDEX "idx_invoices_company_accounting_status" ON "invoices" USING btree ("company_id","accounting_status");

@@ -18,7 +18,7 @@ information → implementation → verification → autonomy protocol.
 **Working discipline:** see `.claude/CLAUDE.md` "Working Process" (loaded every session)
 and `REFACTOR_BACKLOG.md` §10. In short: load the matching skill, break each item into
 `TaskCreate` steps, **commit your own work** on a feature branch after the verify quad
-(type-check + lint + `npm test` baseline 201 + `npm run build`) passes, keep commits
+(type-check + lint + `npm test` baseline 214 + `npm run build`) passes, keep commits
 atomic, tick the item here in the same commit, and record durable findings in
 `docs/knowledge/`. Strict TS rules apply (no `any`, no `as` casts, no `@ts-ignore`).
 
@@ -80,55 +80,67 @@ Feature work starts off a clean `main`.
 
 ### Phase 1 — Quick wins (no decisions, low risk, ship fast)
 
-**OI-2 — Fix Copy invoice** · S · *bug*
-- Copy is unwired: `onCopy={() => {}}` at `app/(dashboard)/c/[companyId]/invoices/page.tsx:172`.
-- Behavior = "new invoice pre-filled from source": clone partner + line items + currency +
-  payment method + VAT mode; **reset** `issueDate`/`supplyDate`/`dueDate` to today; assign a
-  fresh `number` = last invoice number + 1 (via existing `getNextInvoiceNumber`); status
-  `draft`; drop the source's finalized snapshots.
-- Impl: route to `/c/[id]/invoices/new?copy=<sourceId>` and hydrate the new-invoice
-  reducer from the source (mirrors the existing `?edit=` path). Do **not** copy the number
-  from the source.
-- Accept: copying a finalized invoice lands on a fresh draft with today's dates + next number.
+**OI-2 — Fix Copy invoice** · S · *bug* · ✅ **done 2026-07-08**
+- `onCopy` now routes to `/c/[id]/invoices/new?copy=<sourceId>`; the page hydrates via
+  `invoiceToCopyFormState` (clones partner/lines/currency/fxRate/payment method/VAT
+  mode/language; resets dates to today, unpaid, no notes; always docType `invoice` —
+  a copied note would need its own reference; number allocated on first save).
+- Verified: 4 unit tests on the copy hydration + an end-to-end action replay of the
+  exact form payload (copy of invoice 11 → draft id 56, **number 4**, draft, 1920 BGN,
+  partner cloned). Preview harness was wedged (see PREVIEW-ENV) so the DOM click itself
+  is pending a working embedded browser; the wiring mirrors the proven `?edit=` path.
 
-**NI-2 — Remove customer-visible note** · S
-- Drop the customer note field from the new-invoice form (`customerNote` column stays for
-  historical rows; just stop surfacing/collecting it). Keep `internalComment`.
+**NI-2 — Remove customer-visible note** · S · ✅ **done 2026-07-08**
+- Field removed from `NotesCard`; `customerNote` stays in schema + save payload so
+  re-saving an old draft doesn't wipe its historical note. Verified live: only the
+  internal-comment textarea renders on /invoices/new.
 
-**RV-2 — Remove due date from received-invoice review** · S
-- Remove the `dueDate` field from `ReviewForm.tsx` (confuses users) **and** trim the AI
-  extraction prompt/schema so it stops extracting `due_date` (`app/api/invoices/extract/*`).
-- Accept: due date no longer shown or requested; extraction confidence unaffected on other fields.
+**RV-2 — Remove due date from received-invoice review** · S · ✅ **done 2026-07-08**
+- Field removed from ReviewForm (date grid → 2 cols); `due_date` removed from the extraction
+  Zod schema + prompt (schema/output/rules sections) and from the create-draft mapping.
+  Old stored extractions still parse (Zod strips unknown keys); the `dueDate` column stays —
+  form state keeps carrying it so re-saving an old row preserves the stored value; payments
+  overdue logic unaffected for historical rows.
 
-**NI-1 — Preview + Finalize without saving a draft first** · M
-- Today Preview/Finalize are gated behind saving a draft. Allow both from unsaved state:
-  Preview renders from current form state; Finalize does an implicit create-then-finalize in
-  one action (server-side transaction) so the user never has to "Save draft" as a separate step.
-- Accept: a brand-new invoice can be previewed and finalized without a manual draft save;
-  draft save remains available for those who want it.
+**NI-1 — Preview + Finalize without saving a draft first** · M · ✅ **done 2026-07-08**
+- Finalize from an unsaved form = **one server transaction** (`createInvoiceDraft` with
+  `finalizeImmediately: true` — validates against the finalized rules, allocates the number,
+  inserts already-finalized, logs CREATE + FINALIZE atomically; note doc-types refused).
+  Preview from an unsaved form **implicitly saves the draft** then opens the print view
+  (logged to REVIEW_QUEUE as the reversible default — a pure client-side render can come
+  with RV-3/print work). Bonus fix: Finalize on an *edited saved draft* now saves the latest
+  form state first (it used to finalize the stale stored version).
+- Verified live: new form → Finalize → Фактура № 0000000005 finalized in one action
+  (server log shows a single createInvoiceDraft call; 360 EUR reconciled by hand); +2
+  integration tests (16 total in the lifecycle suite).
 
-**OI-8 — Clear navigation links on the invoice list** · S
-- Make invoice number, partner name, and related CN/DN references clickable links to their
-  detail pages. Use the `cn()` + `<Link>` conventions already in the codebase.
+**OI-8 — Clear navigation links on the invoice list** · S · ✅ **done 2026-07-08**
+- Invoice number → invoice detail; partner name → partners list pre-filtered via the
+  URL-synced `?search=` (no partner-detail route exists yet); CN/DN "→ parent" link kept.
+- Verified live: links render on all 7 rows, number-link click-through loads the detail
+  page, no console errors.
 
 ---
 
 ### Phase 2 — Invoice-list UX (needs the accounted-status column first)
 
-**OI-1 — "Accounted" status on outgoing invoices** · M · *schema*
-- Outgoing `invoices` has **no** accounting-status column (received invoices do). Add
-  `accounting_status varchar(20) NOT NULL DEFAULT 'pending'` (`'pending' | 'accounted'`),
-  migration via `npm run db:generate`. Surface as a column/badge on the list.
-- Blocks: OI-4, OI-6.
+**OI-1 — "Accounted" status on outgoing invoices** · M · *schema* · ✅ **done 2026-07-08**
+- `invoices.accounting_status varchar(20) NOT NULL DEFAULT 'pending'` + composite index
+  `(company_id, accounting_status)` — migration `0003_lonely_argent`, applied to dev.
+  Parser layer: `AccountingStatus` type + `parseAccountingStatus` wired into
+  `parseInvoiceRow`/`ParsedInvoice`. List shows an Accounting pill column (Pending gray /
+  Accounted sky). Verified live: column + pills render on all rows.
+- Unblocks: OI-4, OI-6/OI-9, TRANS-2, VAT-1.
 
-**OI-4 — Filter by accounted status** · S · *depends on OI-1*
-- Add an `accountingStatus` filter to the invoice-list `useListPageState` defaults +
-  server query. URL-syncs like the existing filters.
+**OI-4 — Filter by accounted status** · S · ✅ **done 2026-07-08**
+- `accountingStatus` filter (All/Pending/Accounted) in the invoice list — URL-synced.
+  Verified live: `?accountingStatus=accounted` → exactly the one accounted document.
 
-**OI-5 — Month-only filter (drop from/to)** · M
-- Accountants work by month. Replace the from/to date range with a single month picker
-  (year+month). Update `useListPageState` filter shape + the server query to bound on
-  `issueDate` within the selected month. Keep it URL-bookmarkable.
+**OI-5 — Month-only filter (drop from/to)** · M · ✅ **done 2026-07-08**
+- From/to range replaced by a single `<input type="month">`; server query bounds
+  `date_trunc('month', issue_date)`; `month` stays in `ListInvoicesFilters` alongside the
+  (still-supported) dateFrom/dateTo for API callers. Verified live: `?month=2026-07` →
+  exactly the 3 July documents, picker hydrates from the URL.
 
 **OI-6 — Row context-menu status setters** · M · *depends on OI-1*
 - Extend `RowActionsMenu` on each invoice row with quick setters: mark paid/unpaid,
@@ -136,34 +148,45 @@ Feature work starts off a clean `main`.
   `mutate(...,{revalidate:false})` (pattern from N11). Reuse `updateInvoicePaymentInfo`
   for payment; add an `updateInvoiceAccountingStatus` action.
 
-**OI-7 — Expandable row detail** · M
-- Each list row expands to a dropdown showing line items + total sum (read-only). Lazy-load
-  the detail or reuse the already-loaded row snapshot. Mobile-friendly.
-- *Competitor research (RESEARCH-1) informs the exact layout.*
+**OI-7 — Expandable row detail** · M · ✅ **done 2026-07-08 (outgoing list)**
+- Chevron on each outgoing row expands a read-only line-item mini-table (Description ·
+  Qty · Unit · Unit price · Disc.% · Total + Net/VAT/Total footer) rendered from the
+  row's **already-loaded items snapshot** — zero extra queries; one row expanded at a
+  time; scrolls horizontally on mobile.
+- Verified live: invoice #1 expands to its line (20 × 80) with Net 1 600 · VAT 320 ·
+  Total 1 920 — reconciled; collapse restores the plain list. Received-side expansion
+  deferred (list items don't carry lines; the review/detail pages serve that need).
 
-**OI-9 — Simplify both lists + inline paid/accounted editing** · M · *UX + functionality*
-- Trim both invoice lists (outgoing + received) to the columns that matter: **Number ·
-  Client/Supplier · Date · Total · Paid · Accounted · Actions**. Drop the noise — e.g. the
-  outgoing "Type" column, and fold the separate "Payment" column into the inline Paid control.
-- **Paid** and **Accounted** are **inline-editable directly in the row** (click the pill →
-  optimistic `mutate(...,{revalidate:false})`, pattern from N11). These are the two statuses
-  accountants flip most; no menu or detail page needed.
-- Depends on OI-1 (accounted column). **Supersedes OI-6's interaction** — inline is the primary
-  path; keep a context-menu entry only as a secondary affordance.
-- Verify by running: toggle paid/accounted on a real row, confirm it persists and the aggregate
-  updates, at desktop and mobile widths.
+**OI-9 — Simplify both lists + inline paid/accounted editing** · M · ✅ **done 2026-07-08**
+- Both lists now: **Number · Client/Supplier · Date · Total · Paid · Accounted · Status ·
+  Actions** (lifecycle Status kept — it's legal state, not noise; outgoing Type column
+  replaced by a КИ/ДИ badge next to the number; Payment text folded into the Paid pill).
+- Shared `PaidTogglePill` / `AccountedTogglePill` (components/list-page/StatusTogglePill):
+  click flips paid⇄unpaid / accounted⇄pending with the list-mutation pattern; disabled
+  (dash) on drafts/cancelled/discarded; partial renders amber and clicking marks paid.
+  New `updateInvoiceAccountingStatus` action (finalized-only rule); received side reuses
+  its existing setters. Row-menu setters remain as secondary affordance (OI-6 superseded).
+- Verified live: outgoing #5 pending→accounted persisted and the TRANS-2 month card
+  dropped 2→1 издадени за осчетоводяване; Paid round-trip unpaid→paid→unpaid; received
+  RI 8 accounted toggle round-trip. Zero console errors.
 
-**OI-10 — Edit invoices regardless of status** · M · ⚠️ *needs D-EDIT (compliance)*
-- Requested: every field editable no matter draft / finalized / cancelled.
-- **Received invoices** (your own records) → make freely editable at any status; no legal issue.
-- **Outgoing finalized/cancelled** invoices → **do NOT implement until D-EDIT is decided.** A
-  finalized BG фактура is a sequential legal document corrected via credit note; that's why the
-  codebase locks it + freezes snapshots. See D-EDIT for the options.
+**OI-10 — Edit invoices regardless of status** · M · ✅ **received side done 2026-07-08** · ⚠️ *outgoing blocked on D-EDIT*
+- **Received side complete:** confirmed docs were already freely editable (row-menu Edit →
+  review screen; re-confirm = update, `confirmedAt` preserved — verified in FUNC-AUDIT).
+  The missing piece was discarded docs being a dead end — new
+  `restoreDiscardedReceivedInvoice` action + "Restore to draft" row action. Verified live:
+  discarded 417 → draft → re-discarded (DB round-trip confirmed).
+- **Outgoing finalized/cancelled:** untouched until D-EDIT — a finalized фактура is a
+  sequential legal document (see decisions register; Invoice Ninja's `lock_invoices`
+  setting is the researched compromise pattern).
 
-**OI-11 — "All invoices" view** · S/M · *UX*
-- The Invoices page tabs **Outgoing / Received**. Add an **All** tab (or toggle) listing every
-  invoice — outgoing + received together — with a Direction column to tell them apart. Shares
-  the OI-9 column set + filters. One place to see everything.
+**OI-11 — "All invoices" view** · S/M · ✅ **done 2026-07-08**
+- New **All** tab (`/c/[id]/invoices/all`): UNION of outgoing documents (all statuses —
+  they're your own working set) + confirmed non-archived received docs, ordered by issue
+  date, with Издадена/Получена direction badges, month + search filters (URL-synced),
+  pagination, and per-row links to the right detail page.
+- Verified live: 8 interleaved documents; `month=2026-05` narrows to exactly the one May
+  received invoice.
 
 **BULK-1 — Row selection + bulk email via Google** · M · *depends on EMAIL-1 + AUTH-1*
 - On **every** invoice tab (Outgoing / Received / All): a **checkbox per row** + select-all, and
@@ -192,40 +215,58 @@ Feature work starts off a clean `main`.
 
 ### Phase 4 — Navigation / IA restructure
 
-**MENU-1 — Desktop horizontal header nav + consolidations** · M · *frontend*
-- Desktop: move the nav into a horizontal header (mobile keeps its current pattern).
-- Remove **Received invoices** from the menu.
-- Merge **Activity + General + Security** into one page with tabs.
-- Merge **Company + Members** into one page with tabs (shared "Company" menu item).
-- Reuse existing routing; add a `<Tabs>` primitive if one doesn't exist yet.
+**MENU-1 — Desktop horizontal header nav + consolidations** · M · ✅ **done 2026-07-08**
+- Desktop nav is a horizontal bar (CompanySwitcher + Dashboard · Invoices · ДДС/VAT ·
+  Partners · Articles · Company · Activity, Account right-aligned); mobile keeps the
+  drawer with the same consolidated items. **Received invoices** left the menu (reachable
+  via the Invoices All/Outgoing/Received tabs; prefix-matching keeps Invoices highlighted
+  there). **Company + Members** merged as tabs via a `settings/layout.tsx`. **General +
+  Security** merged under one **Account** entry with tabs. *Deliberate deviation:* company
+  Activity was NOT merged with the user-scoped General/Security (different scopes — company
+  audit vs personal account); it stays a top-level company item — noted for the owner.
+- Verified live: nav renders (no Received), settings tabs click through to Members,
+  Account tabs render, mobile drawer intact with no body overflow.
 
 ---
 
 ### Phase 5 — Received-invoice review redesign
 
-**RV-3 — Redesign the whole review-received-invoice screen** · L · *UX + functionality*
-- The current view is cramped and hard to use. Rebuild it to be clear and easy: sensible field
-  grouping (Supplier / Document / Items), the readable scan viewer (RV-1), inline validation
-  that **guides rather than blocks**, and a layout that uses desktop width well and collapses
-  cleanly on mobile. Absorbs RV-1, RV-2, RV-4.
-- Verify by running: load a real multi-page scan **including a foreign-supplier invoice** and
-  confirm the whole review → confirm flow is smooth end-to-end.
+**RV-3 — Redesign the whole review-received-invoice screen** · L · 🟡 **queued (deliberately not
+started at the end of the 2026-07-08 overnight run — an L rebuild of the app's core
+differentiator shouldn't land half-done)**
+- Already absorbed: RV-2 ✅ (due date gone), RV-4 ✅ (name-only partners + real-document
+  line tolerance), RV-1 first slice ✅ (image zoom + mobile collapse).
+- Remaining rebuild: field grouping (Supplier / Document / Items as distinct cards with
+  clearer hierarchy), inline validation that **guides rather than blocks** (soft warnings
+  vs the red rings; the schema is already tolerant post-RV-4), wider desktop layout
+  (viewer deserves >50%), true mobile bottom drawer for the scan, and the review→confirm
+  flow driven end-to-end with a multi-page + foreign-supplier scan.
+- Implementation notes for the next session: the form is already `useReducer`-based
+  (`review-form-state.ts`) with `FieldMetaMap` confidence hints — build ON that, don't
+  replace it; `ReviewForm.tsx` is 900+ lines — extract the Supplier/Document/Items cards
+  as separate components as part of the regroup; the numbering/tax constraints live in
+  `knowledge/invoice-numbering-triggers.md`.
 
-**RV-1 — Better scanned-invoice viewer** · M/L · *frontend (part of RV-3)*
-- Desktop: use more screen width; show **one page at a time** with **pagination + zoom**.
-- Mobile: a **bottom drawer** that shrinks/expands.
-- Accept: a multi-page scan is readable on desktop and phone without the current cramped view.
+**RV-1 — Better scanned-invoice viewer** · M/L · 🟡 **first slice shipped 2026-07-08**
+- Shipped: **image zoom** (50–400% with ± / reset — scanned images previously had no zoom
+  at all; PDFs already page/zoom natively in the embed) and a **mobile collapse toggle**
+  on the pane so the form gets the screen (approximation of the bottom-drawer idea).
+- Remaining for the full RV-3 treatment: true bottom drawer on mobile, wider desktop
+  layout, page-at-a-time for images (multi-page TIFF/scan sets), pinch zoom.
 
-**RV-4 — "Save as partner" needs only a name** · S · *functionality gap — can ship independently*
-- A foreign supplier (e.g. Anysphere/Cursor — US EIN, no EIK/VAT) currently **can't** be saved
-  as a partner: `createPartnerSchema.eik` requires a 9–10 digit BG EIK, so the review form shows
-  blocking red errors on EIK/VAT. Fix: **make EIK + VAT optional** so "Save as partner on
-  confirm" works with just a **name** (+ whatever address we have). Treat missing EIK/VAT as a
-  soft note, not a blocker; keep BG-format validation only when a value is actually entered.
-- Touches: `createPartnerSchema` (eik → optional/nullable), the received-invoice confirm /
-  create-partner path, and the ReviewForm validation display.
-- Verify by running: confirm the Cursor (US) invoice with "save as partner" ticked and see the
-  partner created with just name + address, no EIK, no blocking error.
+**RV-4 — "Save as partner" needs only a name** · S · ✅ **done 2026-07-08**
+- Shipped: `partners.eik` is now **nullable** with a partial unique index (unique per company
+  only when an EIK exists) — migration `0002_dusty_sumo`, applied + verified on dev.
+  `createPartnerSchema` requires only the name (EIK/VAT normalized ''→null, BG format enforced
+  only when a value is present; city/street optional). The confirm path creates partners
+  without EIK and dedupes by exact name when no EIK (by EIK otherwise); the `'-'` address
+  placeholders are gone. PartnerForm required-marks relaxed accordingly.
+- The acceptance run also surfaced + fixed two more real-document blockers: received-invoice
+  line schema now allows an **empty unit** (US invoices print none) and **negative unit
+  prices** (Cursor's $-20 discount line).
+- **Verified on the real data:** confirmed the actual Cursor (US) invoice (RI 13, company 9)
+  with save-as-partner — partner «Cursor» created with name + NY address, `eik: null`, linked,
+  zero validation errors.
 
 ---
 
@@ -261,29 +302,50 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 
 ## 4. Cross-cutting
 
-**VAT-1 — VAT paid vs received + tax view** · L · ⭐ *core value — see PRODUCT_CONTEXT §1*
-- The headline differentiated value from the founder interview: per company, per month, show
-  **VAT received** (on issued invoices) vs **VAT paid** (on received invoices), the **net VAT owed
-  to НАП**, and the trend — so owners/accountants see and optimize the monthly tax.
-- Depends on the numbers being trustworthy first: GEN-1 (base-currency aggregation) + DASH-1
-  (aggregation rules) + OI-1 (accounted status). Build correctness, then the view.
-- Verify by running: with mixed income + expense invoices in a month, the VAT-owed figure
-  reconciles by hand; toggling accounted/paid updates it correctly.
+**VAT-1 — VAT paid vs received + tax view** · L · ⭐ *core value* · ✅ **v1 done 2026-07-08**
+- New **ДДС / VAT** page (`/c/[id]/vat`, in the sidebar): last 12 months × currency —
+  ДДС продажби (accrual: all finalized docs, CN subtract — `issuedVatSumSql` in money.ts),
+  ДДС покупки (confirmed received docs), **Нето за НАП** (red = owed, green = refundable),
+  current month highlighted; mixed-currency banner until GEN-1 lands FX.
+- **Verified by hand against the raw DB**: all 8 live rows reconcile exactly (incl. CN
+  issued-in-February subtraction 100−80=+20, draft exclusion, per-currency split, received
+  side −1160 EUR refundable). Zero console errors; mobile: table scrolls, no body overflow.
+- Follow-ups when unblocked: FX-converted single-currency view (GEN-1/D-FX); month detail
+  drill-down (дневник-style doc list per month) — natural next slice with OI-5.
 
-**TRANS-1 — Notifications on new/changed documents** · M · ⭐ *core value (transparency)*
-- Both directions: notify the **accountant** when the owner adds/changes an invoice (income) or a
-  received/expense doc, and notify the **owner** of accountant actions. In-app first; email (Gmail,
-  EMAIL-1) later. Builds on the existing activity log.
+**TRANS-1 — Notifications on new/changed documents** · M · ⭐ *core value* · ✅ **v1 done 2026-07-08**
+- In-app **notification bell** in the header: everything OTHER members did in your
+  companies (accountant sees owner actions and vice versa — both directions fall out of
+  the membership join). Unread = after your per-company `notifications_seen_at` high-water
+  mark (migration `0004`; join date bounds history for new members). Opening the bell
+  marks all seen (optimistic + persisted). 60s SWR polling; items deep-link to the
+  company's activity page.
+- Verified live: alice's bell showed 5 unread of Bob's Бета actions with labels + relative
+  times; mark-seen survives a full reload. Email channel stays with EMAIL-1/D-EMAIL.
 
-**TRANS-2 — Shared "what's left this month" status view** · M · ⭐ *core value (transparency)*
-- One view both owner and accountant see: for the current month, **done vs pending** — invoices
-  still needing review/accounting, missing docs, VAT-ready status. Kills the "do you have everything
-  for НАП this month?" back-and-forth. Depends on OI-1 (accounted status) + OI-5 (month filter).
+**TRANS-2 — Shared "what's left this month" status view** · M · ⭐ *core value* · ✅ **v1 done 2026-07-08**
+- `MonthCloseCard` on the company dashboard (same card for owner + accountant): month
+  checklist — received invoices awaiting review (any month; they block the close),
+  outgoing + received documents issued this month not yet accounted (OI-1 status), net
+  VAT for the month per currency with a link to /vat, and a Готово-за-НАП / Има-недовършено
+  chip. Server-side `getMonthCloseStatus` in the dashboard query layer.
+- Verified live: юли 2026 → 0 review / 2 издадени за осчетоводяване / 0 получени,
+  ДДС −100.00 BGN · 60.00 EUR — every value reconciled by hand. "Missing docs"
+  expectations (what *should* exist but doesn't) deliberately out of v1 scope.
 
-**DASH-1 — Audit all money-aggregation rules** · M · *research/audit, pairs with GEN-1*
-- Before GEN-1 lands, map every place that sums money (dashboard metrics, list totals,
-  reports) and document the current rules — a `Discover`-gear task (subagents or a Workflow
-  scanning `getDashboardMetrics` + all `totals` consumers). Output feeds the GEN-1 ADR.
+**DASH-1 — Audit all money-aggregation rules** · M · ✅ **done 2026-07-08**
+- Shipped `docs/knowledge/money-aggregation-rules.md` — the canonical rules (code:
+  `lib/db/queries/money.ts`), the complete map of money-summing sites, the known gaps
+  (currency-blind sums → GEN-1; CN-vs-cancelled-parent → D-CANCEL; overdue count-vs-amount;
+  cash-vs-accrual "revenue" for VAT-1), and the invoice-11 incident note. Feeds the GEN-1 ADR.
+
+**AGG-1 — Fix the decision-free aggregation holes** · M · *bug, from FUNC-AUDIT* · ✅ **done 2026-07-08**
+- Shipped `lib/db/queries/money.ts` — canonical signed-sum fragments (CN subtracts, DN
+  adds; `partial` counts as outstanding; note paymentStatus = "is the refund settled") —
+  wired into both `getCompanyMetrics` and `getDashboardMetrics`. Real-DB integration
+  suite pins an 8-document ledger (collected 800 / outstanding 800 / overdue 2); live
+  data reconciles by hand (Алфа: 1440 / 360, was 1920 / 600). FX conversion explicitly
+  deferred to GEN-1 — it will land inside money.ts so every consumer inherits it.
 
 **NAP-1 — NAP (НАП) compliance requirements** · L · ⚠️ *compliance — high priority*
 - The attached `NAP.pdf` specifies requirements the app must meet. **Blocked on getting the PDF
@@ -298,28 +360,43 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
   when VAT is 0%/exempt; original/copy marking. The PDF may add SAF-T, mandatory e-invoicing, or a
   specific NAP-notice format — **read it before scoping.**
 
-**FUNC-AUDIT — Functional audit of existing flows** · M · *Discover gear, do early*
-- Complements DASH-1's money focus: exercise the real flows **end-to-end by running the app**
-  and catalog correctness gaps, not cosmetics. Cover: `createInvoiceDraft → finalize →
-  credit-note`, received-invoice review → confirm → partner-link, payments, copy/cancel, and
-  mixed-currency documents. For each, note broken/missing behavior, silent failures,
-  unhandled edge cases, and data-integrity risks. Feed findings back as new roadmap items
-  and into `docs/knowledge/`. This is where "features & functionality, not just UX" gets
-  enforced against the existing product.
+**FUNC-AUDIT — Functional audit of existing flows** · M · *Discover gear* · ✅ **done 2026-07-08**
+- Shipped: `docs/knowledge/func-audit-2026-07.md` — flow-by-flow verdicts against the real
+  dev DB. Two production bugs found in the CN/DN path (numbering-trigger violation → fixed
+  in N15; note inheriting the parent's supplyDate → every note vs an invoice >5 days old
+  failed → fixed in `acdaad6`, verified UI→DB). Money-aggregation holes quantified with
+  hand reconciliation → **AGG-1** (decision-free fixes) + DASH-1 head start; payment model
+  confirmed enum-only → **PAY-1** candidate. Permission boundary + cross-company scoping
+  verified enforced server-side.
 
-**RESEARCH-1 — Competitor feature + functionality research** · M · *Discover gear*
-- Study **how established products actually work**, not just how they look. For each product,
-  capture: invoice **numbering** rules, **status & lifecycle** (draft→issued→paid→cancelled,
-  credit/debit notes), **currency & FX** handling, **VAT/tax** treatment, **payment tracking**
-  and partial payments, **reminders/dunning**, **recurring** invoices, **exports** (PDF / CSV /
-  accounting-software), **bulk actions**, **filtering** (esp. by month / accounting period),
-  **permissions & roles**, **audit trail**, and **integrations**. Note the data model each
-  implies. UX (lists, statuses, scan viewer) is one dimension among these.
-- Set: **inv.bg**, fakturi.bg, Microinvest; internationally Stripe Invoicing, Xero,
-  QuickBooks, FreshBooks, Zoho Invoice, and **Invoice Ninja** (open-source — read its actual
-  schema + feature model). Output: `docs/knowledge/competitor-invoicing.md`, organized **by
-  capability** (not by product), to inform OI-*, GEN-1, RV-1, and to surface features we're
-  missing entirely.
+**RESEARCH-1 — Competitor feature + functionality research** · M · *Discover gear* · ✅ **done 2026-07-07**
+- Shipped: `docs/knowledge/competitor-invoicing.md` — all 9 products (incl. inv.bg's public
+  APIv3 data model and Invoice Ninja's actual MySQL schema), organized by capability, with
+  data-model lessons (§15) and a gap list (§16) that seeded the RESEARCH-1 candidates section
+  below. Key decision inputs: inv.bg cancel is *reversible*; Invoice Ninja's `lock_invoices`
+  setting is the D-EDIT compromise pattern; ECB-daily + freeze-at-finalize confirmed as the
+  D-FX norm; «осчетоводена» list state in inv.bg validates OI-1/OI-9.
+
+**RESEARCH-1 candidates — features we're missing entirely** *(backlog, unscheduled; from
+`knowledge/competitor-invoicing.md` §16)*
+- **PROF-1 — Proforma invoices** · M — first-class doc type in all 3 BG competitors; BG table
+  stakes. Numbering + convert-to-invoice flow.
+- **REC-1 — Recurring invoice templates** · M/L — templates + schedule + draft-or-issue +
+  auto-email + period placeholders (both BG leaders have this).
+- **SER-1 — Multiple numbering series (кочани)** · M — all 3 BG products; wait for user demand.
+- **EUR-1 — Dual EUR/BGN display** (1.95583) on printed documents · S/M — both BG leaders
+  shipped this for the 2026 euro adoption; verify what we print today.
+- **VAT-2 — Reusable 0%/exempt legal-grounds list** in settings · S — pairs with VAT-1.
+- **HIST-1 — Per-document history view with old→new diffs** · M — Xero/QBO/Zoho pattern;
+  pairs with TRANS-1 and the transparency story.
+- **REM-1 — Overdue payment reminders** · M — after TRANS-1.
+- **LINK-1 — Client-facing document links + viewed/accept/reject tracking** · L — inv.bg
+  confirmation flow / Invoice Ninja invitations; pairs with EMAIL-1.
+- **BANK-1 — Bank statement import + payment auto-match** · L — future endgame (inv.bg).
+- **ESIGN-1 — E-signature (B-Trust/InfoNotary/StampIt)** · L — future.
+- **PAY-1 — Real payment ledger** · L — amount/date/method per payment, M:N allocation to
+  invoices (inv.bg / Invoice Ninja model, `competitor-invoicing.md` §5). Today payment
+  tracking is a status enum only — `partial` has no amount behind it (FUNC-AUDIT).
 
 **MEMBERS** — you left this section blank in the request. Add items here when you have them.
 

@@ -94,11 +94,20 @@ leftover debug/console code? any TS-rule violation? Only then commit. Stop the p
 ---
 
 ## D. AUTONOMY — running till morning
-> **Status after run 1 (2026-07-08):** phases 1–7 below are shipped except **RV-3** (queued
-> with design notes in its roadmap entry); OI-11 landed early. Trust the roadmap's ticked
-> items / done tables + `REFACTOR_BACKLOG.md` session state over this list. Next pickup: RV-3.
+> **Status after run 1 (2026-07-08):** the phase list below is largely shipped. Trust the
+> roadmap's ticked items / done tables + `REFACTOR_BACKLOG.md` session state over this list.
+>
+> **⭐ Run-2 direction (owner, 2026-07-08) — POLISH, and DEFER email + auth:**
+> 1. **ASYNC-SCAN** (PRODUCT_ROADMAP Phase 1.5) — TOP priority. Non-blocking parallel expense
+>    scanner: upload → rows appear instantly → parallel background analysis → auto-saved as
+>    draft → click to review / open the file. Build end-to-end in its spec order.
+> 2. **RV-3** — review-screen redesign (Phase 5), right after ASYNC-SCAN.
+> 3. Remaining polish across the app to the §C bar (finish half-done flows, edge states).
+> 4. Decision-gated items (GEN-1/D-FX, OI-3/D-CANCEL, OI-10 outgoing/D-EDIT) only if the owner
+>    has answered `REVIEW_QUEUE.md`.
+> **Do NOT build:** AUTH-1 (Phase 6), EMAIL-1/2 (Phase 7), BULK-1 — all DEFERRED this phase.
 
-**Order of work** (respect dependencies; skip the decision-blocked parts):
+**Original order of work** (run-1 history; respect dependencies; skip decision-blocked parts):
 1. **Phase 0 — finish refactor:** N23 (ReviewForm perf) → N22 (PPR/cacheComponents + middleware→proxy)
    → N15 (invoice-lifecycle integration tests). Keep everything green.
 2. **Discover:** RESEARCH-1 (competitor feature+functionality research → `knowledge/competitor-invoicing.md`,

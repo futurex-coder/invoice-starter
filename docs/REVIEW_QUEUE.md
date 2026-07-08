@@ -33,13 +33,19 @@ it appends an entry using the template below and then either:
 _(The agent appends below. Seeded with the known-open product decisions from
 `PRODUCT_ROADMAP.md` §2 so they live in one place.)_
 
-### D-CANCEL — Invoice "Cancel" behavior — OPEN
+### D-CANCEL — Invoice "Cancel" behavior — ✅ RESOLVED (2026-07-08)
 - **Needs from you:** Ask Koceto how Cancel should work. Today it marks the invoice
   `cancelled` (immutable) and you reverse via a credit note. Confirm what's wrong / desired.
 - **Blocks:** OI-3.
-- **Answer (2026-07-08):** Give the ability to cancel, but also give the ability uncancel. we must be able to freely edit everything, until invoice is marked as accounted (we can change accounted or not always). And i want to be able to delete invoices that are not in 
+- **Answer (2026-07-08):** Give the ability to cancel, but also give the ability uncancel. we must be able to freely edit everything, until invoice is marked as accounted (we can change accounted or not always). And i want to be able to delete invoices that are not in
+- **Decision (captured → roadmap EDIT-RULE):** Cancel is **reversible** (add Uncancel).
+  **Accounted status is the lock**, not finalized: an invoice is freely editable — and
+  **deletable** — while NOT `accounted`; once `accounted` it locks (edit/delete blocked). The
+  Accounted toggle itself is always changeable, so a user can un-account to edit again.
+  *(Trailing clause "delete invoices that are not in …" read as "not in accounted status" —
+  run 2: confirm if it surfaces ambiguity, but proceed with accounted-gates-everything.)*
 
-### D-EDIT — Editing finalized/cancelled OUTGOING invoices — OPEN
+### D-EDIT — Editing finalized/cancelled OUTGOING invoices — ✅ RESOLVED (2026-07-08)
 - **Context:** You asked for "everything editable no matter the status." Received invoices
   (your own records) — fine, we'll make them freely editable. Outgoing **finalized** invoices
   are a legal problem: a BG фактура is a sequential legal document, immutable, corrected via
@@ -49,20 +55,29 @@ _(The agent appends below. Seeded with the known-open product decisions from
 - **Needs from you:** Pick a/b/c (or confirm you accept the compliance tradeoff of raw edits).
 - **Blocks:** OI-10 (outgoing side only).
 - **Answer (2026-07-08):**  - we will be able to edit all invoices that are not in status accounted
+- **Decision (captured → roadmap EDIT-RULE):** Editability is gated on **`accounted`**, not
+  on draft/finalized. Anything not `accounted` is fully editable (and deletable); `accounted`
+  locks it. This resolves the earlier compliance tension by making the owner's accounting
+  workflow the source of truth. ⚠️ **Compliance caveat for run 2:** BG law treats a finalized
+  фактура as immutable; editing a finalized-but-not-accounted invoice in place diverges from
+  that. Implement per the owner's rule, but keep an activity/audit trail of edits to finalized
+  docs and log the compliance note — do not silently rewrite legal history.
 
-### D-FX — FX rate source for currency conversion — OPEN
+### D-FX — FX rate source for currency conversion — ✅ RESOLVED (2026-07-08 — approved)
 - **Needs from you:** Approve the source. Recommendation: ECB daily reference rates, cached
   daily, with the rate frozen onto each document at finalize. Base = `companies.defaultCurrency`.
 - **Blocks:** GEN-1 (currency correctness), DASH-1.
 - **Answer (2026-07-08):** - i approve 
 
-### D-AUTH — Google login: library vs. hand-rolled — OPEN
+### D-AUTH — Google login: library vs. hand-rolled — ⏸️ DEFERRED (2026-07-08)
 - **Needs from you:** Decide after the agent drafts an ADR (Auth.js vs. `arctic` + existing
   `users` table). Security-review required before merge.
-- **Blocks:** AUTH-1.
+- **Blocks:** AUTH-1 (deferred).
 - **Answer (2026-07-08):** - supabase gives us functionality related to google logins so lets use it. but leave it for now
+- **Decision:** when revisited, use **Supabase Auth** Google login (not a hand-rolled or
+  third-party lib). Parked — not this phase.
 
-### NAP-DOC — Need the NAP.pdf content (can't OCR locally) — BLOCKED
+### NAP-DOC — Need the NAP.pdf content (can't OCR locally) — ⏸️ DEFERRED (2026-07-08 — do everything else first)
 - **Context:** Owner attached `NAP.pdf` ("we must meet all these from NAP"). It's a scanned
   image PDF with no text layer, and this machine has no OCR / PDF-render tooling, so it couldn't
   be read. `docs/knowledge/nap-compliance.md` is a stub awaiting the content.
@@ -71,7 +86,7 @@ _(The agent appends below. Seeded with the known-open product decisions from
 - **Blocks:** NAP-1 scoping.
 - **Answer (2026-07-08):** - lets finish everything else then we will land on these specifics
 
-### CN-NUMBERING — Credit/debit-note numbering: parent's number vs own sequence — PROCEEDED
+### CN-NUMBERING — Credit/debit-note numbering: parent's number vs own sequence — ✅ RESOLVED (2026-07-08 — REVERSES run-1 default)
 - **When:** N15 integration tests (2026-07-08).
 - **Context:** The tests exposed that **every credit/debit-note creation failed in the
   app**: the action gave notes their own `CN`/`DN` series + fresh numbers, but the live-DB
@@ -86,8 +101,17 @@ _(The agent appends below. Seeded with the known-open product decisions from
 - **Needs from you:** confirm (a) vs (b) with the accountant / NAP requirements. If (b),
   the trigger + action + tests change together (schema-level decision).
 - **Answer (2026-07-08):** - we must have every new docuemnt no matter what type to be with new number, there must be no numbers that duplicate. 
+- **Decision (option b — captured → roadmap NUM-1):** EVERY document (invoice, credit note,
+  debit note, proforma) gets its **own new unique number** in the sequence — **no duplicated
+  numbers ever**. This reverses run-1's "notes inherit the parent number" alignment. ⚠️ **This
+  is a DB-trigger change:** the live `trg_enforce_invoice_numbering` currently *requires* notes
+  to inherit the parent's series+number and rejects proforma (see
+  `knowledge/invoice-numbering-triggers.md`). Run 2 must (1) bring the trigger into a repo
+  migration (closes N24), (2) rewrite it to assign a fresh unique number per document, (3)
+  update `createNoteFromInvoice` + the numbering tests together. Keep the parent *link*
+  (`referencedInvoiceId`) — only the number changes.
 
-### CN-FORM — New-invoice form offers doc types the DB rejects (N25) — OPEN
+### CN-FORM — New-invoice form offers doc types the DB rejects (N25) — ✅ RESOLVED (2026-07-08)
 - **Context:** The DocumentCard radio offers `proforma` / `credit_note` / `debit_note`.
   `proforma` can never be inserted (trigger: `Unknown doc_type`); notes via
   `createInvoiceDraft` violate the numbering trigger. Users picking these get raw errors.
@@ -96,6 +120,11 @@ _(The agent appends below. Seeded with the known-open product decisions from
   proforma support in `createInvoiceDraft`.
 - **Needs from you:** pick (a) or (b). Recommendation: (a) — small, honest, reversible.
 - **Answer (2026-07-08):** - we must have every new docuemnt no matter what type to be with new number, there must be no numbers that duplicate. From new invoice page will be able to create only Proforma or Invoice nothing else 
+- **Decision (captured → roadmap):** the new-invoice form offers **Invoice and Proforma only**
+  (drop credit_note/debit_note from DocumentCard — notes are created from a finalized invoice's
+  row menu). This makes **PROF-1 (proforma support) a prerequisite** — proforma must become a
+  real, insertable doc type (needs the NUM-1 trigger rewrite to stop rejecting it). Sequence:
+  NUM-1 trigger → PROF-1 → restrict the form.
 
 ### PREVIEW-ENV — Embedded preview browser unresponsive; CN flow not re-driven in-browser — PROCEEDED
 - **When:** N15 verification (2026-07-08).
@@ -116,7 +145,7 @@ _(The agent appends below. Seeded with the known-open product decisions from
   first exposed a second bug (note inherited the parent's supplyDate → ISSUE_DATE_TOO_LATE
   for parents >5 days old, fixed in `acdaad6`), then created CN id 43 (INV #2) UI→DB. ✅
 
-### NI1-PREVIEW — Preview of an unsaved invoice implicitly saves a draft — PROCEEDED
+### NI1-PREVIEW — Preview of an unsaved invoice implicitly saves a draft — ✅ RESOLVED (2026-07-08 — remove Preview)
 - **When:** NI-1 (2026-07-08).
 - **Context:** The spec said "Preview renders from current form state". A true client-side
   print render needs the invoice print layout extracted into a reusable component (RV-3 /
@@ -129,6 +158,9 @@ _(The agent appends below. Seeded with the known-open product decisions from
 - **Needs from you:** nothing unless you dislike drafts being created by Preview — say so
   and it becomes a pure client-side render when RV-3 lands.
 - **Answer (2026-07-08):** - currently preview button on add new invoice makes no sense so remove it and leave only draft and finalyze
+- **Decision (captured → roadmap NEWINV-1):** **remove the Preview button** from the new-invoice
+  page (ActionsBar); leave only **Save draft** and **Finalize**. (Preview/print still reachable
+  from a saved invoice's detail/row menu.)
 
 ### INV11-CANCEL — Stray cancel of seed invoice 11 during UI testing, restored — PROCEEDED
 - **When:** AGG-1 verification (2026-07-08, ~02:46 local).
@@ -145,7 +177,7 @@ _(The agent appends below. Seeded with the known-open product decisions from
   outstanding 360). When answering D-CANCEL, also decide whether notes follow their
   parent's cancellation.
 
-### D-EMAIL — Email transport + ingestion scope — OPEN
+### D-EMAIL — Email transport + ingestion scope — ⏸️ DEFERRED (2026-07-08 — later)
 - **Needs from you:** (1) SMTP/deliverability provider for sending. (2) Scope of "look over
   all emails" — recommend limiting to invoice-relevant emails auto-matched to partners.
 - **Blocks:** EMAIL-1, EMAIL-2.

@@ -29,25 +29,27 @@ describe('ACTIVITY_LABELS', () => {
   it('labels are non-empty user-readable strings', () => {
     for (const label of Object.values(ACTIVITY_LABELS)) {
       expect(label.length).toBeGreaterThan(0);
-      // Should start with a capital letter (consistency check)
-      expect(label[0]).toMatch(/^[A-Z]/);
+      // Should start with a capital Cyrillic letter (BG UI, consistency check)
+      expect(label[0]).toMatch(/^[А-Я]/);
     }
   });
 });
 
 describe('formatActivityAction', () => {
   it('returns the label for known ActivityType strings', () => {
-    expect(formatActivityAction(ActivityType.SIGN_IN)).toBe('Signed in');
+    expect(formatActivityAction(ActivityType.SIGN_IN)).toBe('Вход');
     expect(formatActivityAction(ActivityType.CREATE_INVOICE)).toBe(
-      'Created an invoice'
+      'Създадена фактура'
     );
     expect(formatActivityAction(ActivityType.FINALIZE_INVOICE)).toBe(
-      'Finalized an invoice'
+      'Издадена фактура'
     );
   });
 
-  it('returns "Unknown action" for unrecognized strings', () => {
-    expect(formatActivityAction('not_a_real_action')).toBe('Unknown action');
-    expect(formatActivityAction('')).toBe('Unknown action');
+  it('returns the fallback for unrecognized strings', () => {
+    expect(formatActivityAction('not_a_real_action')).toBe(
+      'Неизвестно действие'
+    );
+    expect(formatActivityAction('')).toBe('Неизвестно действие');
   });
 });

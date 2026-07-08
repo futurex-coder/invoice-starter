@@ -32,20 +32,20 @@ const CONFIDENCE_STYLES: Record<string, string> = {
 };
 
 const LIFECYCLE_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  confirmed: 'Confirmed',
-  discarded: 'Discarded',
+  draft: 'Чернова',
+  confirmed: 'Потвърдена',
+  discarded: 'Отхвърлена',
 };
 
 const ACCOUNTING_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  accounted: 'Accounted',
+  pending: 'Чака',
+  accounted: 'Осчетоводена',
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
-  unpaid: 'Unpaid',
-  partial: 'Partial',
-  paid: 'Paid',
+  unpaid: 'Неплатена',
+  partial: 'Частично',
+  paid: 'Платена',
 };
 
 export function StatusBadge({ variant, value, className }: Props) {

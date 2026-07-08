@@ -45,39 +45,39 @@ export function isActivityType(value: string): value is ActivityType {
 }
 
 export const ACTIVITY_LABELS: Record<ActivityType, string> = {
-  [ActivityType.SIGN_UP]: 'Signed up',
-  [ActivityType.SIGN_IN]: 'Signed in',
-  [ActivityType.SIGN_OUT]: 'Signed out',
-  [ActivityType.UPDATE_PASSWORD]: 'Updated password',
-  [ActivityType.DELETE_ACCOUNT]: 'Deleted account',
-  [ActivityType.UPDATE_ACCOUNT]: 'Updated account',
-  [ActivityType.CREATE_COMPANY]: 'Created company',
-  [ActivityType.UPDATE_COMPANY]: 'Updated company settings',
-  [ActivityType.DELETE_COMPANY]: 'Deleted company',
-  [ActivityType.RESTORE_COMPANY]: 'Restored company',
-  [ActivityType.TRANSFER_OWNERSHIP]: 'Transferred ownership',
-  [ActivityType.INVITE_MEMBER]: 'Invited a member',
-  [ActivityType.ACCEPT_INVITATION]: 'Accepted invitation',
-  [ActivityType.REMOVE_MEMBER]: 'Removed a member',
-  [ActivityType.CREATE_PARTNER]: 'Added a partner',
-  [ActivityType.UPDATE_PARTNER]: 'Updated a partner',
-  [ActivityType.DELETE_PARTNER]: 'Removed a partner',
-  [ActivityType.CREATE_ARTICLE]: 'Added an article',
-  [ActivityType.UPDATE_ARTICLE]: 'Updated an article',
-  [ActivityType.DELETE_ARTICLE]: 'Removed an article',
-  [ActivityType.CREATE_INVOICE]: 'Created an invoice',
-  [ActivityType.UPDATE_INVOICE]: 'Updated an invoice',
-  [ActivityType.FINALIZE_INVOICE]: 'Finalized an invoice',
-  [ActivityType.CANCEL_INVOICE]: 'Cancelled an invoice',
-  [ActivityType.UNCANCEL_INVOICE]: 'Reinstated a cancelled invoice',
-  [ActivityType.CREATE_CREDIT_NOTE]: 'Created a credit note',
-  [ActivityType.CREATE_DEBIT_NOTE]: 'Created a debit note',
-  [ActivityType.UPLOAD_RECEIVED_INVOICE]: 'Uploaded a received invoice',
-  [ActivityType.UPDATE_RECEIVED_INVOICE]: 'Updated a received invoice',
-  [ActivityType.CONFIRM_RECEIVED_INVOICE]: 'Confirmed a received invoice',
-  [ActivityType.DISCARD_RECEIVED_INVOICE]: 'Discarded a received invoice',
-  [ActivityType.ARCHIVE_RECEIVED_INVOICE]: 'Archived a received invoice',
-  [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: 'Unarchived a received invoice',
+  [ActivityType.SIGN_UP]: 'Регистрация',
+  [ActivityType.SIGN_IN]: 'Вход',
+  [ActivityType.SIGN_OUT]: 'Изход',
+  [ActivityType.UPDATE_PASSWORD]: 'Смяна на парола',
+  [ActivityType.DELETE_ACCOUNT]: 'Изтрит профил',
+  [ActivityType.UPDATE_ACCOUNT]: 'Обновен профил',
+  [ActivityType.CREATE_COMPANY]: 'Създадена фирма',
+  [ActivityType.UPDATE_COMPANY]: 'Обновени настройки на фирмата',
+  [ActivityType.DELETE_COMPANY]: 'Изтрита фирма',
+  [ActivityType.RESTORE_COMPANY]: 'Възстановена фирма',
+  [ActivityType.TRANSFER_OWNERSHIP]: 'Прехвърлена собственост',
+  [ActivityType.INVITE_MEMBER]: 'Поканен потребител',
+  [ActivityType.ACCEPT_INVITATION]: 'Приета покана',
+  [ActivityType.REMOVE_MEMBER]: 'Премахнат потребител',
+  [ActivityType.CREATE_PARTNER]: 'Добавен контрагент',
+  [ActivityType.UPDATE_PARTNER]: 'Обновен контрагент',
+  [ActivityType.DELETE_PARTNER]: 'Премахнат контрагент',
+  [ActivityType.CREATE_ARTICLE]: 'Добавен артикул',
+  [ActivityType.UPDATE_ARTICLE]: 'Обновен артикул',
+  [ActivityType.DELETE_ARTICLE]: 'Премахнат артикул',
+  [ActivityType.CREATE_INVOICE]: 'Създадена фактура',
+  [ActivityType.UPDATE_INVOICE]: 'Обновена фактура',
+  [ActivityType.FINALIZE_INVOICE]: 'Издадена фактура',
+  [ActivityType.CANCEL_INVOICE]: 'Анулирана фактура',
+  [ActivityType.UNCANCEL_INVOICE]: 'Възстановена фактура',
+  [ActivityType.CREATE_CREDIT_NOTE]: 'Създадено кредитно известие',
+  [ActivityType.CREATE_DEBIT_NOTE]: 'Създадено дебитно известие',
+  [ActivityType.UPLOAD_RECEIVED_INVOICE]: 'Качена получена фактура',
+  [ActivityType.UPDATE_RECEIVED_INVOICE]: 'Обновена получена фактура',
+  [ActivityType.CONFIRM_RECEIVED_INVOICE]: 'Потвърдена получена фактура',
+  [ActivityType.DISCARD_RECEIVED_INVOICE]: 'Отхвърлена получена фактура',
+  [ActivityType.ARCHIVE_RECEIVED_INVOICE]: 'Архивирана получена фактура',
+  [ActivityType.UNARCHIVE_RECEIVED_INVOICE]: 'Разархивирана получена фактура',
 };
 
 /**
@@ -87,7 +87,7 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
  * actions that no longer exist).
  */
 export function formatActivityAction(action: string): string {
-  if (!isActivityType(action)) return 'Unknown action';
+  if (!isActivityType(action)) return 'Неизвестно действие';
   return ACTIVITY_LABELS[action];
 }
 

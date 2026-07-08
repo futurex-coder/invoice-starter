@@ -26,7 +26,10 @@ export function formatDate(value: Date | string | null | undefined): string {
   if (isNaN(d.getTime())) {
     return typeof value === 'string' ? value : '—';
   }
-  return d.toLocaleDateString('en-GB');
+  // Deterministic Bulgarian date: DD.MM.YYYY (locale-independent).
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}.${mm}.${d.getFullYear()}`;
 }
 
 /**
@@ -52,11 +55,11 @@ export function relativeTime(value: Date | string | null | undefined): string {
   if (isNaN(d.getTime())) return '';
   const diff = Date.now() - d.getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return 'току-що';
+  if (mins < 60) return `преди ${mins} мин`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return `преди ${hours} ч`;
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return `преди ${days} дни`;
   return formatDate(d);
 }

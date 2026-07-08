@@ -60,7 +60,7 @@ _(The agent appends below. Seeded with the known-open product decisions from
 - **Needs from you:** Decide after the agent drafts an ADR (Auth.js vs. `arctic` + existing
   `users` table). Security-review required before merge.
 - **Blocks:** AUTH-1.
-- **Answer (2026-07-08):** - supabase gives us functionality related to google logins so lets use it.
+- **Answer (2026-07-08):** - supabase gives us functionality related to google logins so lets use it. but leave it for now
 
 ### NAP-DOC — Need the NAP.pdf content (can't OCR locally) — BLOCKED
 - **Context:** Owner attached `NAP.pdf` ("we must meet all these from NAP"). It's a scanned

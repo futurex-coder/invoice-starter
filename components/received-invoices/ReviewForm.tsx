@@ -1,7 +1,17 @@
 'use client';
 
 import { useMemo, useReducer, useState } from 'react';
-import { Trash2, Plus, Info } from 'lucide-react';
+import {
+  Trash2,
+  Plus,
+  Info,
+  Building2,
+  FileText,
+  ListChecks,
+  Calculator,
+  CreditCard,
+  StickyNote,
+} from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -267,7 +277,10 @@ export function ReviewForm({
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Доставчик (Supplier)</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-gray-400" />
+            Доставчик (Supplier)
+          </CardTitle>
           {partnerId && (
             <span className="rounded bg-green-100 px-2 py-0.5 text-[10px] font-medium uppercase text-green-800">
               Linked partner
@@ -497,7 +510,10 @@ export function ReviewForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Document</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-gray-400" />
+            Document
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -621,7 +637,10 @@ export function ReviewForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Items</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ListChecks className="h-4 w-4 text-gray-400" />
+            Items
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -759,24 +778,27 @@ export function ReviewForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Totals</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Calculator className="h-4 w-4 text-gray-400" />
+            Totals
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm">
           <div className="flex justify-between">
             <span className="text-gray-600">Tax base (net)</span>
-            <span>
+            <span className="tabular-nums">
               {totals.netAmount.toFixed(2)} {currency}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">VAT</span>
-            <span>
+            <span className="tabular-nums">
               {totals.vatAmount.toFixed(2)} {currency}
             </span>
           </div>
-          <div className="flex justify-between border-t pt-1.5 font-medium">
-            <span>Total</span>
-            <span>
+          <div className="mt-1 flex items-baseline justify-between border-t pt-2">
+            <span className="font-medium">Total</span>
+            <span className="text-lg font-semibold tabular-nums">
               {totals.grossAmount.toFixed(2)} {currency}
             </span>
           </div>
@@ -785,7 +807,10 @@ export function ReviewForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Payment & accounting</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-gray-400" />
+            Payment & accounting
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -861,7 +886,10 @@ export function ReviewForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Notes</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <StickyNote className="h-4 w-4 text-gray-400" />
+            Notes
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <textarea
@@ -891,13 +919,23 @@ export function ReviewForm({
         >
           Discard
         </Button>
-        <Button
-          className="ml-auto bg-green-600 hover:bg-green-700"
-          onClick={() => onConfirm(buildPatch())}
-          disabled={saving}
-        >
-          Confirm
-        </Button>
+        <div className="ml-auto flex items-center gap-3">
+          <div className="text-right leading-tight">
+            <div className="text-[10px] uppercase tracking-wide text-gray-500">
+              Total
+            </div>
+            <div className="text-sm font-semibold tabular-nums">
+              {totals.grossAmount.toFixed(2)} {currency}
+            </div>
+          </div>
+          <Button
+            className="bg-green-600 hover:bg-green-700"
+            onClick={() => onConfirm(buildPatch())}
+            disabled={saving}
+          >
+            Confirm
+          </Button>
+        </div>
       </div>
     </div>
   );

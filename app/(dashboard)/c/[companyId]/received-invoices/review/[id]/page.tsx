@@ -150,7 +150,10 @@ export default function ReviewReceivedInvoicePage() {
       <ErrorAlert message={error} className="mb-4" />
       <DuplicatesWarning duplicates={duplicates} companyId={companyId} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* RV-3: the scanned document gets the larger share on desktop (it's the
+          source of truth you're checking against); the form sits in a
+          comfortable narrower column. Stacks on mobile (viewer first). */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]">
           <PreviewPane
             receivedInvoiceId={id}

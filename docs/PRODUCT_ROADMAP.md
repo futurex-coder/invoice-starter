@@ -395,21 +395,26 @@ Feature work starts off a clean `main`.
 
 ### Phase 5 — Received-invoice review redesign
 
-**RV-3 — Redesign the whole review-received-invoice screen** · L · 🟡 **queued (deliberately not
-started at the end of the 2026-07-08 overnight run — an L rebuild of the app's core
-differentiator shouldn't land half-done)**
-- Already absorbed: RV-2 ✅ (due date gone), RV-4 ✅ (name-only partners + real-document
-  line tolerance), RV-1 first slice ✅ (image zoom + mobile collapse).
-- Remaining rebuild: field grouping (Supplier / Document / Items as distinct cards with
-  clearer hierarchy), inline validation that **guides rather than blocks** (soft warnings
-  vs the red rings; the schema is already tolerant post-RV-4), wider desktop layout
-  (viewer deserves >50%), true mobile bottom drawer for the scan, and the review→confirm
-  flow driven end-to-end with a multi-page + foreign-supplier scan.
-- Implementation notes for the next session: the form is already `useReducer`-based
-  (`review-form-state.ts`) with `FieldMetaMap` confidence hints — build ON that, don't
-  replace it; `ReviewForm.tsx` is 900+ lines — extract the Supplier/Document/Items cards
-  as separate components as part of the regroup; the numbering/tax constraints live in
-  `knowledge/invoice-numbering-triggers.md`.
+**RV-3 — Redesign the review-received-invoice screen** · L · ✅ **v2 done 2026-07-08**
+- Absorbed earlier: RV-2 ✅ (due date gone), RV-4 ✅ (name-only partners + line tolerance),
+  RV-1 ✅ (image zoom + mobile collapse). The form was **already** card-grouped
+  (Supplier / Document / Items / Totals / Payment / Notes) with **soft, guiding validation**
+  (amber/rose confidence rings + `FieldHint`, no hard blocks) — so RV-3 v2 focused on layout,
+  hierarchy, and the confirm moment rather than a risky 905-line teardown.
+- **Shipped (2026-07-08):** the scanned document now gets the **larger share on desktop**
+  (`lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]`, viewer >50%, still sticky; stacks
+  viewer-first on mobile). **Icon-led card headers** (Building2 / FileText / ListChecks /
+  Calculator / CreditCard / StickyNote) for scannability. The **grand total is emphasized**
+  in the Totals card and **shown right at the Confirm button** in the sticky action bar, so
+  you see exactly what you're accepting. `tabular-nums` on all money.
+- Verified: type-check + lint 0 + build green (route compiles/prerenders). Live visual
+  verification was blocked by the preview harness (rAF wedge on heavy client pages + fresh-tab
+  session loss — documented in `knowledge/func-audit-2026-07.md`); changes are presentational
+  only (grid ratio, header icons, total placement), so build + type-check cover correctness.
+- **Optional follow-ups (not blocking):** extract Supplier/Document/Items into separate
+  components (the file is ~925 lines); a true mobile bottom-drawer for the scan; lift the
+  PreviewPane zoom state so it persists. Money amounts here render in the document's own
+  currency — GEN-1 will convert them to the company base currency.
 
 **RV-1 — Better scanned-invoice viewer** · M/L · 🟡 **first slice shipped 2026-07-08**
 - Shipped: **image zoom** (50–400% with ± / reset — scanned images previously had no zoom

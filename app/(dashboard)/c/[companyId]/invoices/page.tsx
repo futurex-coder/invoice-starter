@@ -9,6 +9,8 @@ import {
   cancelInvoice,
   createCreditNoteFromInvoice,
   createDebitNoteFromInvoice,
+  updateInvoicePaymentInfo,
+  updateInvoiceAccountingStatus,
   type ListInvoicesFilters,
 } from '@/src/features/bulgarian-invoicing/actions';
 import { formatInvoiceNumber } from '@/src/features/bulgarian-invoicing/formatter';
@@ -114,6 +116,32 @@ export default function InvoicesPage() {
     await list.runMutation(() => cancelInvoice(confirmCancel.id));
   };
 
+  const [pendingId, setPendingId] = useState<number | null>(null);
+
+  // OI-9: inline paid / accounted toggles with the N11 optimistic pattern.
+  const handleMarkPayment = async (id: number, status: 'paid' | 'unpaid') => {
+    setPendingId(id);
+    try {
+      await list.runMutation(() =>
+        updateInvoicePaymentInfo(id, { paymentStatus: status })
+      );
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const handleMarkAccounting = async (
+    id: number,
+    status: 'accounted' | 'pending'
+  ) => {
+    setPendingId(id);
+    try {
+      await list.runMutation(() => updateInvoiceAccountingStatus(id, status));
+    } finally {
+      setPendingId(null);
+    }
+  };
+
   const handleCreditNote = async (id: number) => {
     const res = await createCreditNoteFromInvoice(id);
     if (res.error) list.setActionError(res.error);
@@ -165,6 +193,7 @@ export default function InvoicesPage() {
         <InvoicesTable
           invoices={result?.invoices ?? []}
           companyId={companyId}
+          pendingId={pendingId}
           onView={(id) => router.push(`/c/${companyId}/invoices/${id}`)}
           onEdit={(id) => router.push(`/c/${companyId}/invoices/new?edit=${id}`)}
           onPrint={(id) => router.push(`/c/${companyId}/invoices/${id}?print=1`)}
@@ -172,6 +201,8 @@ export default function InvoicesPage() {
           onCopy={(id) => router.push(`/c/${companyId}/invoices/new?copy=${id}`)}
           onCreditNote={handleCreditNote}
           onDebitNote={handleDebitNote}
+          onMarkPayment={handleMarkPayment}
+          onMarkAccounting={handleMarkAccounting}
         />
       </ListCard>
 

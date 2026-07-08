@@ -10,6 +10,10 @@ import {
 import { DataTableHead, DATA_ROW_CLASS } from '@/components/list-page/DataTableHead';
 import { RowActionsMenu, type RowAction } from '@/components/list-page/RowActionsMenu';
 import {
+  PaidTogglePill,
+  AccountedTogglePill,
+} from '@/components/list-page/StatusTogglePill';
+import {
   Eye,
   Pencil,
   Printer,
@@ -25,19 +29,16 @@ const STATUS_LABELS: Record<string, string> = {
   finalized: 'Finalized',
   cancelled: 'Cancelled',
 };
-const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  unpaid: 'Unpaid',
-  paid: 'Paid',
-  partial: 'Partial',
-};
-const ACCOUNTING_STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
-  accounted: 'Accounted',
+const DOC_TYPE_BADGES: Record<string, string> = {
+  credit_note: 'КИ',
+  debit_note: 'ДИ',
+  proforma: 'ПФ',
 };
 
 interface RowProps {
   invoice: Invoice;
   companyId: string;
+  pending: boolean;
   onView: (id: number) => void;
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
@@ -45,11 +46,14 @@ interface RowProps {
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
+  onMarkPayment: (id: number, status: 'paid' | 'unpaid') => void;
+  onMarkAccounting: (id: number, status: 'accounted' | 'pending') => void;
 }
 
 function InvoiceRow({
   invoice,
   companyId,
+  pending,
   onView,
   onEdit,
   onPrint,
@@ -57,6 +61,8 @@ function InvoiceRow({
   onCopy,
   onCreditNote,
   onDebitNote,
+  onMarkPayment,
+  onMarkAccounting,
 }: RowProps) {
   const totals = parseInvoiceTotalsStrict(invoice.totals);
   const recipient = parsePartySnapshotStrict(invoice.recipientSnapshot);
@@ -95,6 +101,14 @@ function InvoiceRow({
         >
           {invoice.number != null ? formatInvoiceNumber(invoice.number) : `#${invoice.id}`}
         </Link>
+        {isNote && (
+          <span
+            className="ml-1.5 inline-flex rounded bg-violet-100 px-1 py-0.5 text-[10px] font-semibold text-violet-700"
+            title={formatDocTypeLabel(invoice.docType)}
+          >
+            {DOC_TYPE_BADGES[invoice.docType] ?? invoice.docType}
+          </span>
+        )}
         {isNote && invoice.referencedInvoiceId && (
           <Link
             href={`/c/${companyId}/invoices/${invoice.referencedInvoiceId}`}
@@ -104,7 +118,6 @@ function InvoiceRow({
           </Link>
         )}
       </td>
-      <td className="px-4 py-3 text-sm">{formatDocTypeLabel(invoice.docType)}</td>
       <td className="px-4 py-3 text-sm">
         {recipient.legalName ? (
           <Link
@@ -118,29 +131,29 @@ function InvoiceRow({
         )}
       </td>
       <td className="px-4 py-3 text-sm">{formatDateBg(invoice.issueDate)}</td>
-      <td className="px-4 py-3 text-sm">
-        {PAYMENT_STATUS_LABELS[invoice.paymentStatus ?? 'unpaid'] ?? invoice.paymentStatus}
+      <td className="px-4 py-3 text-sm font-medium">
+        {formatMoney(totals.grossAmount)} {invoice.currency}
+      </td>
+      <td className="px-4 py-3">
+        <PaidTogglePill
+          value={invoice.paymentStatus ?? 'unpaid'}
+          pending={pending}
+          disabled={!isIssued}
+          onChange={(next) => onMarkPayment(invoice.id, next)}
+        />
         {isOverdue && (
           <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
             Overdue
           </span>
         )}
       </td>
-      <td className="px-4 py-3 text-sm font-medium">
-        {formatMoney(totals.grossAmount)} {invoice.currency}
-      </td>
       <td className="px-4 py-3">
-        <span
-          className={cn(
-            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
-            invoice.accountingStatus === 'accounted'
-              ? 'bg-sky-100 text-sky-800'
-              : 'bg-gray-100 text-gray-600'
-          )}
-        >
-          {ACCOUNTING_STATUS_LABELS[invoice.accountingStatus ?? 'pending'] ??
-            invoice.accountingStatus}
-        </span>
+        <AccountedTogglePill
+          value={invoice.accountingStatus ?? 'pending'}
+          pending={pending}
+          disabled={!isIssued}
+          onChange={(next) => onMarkAccounting(invoice.id, next)}
+        />
       </td>
       <td className="px-4 py-3">
         <span
@@ -166,6 +179,7 @@ function InvoiceRow({
 interface TableProps {
   invoices: Invoice[];
   companyId: string;
+  pendingId: number | null;
   onView: (id: number) => void;
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
@@ -173,6 +187,8 @@ interface TableProps {
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
+  onMarkPayment: (id: number, status: 'paid' | 'unpaid') => void;
+  onMarkAccounting: (id: number, status: 'accounted' | 'pending') => void;
 }
 
 export function InvoicesTable(props: TableProps) {
@@ -181,12 +197,11 @@ export function InvoicesTable(props: TableProps) {
       <DataTableHead
         columns={[
           { label: 'Number' },
-          { label: 'Type' },
           { label: 'Client' },
           { label: 'Date' },
-          { label: 'Payment' },
           { label: 'Total' },
-          { label: 'Accounting' },
+          { label: 'Paid' },
+          { label: 'Accounted' },
           { label: 'Status' },
           { label: 'Actions', align: 'right' },
         ]}
@@ -197,6 +212,7 @@ export function InvoicesTable(props: TableProps) {
             key={inv.id}
             invoice={inv}
             companyId={props.companyId}
+            pending={props.pendingId === inv.id}
             onView={props.onView}
             onEdit={props.onEdit}
             onPrint={props.onPrint}
@@ -204,6 +220,8 @@ export function InvoicesTable(props: TableProps) {
             onCopy={props.onCopy}
             onCreditNote={props.onCreditNote}
             onDebitNote={props.onDebitNote}
+            onMarkPayment={props.onMarkPayment}
+            onMarkAccounting={props.onMarkAccounting}
           />
         ))}
       </tbody>

@@ -152,17 +152,18 @@ Feature work starts off a clean `main`.
   the detail or reuse the already-loaded row snapshot. Mobile-friendly.
 - *Competitor research (RESEARCH-1) informs the exact layout.*
 
-**OI-9 — Simplify both lists + inline paid/accounted editing** · M · *UX + functionality*
-- Trim both invoice lists (outgoing + received) to the columns that matter: **Number ·
-  Client/Supplier · Date · Total · Paid · Accounted · Actions**. Drop the noise — e.g. the
-  outgoing "Type" column, and fold the separate "Payment" column into the inline Paid control.
-- **Paid** and **Accounted** are **inline-editable directly in the row** (click the pill →
-  optimistic `mutate(...,{revalidate:false})`, pattern from N11). These are the two statuses
-  accountants flip most; no menu or detail page needed.
-- Depends on OI-1 (accounted column). **Supersedes OI-6's interaction** — inline is the primary
-  path; keep a context-menu entry only as a secondary affordance.
-- Verify by running: toggle paid/accounted on a real row, confirm it persists and the aggregate
-  updates, at desktop and mobile widths.
+**OI-9 — Simplify both lists + inline paid/accounted editing** · M · ✅ **done 2026-07-08**
+- Both lists now: **Number · Client/Supplier · Date · Total · Paid · Accounted · Status ·
+  Actions** (lifecycle Status kept — it's legal state, not noise; outgoing Type column
+  replaced by a КИ/ДИ badge next to the number; Payment text folded into the Paid pill).
+- Shared `PaidTogglePill` / `AccountedTogglePill` (components/list-page/StatusTogglePill):
+  click flips paid⇄unpaid / accounted⇄pending with the list-mutation pattern; disabled
+  (dash) on drafts/cancelled/discarded; partial renders amber and clicking marks paid.
+  New `updateInvoiceAccountingStatus` action (finalized-only rule); received side reuses
+  its existing setters. Row-menu setters remain as secondary affordance (OI-6 superseded).
+- Verified live: outgoing #5 pending→accounted persisted and the TRANS-2 month card
+  dropped 2→1 издадени за осчетоводяване; Paid round-trip unpaid→paid→unpaid; received
+  RI 8 accounted toggle round-trip. Zero console errors.
 
 **OI-10 — Edit invoices regardless of status** · M · ⚠️ *needs D-EDIT (compliance)*
 - Requested: every field editable no matter draft / finalized / cancelled.

@@ -8,11 +8,10 @@ import type {
 } from '@/src/features/received-invoices/types';
 import { ReceivedInvoiceRowActions } from './ReceivedInvoiceRowActions';
 import {
-  STATUS_LABELS,
-  PAYMENT_STATUS_LABELS,
-  supplierName,
-  isOverdue,
-} from './utils';
+  PaidTogglePill,
+  AccountedTogglePill,
+} from '@/components/list-page/StatusTogglePill';
+import { STATUS_LABELS, supplierName, isOverdue } from './utils';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -65,22 +64,29 @@ function Row(props: RowProps) {
       </td>
       <td className="px-4 py-3 text-sm">{supplierName(item)}</td>
       <td className="px-4 py-3 text-sm">{formatDate(item.issueDate)}</td>
-      <td className="px-4 py-3 text-sm">
-        {isConfirmed ? (
-          <>
-            {PAYMENT_STATUS_LABELS[item.paymentStatus] ?? item.paymentStatus}
-            {overdue && (
-              <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-                Overdue
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="text-gray-400">—</span>
-        )}
-      </td>
       <td className="px-4 py-3 text-sm font-medium">
         {Number(item.grossAmount).toFixed(2)} {item.currency}
+      </td>
+      <td className="px-4 py-3">
+        <PaidTogglePill
+          value={item.paymentStatus}
+          pending={props.pending}
+          disabled={!isConfirmed}
+          onChange={(next) => props.onMarkPayment(item.id, next)}
+        />
+        {overdue && (
+          <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+            Overdue
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        <AccountedTogglePill
+          value={item.accountingStatus}
+          pending={props.pending}
+          disabled={!isConfirmed}
+          onChange={(next) => props.onMarkAccounting(item.id, next)}
+        />
       </td>
       <td className="px-4 py-3">
         <span
@@ -95,11 +101,6 @@ function Row(props: RowProps) {
         >
           {STATUS_LABELS[item.status] ?? item.status}
         </span>
-        {isConfirmed && item.accountingStatus === 'accounted' && (
-          <span className="ml-1.5 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
-            Accounted
-          </span>
-        )}
       </td>
       <td className="px-4 py-3 text-right">
         <ReceivedInvoiceRowActions {...props} />
@@ -133,8 +134,9 @@ export function ReceivedInvoicesTable(props: TableProps) {
           <th className={HEADER_CELL_CLASS}>Number</th>
           <th className={HEADER_CELL_CLASS}>Supplier</th>
           <th className={HEADER_CELL_CLASS}>Date</th>
-          <th className={HEADER_CELL_CLASS}>Payment</th>
           <th className={HEADER_CELL_CLASS}>Total</th>
+          <th className={HEADER_CELL_CLASS}>Paid</th>
+          <th className={HEADER_CELL_CLASS}>Accounted</th>
           <th className={HEADER_CELL_CLASS}>Status</th>
           <th className={cn(HEADER_CELL_CLASS, 'text-right')}>Actions</th>
         </tr>

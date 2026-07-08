@@ -833,6 +833,54 @@ export async function updateInvoicePaymentInfo(
 }
 
 // ---------------------------------------------------------------------------
+// updateInvoiceAccountingStatus — OI-9 inline "accounted" toggle
+// ---------------------------------------------------------------------------
+
+const VALID_ACCOUNTING_STATUSES = ['pending', 'accounted'] as const;
+
+export async function updateInvoiceAccountingStatus(
+  invoiceId: number,
+  accountingStatus: string
+): Promise<ActionResult<ParsedInvoice>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    if (
+      !(VALID_ACCOUNTING_STATUSES as readonly string[]).includes(
+        accountingStatus
+      )
+    ) {
+      throw new Error(`Invalid accounting status: ${accountingStatus}`);
+    }
+
+    const [existing] = await db
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error('Invoice not found');
+    }
+    // Booking happens on issued documents — drafts have nothing to book yet
+    // and cancelled documents are out of the ledger.
+    if (existing.status !== InvoiceStatus.FINALIZED) {
+      throw new Error('Only finalized documents can change accounting status');
+    }
+
+    const [updated] = await db
+      .update(invoices)
+      .set({ accountingStatus, updatedAt: new Date() })
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
+      .returning();
+
+    await logActivity(companyId, user.id, ActivityType.UPDATE_INVOICE);
+
+    return parseInvoiceRow(updated);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // createCreditNoteFromInvoice
 // ---------------------------------------------------------------------------
 

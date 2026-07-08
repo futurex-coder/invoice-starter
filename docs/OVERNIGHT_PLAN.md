@@ -4,6 +4,10 @@
 > running, commit atomically (local only, never push), log decisions to `REVIEW_QUEUE.md`,
 > never block, leave the §E morning handoff. Base branch: `claude-run-1.9`.
 
+> **STATUS (morning):** Block A (GEN-1) ✅ **fully shipped + hand-reconciled** (A1–A5).
+> Block B ✅ **started** — FX-input removal, clickable dashboard shortcuts, UX audit doc
+> (`knowledge/ux-audit-2026-07.md` holds the ranked remaining backlog). See §E handoff in chat.
+
 ## Block A — GEN-1: one company currency, everything converts to it (money-critical)
 Order (each slice: build → verify by running / hand-reconcile → commit):
 - **A1. FX service** (`lib/fx/`): `convert(amount, from, to)` via EUR cross-rate. BGN↔EUR is the

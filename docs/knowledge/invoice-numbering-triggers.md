@@ -1,9 +1,19 @@
-# Invoice numbering is enforced by DB triggers that are NOT in the repo
+# Invoice numbering (triggers)
 
-**One-liner:** the live Postgres DB has two triggers on `invoices` that are the real
-source of truth for numbering rules — they exist **only in the database**, not in
-`lib/db/migrations/`, and the note-creation action silently violated them until N15.
-Written 2026-07-08. Supports N15, N24, N25, NAP-1, PROF-1.
+> **⚠️ SUPERSEDED 2026-07-08 by NUM-1.** Migration `0006_unified_document_numbering`
+> brought both triggers **into the repo** (closes **N24**) and rewrote the numbering
+> rule to **unified per-company**: every document (invoice, proforma, credit_note,
+> debit_note) takes the **next number in one per-company sequence** (+1 each time), no
+> duplicates. Notes NO LONGER inherit the parent's number — they get their own number and
+> keep the parent link via `referenced_invoice_id`. Proforma is now accepted. App-side
+> allocation uses the `'*'` sentinel sequence (see `allocateNumber`). The sections below
+> describe the ORIGINAL (pre-NUM-1) design for history; the current source of truth is
+> migration 0006. `owner decision: "unique numbering for every single document, +1 every time".`
+
+**Original one-liner (historical):** the live Postgres DB had two triggers on `invoices`
+that were the real source of truth for numbering — they existed **only in the database**,
+not in `lib/db/migrations/`, and the note-creation action silently violated them until N15.
+Written 2026-07-08. Supported N15, N24, N25, NAP-1, PROF-1.
 
 ## The triggers (dumped from the live DB, 2026-07-08)
 

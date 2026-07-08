@@ -192,14 +192,19 @@ async function runWithDomainValidation<T>(
 // Sequence allocator (atomic, row-locked)
 // ---------------------------------------------------------------------------
 
+// NUM-1: unified per-company numbering. Every document (invoice, proforma,
+// credit/debit note) draws from ONE per-company counter, tracked under the '*'
+// sentinel series (decoupled from the document's display series). The DB
+// trigger enforces the same rule and keeps this row in sync.
+const UNIFIED_SEQUENCE_KEY = '*';
+
 async function allocateNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  companyId: number,
-  series: string
+  companyId: number
 ): Promise<number> {
   const [row] = await tx.execute<{ allocated: number }>(sql`
     INSERT INTO invoice_sequences (company_id, series, next_number, updated_at)
-    VALUES (${companyId}, ${series}, 2, NOW())
+    VALUES (${companyId}, ${UNIFIED_SEQUENCE_KEY}, 2, NOW())
     ON CONFLICT (company_id, series)
     DO UPDATE SET
       next_number = invoice_sequences.next_number + 1,
@@ -481,7 +486,7 @@ export async function createInvoiceDraft(
     );
 
     const created = await db.transaction(async (tx) => {
-      const allocatedNumber = await allocateNumber(tx, companyId, series);
+      const allocatedNumber = await allocateNumber(tx, companyId);
 
       const [row] = await tx
         .insert(invoices)
@@ -995,11 +1000,11 @@ async function createNoteFromInvoice(
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    // DB contract (trg_enforce_invoice_numbering): credit/debit notes inherit
-    // the parent invoice's series AND number — they are not numbered from
-    // their own sequence. Multiple notes per parent share the same number.
-    const series = original.series;
-    const number = original.number;
+    // NUM-1: a note is its own document with its own unique number — it no
+    // longer inherits the parent's number. It keeps its own display series
+    // (CN/DN) and the parent LINK via referenced_invoice_id; the number is
+    // allocated from the unified per-company sequence inside the transaction.
+    const series = DEFAULT_SERIES[noteType];
 
     const supplier = overrides?.supplier
       ?? parsePartySnapshotStrict(original.supplierSnapshot);
@@ -1048,7 +1053,9 @@ async function createNoteFromInvoice(
       docType: noteType,
       status: 'finalized',
       series,
-      number,
+      // Placeholder for validation; the real unified number is allocated in the
+      // transaction below (same pattern as createInvoiceDraft).
+      number: 1,
       issueDate,
       supplyDate: supplyDate ?? null,
       currency,
@@ -1078,6 +1085,8 @@ async function createNoteFromInvoice(
     const articleIds = lineItemInputs.map((l) => l.articleId ?? null);
 
     const result = await db.transaction(async (tx) => {
+      const allocatedNumber = await allocateNumber(tx, companyId);
+
       const [created] = await tx
         .insert(invoices)
         .values({
@@ -1088,7 +1097,7 @@ async function createNoteFromInvoice(
           docType: noteType,
           status: InvoiceStatus.FINALIZED,
           series,
-          number,
+          number: allocatedNumber,
           issueDate,
           supplyDate: supplyDate ?? null,
           currency,
@@ -1246,12 +1255,10 @@ export async function listInvoices(
 // getNextNumber — exposes getNextInvoiceNumber to client components
 // ---------------------------------------------------------------------------
 
-export async function getNextNumber(
-  series?: string
-): Promise<ActionResult<number>> {
+export async function getNextNumber(): Promise<ActionResult<number>> {
   return action(async () => {
     const { companyId } = await requireCompanyAccess();
-    const nextNumber = await getNextInvoiceNumber(companyId, series ?? 'INV');
+    const nextNumber = await getNextInvoiceNumber(companyId);
     return nextNumber;
   });
 }

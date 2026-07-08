@@ -203,6 +203,7 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
   let partnerId: number;
   let secondDraftId: number;
   let creditNoteId: number;
+  let creditNoteNumber: number;
 
   it('creates a draft with an allocated number, correct totals, persisted lines, and an auto-created partner', async () => {
     const result = await createInvoiceDraft(baseDraftInput());
@@ -389,12 +390,14 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     const cn = unwrap(result, 'createCreditNoteFromInvoice');
     creditNoteId = cn.id;
 
+    creditNoteNumber = cn.number ?? 0;
+
     expect(cn.docType).toBe('credit_note');
     expect(cn.status).toBe('finalized');
-    // DB contract (trg_enforce_invoice_numbering): notes inherit the parent's
-    // series and number instead of drawing from their own sequence.
-    expect(cn.series).toBe('INV');
-    expect(cn.number).toBe(draftNumber);
+    // NUM-1: the note is its OWN document with its own unique number (above the
+    // parent), its own display series, and keeps the parent link.
+    expect(cn.series).toBe('CN');
+    expect(cn.number).toBeGreaterThan(draftNumber);
     expect(cn.referencedInvoiceId).toBe(draftId);
     expect(cn.partnerId).toBe(partnerId);
     expect(cn.totals).toMatchObject({
@@ -424,14 +427,16 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     expect(logs).toHaveLength(1);
   });
 
-  it('allows multiple credit notes against the same parent, all sharing its number', async () => {
+  it('allows multiple credit notes against the same parent, each with its own unique number', async () => {
     const result = await createCreditNoteFromInvoice(draftId);
     const second = unwrap(result, 'createCreditNoteFromInvoice (second)');
 
     expect(second.id).not.toBe(creditNoteId);
-    expect(second.series).toBe('INV');
-    expect(second.number).toBe(draftNumber);
+    expect(second.series).toBe('CN');
     expect(second.referencedInvoiceId).toBe(draftId);
+    // NUM-1: notes never share a number — the second note gets its own.
+    expect(second.number).toBeGreaterThan(draftNumber);
+    expect(second.number).not.toBe(creditNoteNumber);
 
     const logs = await db
       .select()
@@ -474,7 +479,9 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     );
     expect(cn.issueDate).toBe(TODAY);
     expect(cn.supplyDate).toBe(TODAY);
-    expect(cn.number).toBe(draft.number);
+    // NUM-1: the note gets its own unique number above the parent's.
+    expect(cn.number).toBeGreaterThan(draft.number ?? 0);
+    expect(cn.referencedInvoiceId).toBe(draft.id);
   });
 
   it('hides invoices from other companies (scoping on read + mutate)', async () => {

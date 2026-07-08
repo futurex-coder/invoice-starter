@@ -1,4 +1,4 @@
-import { desc, and, eq } from 'drizzle-orm';
+import { desc, and, eq, sql } from 'drizzle-orm';
 import { db } from '../drizzle';
 import { users, invoices, invoiceSequences, partners } from '../schema';
 
@@ -6,27 +6,36 @@ import { users, invoices, invoiceSequences, partners } from '../schema';
 // INVOICE NUMBERING
 // ─────────────────────────────────────────────
 
+// NUM-1: one unified per-company number space for ALL document types, tracked
+// under the '*' sentinel series (see allocateNumber / enforce_invoice_numbering).
+const UNIFIED_SEQUENCE_KEY = '*';
+
 /**
- * Get the next available invoice number for a company + series.
- * Reads from invoiceSequences (auto-maintained by the DB trigger).
- * If no sequence row exists yet (first invoice), returns 1.
+ * Get the next document number for a company (unified across all doc types).
+ * Reads the per-company sequence tracker; falls back to MAX(number)+1 if the
+ * tracker row doesn't exist yet. Returns 1 for a company with no documents.
  */
-export async function getNextInvoiceNumber(
-  companyId: number,
-  series: string = 'INV'
-): Promise<number> {
+export async function getNextInvoiceNumber(companyId: number): Promise<number> {
   const seq = await db
     .select({ nextNumber: invoiceSequences.nextNumber })
     .from(invoiceSequences)
     .where(
       and(
         eq(invoiceSequences.companyId, companyId),
-        eq(invoiceSequences.series, series)
+        eq(invoiceSequences.series, UNIFIED_SEQUENCE_KEY)
       )
     )
     .limit(1);
 
-  return seq[0]?.nextNumber ?? 1;
+  if (seq[0]?.nextNumber != null) return seq[0].nextNumber;
+
+  // Defensive: no unified tracker row yet — derive from the current max.
+  const [row] = await db
+    .select({ max: sql<number>`COALESCE(MAX(${invoices.number}), 0)::int` })
+    .from(invoices)
+    .where(eq(invoices.companyId, companyId));
+
+  return (row?.max ?? 0) + 1;
 }
 
 // ─────────────────────────────────────────────

@@ -111,7 +111,14 @@ _(The agent appends below. Seeded with the known-open product decisions from
   update `createNoteFromInvoice` + the numbering tests together. Keep the parent *link*
   (`referencedInvoiceId`) — only the number changes.
 
-### NUM-1 — Unified numbering rewrite: READY, needs a safe window — OPEN (implementation-gated)
+### NUM-1 — Unified numbering rewrite — ✅ DONE (2026-07-08)
+- **Shipped:** migration `0006_unified_document_numbering` — unified per-company +1 numbering
+  for every doc type, proforma accepted, notes get their own number (parent link kept), triggers
+  now in the repo (**N24 closed**). Verified end-to-end on the real DB (lifecycle 17 tests + money
+  suite). Owner confirmed the unified model ("+1 for every single document"). Old trigger was
+  captured for rollback (unused — no issues). Historical duplicate-numbered notes remain as
+  history (forward-only). Unblocks PROF-1.
+- **Original entry (for history):**
 - **When:** Phase 1.6, after EDIT-RULE + NEWINV-1 shipped (2026-07-08).
 - **Context:** D-NUM decided: every document gets its own unique number, no duplicates.
   I captured the exact live trigger source (`enforce_invoice_numbering` +

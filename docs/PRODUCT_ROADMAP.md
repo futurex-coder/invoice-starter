@@ -246,17 +246,22 @@ Feature work starts off a clean `main`.
 - **Compliance caveat (logged):** editing a finalized фактура in place diverges from BG
   immutability; the UPDATE_INVOICE activity entry is the audit trail. Per owner decision.
 
-**NUM-1 — Unique number per document, all types** · L · *schema/trigger* · *reverses run-1 CN-numbering*
-- Rule (D-NUM): every document — invoice, credit note, debit note, proforma — gets its **own
-  new unique number**; **no duplicate numbers ever**. The note→parent relationship stays via
-  `referencedInvoiceId`; only the number changes.
-- ⚠️ This is a **DB-trigger change** and closes **N24**: the live
-  `trg_enforce_invoice_numbering` currently forces notes to inherit the parent's series+number
-  and rejects proforma (full source in `knowledge/invoice-numbering-triggers.md`, NOT yet in
-  repo migrations). Steps: (1) bring the trigger into a repo migration; (2) rewrite it to assign
-  a fresh unique number per document and accept proforma; (3) update `createNoteFromInvoice`
-  (stop inheriting the number) + the numbering integration tests together; (4) re-verify CN/DN
-  creation UI→DB. Prerequisite for PROF-1 and the CN-FORM restriction.
+**NUM-1 — Unique number per document, all types** · L · *schema/trigger* · ✅ **done 2026-07-08** · *closes N24*
+- Rule (D-NUM): every document — invoice, credit note, debit note, proforma — takes the **next
+  number in one unified per-company sequence** (+1 each time); **no duplicate numbers**. The
+  note→parent link stays via `referencedInvoiceId`; only the number changes.
+- **Shipped:** migration `0006_unified_document_numbering` brings both numbering triggers into
+  the repo (**closes N24**) and rewrites `enforce_invoice_numbering` to unified per-company
+  strictly-increasing for all doc types, accepting proforma; notes keep the parent link but get
+  their own number. App-side allocation (`allocateNumber`) now uses one per-company counter
+  (the `'*'` sentinel series, decoupled from the display series); `createNoteFromInvoice`
+  allocates a fresh number + its own CN/DN display series; `getNextInvoiceNumber` reads the
+  unified counter (max-based fallback). Existing data seeded forward (each company continues
+  above its current max); historical duplicate-numbered notes remain as history (forward-only).
+- **Verified end-to-end on the real DB:** lifecycle integration suite (17 tests) — invoice gets
+  a unique number, each note gets its own number above the parent, multiple notes never share a
+  number, proforma path unblocked; money suite reseeded to unified 1–8 and green. Verify quad
+  green (type-check, lint 0, tests 223, build). Unblocks **PROF-1** → NEWINV-1 form restriction.
 
 **PROF-1 — Proforma as a real doc type** · M · *now in-scope (was backlog)* · *depends on NUM-1*
 - Make `proforma` insertable (trigger accepts it after NUM-1), with its own numbering and a

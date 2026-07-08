@@ -102,8 +102,9 @@ beforeAll(async () => {
     items: [],
   };
 
-  // Numbering trigger: invoices strictly increasing per (company, series);
-  // notes inherit the parent's series + number.
+  // NUM-1 numbering trigger: every document takes a unique, strictly-increasing
+  // number in one per-company sequence (notes no longer share the parent's).
+  // Insert order below is 1..8 so each insert satisfies the trigger.
   const [a] = await db
     .insert(invoices)
     .values({
@@ -143,7 +144,7 @@ beforeAll(async () => {
     docType: 'credit_note',
     status: 'finalized',
     paymentStatus: 'paid',
-    number: a.number,
+    number: 4,
     referencedInvoiceId: a.id,
     totals: gross(200),
   });
@@ -152,7 +153,7 @@ beforeAll(async () => {
     docType: 'credit_note',
     status: 'finalized',
     paymentStatus: 'unpaid',
-    number: b.number,
+    number: 5,
     referencedInvoiceId: b.id,
     totals: gross(150),
   });
@@ -161,7 +162,7 @@ beforeAll(async () => {
     docType: 'debit_note',
     status: 'finalized',
     paymentStatus: 'unpaid',
-    number: a.number,
+    number: 6,
     referencedInvoiceId: a.id,
     totals: gross(50),
   });
@@ -171,7 +172,7 @@ beforeAll(async () => {
     docType: 'invoice',
     status: 'draft',
     paymentStatus: 'unpaid',
-    number: 4,
+    number: 7,
     totals: gross(9999),
   });
   await db.insert(invoices).values({
@@ -179,7 +180,7 @@ beforeAll(async () => {
     docType: 'invoice',
     status: 'cancelled',
     paymentStatus: 'unpaid',
-    number: 5,
+    number: 8,
     totals: gross(7777),
   });
 }, 60_000);

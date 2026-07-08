@@ -61,7 +61,7 @@ export default async function CompanyDashboardPage({
     getPartnersForCompany(companyId),
     getArticlesForCompany(companyId),
     getActivityLogs(companyId, { limit: 5 }),
-    getNextInvoiceNumber(companyId, 'INV'),
+    getNextInvoiceNumber(companyId),
   ]);
 
   const base = `/c/${companyId}`;

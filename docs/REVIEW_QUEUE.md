@@ -111,6 +111,33 @@ _(The agent appends below. Seeded with the known-open product decisions from
   update `createNoteFromInvoice` + the numbering tests together. Keep the parent *link*
   (`referencedInvoiceId`) — only the number changes.
 
+### NUM-1 — Unified numbering rewrite: READY, needs a safe window — OPEN (implementation-gated)
+- **When:** Phase 1.6, after EDIT-RULE + NEWINV-1 shipped (2026-07-08).
+- **Context:** D-NUM decided: every document gets its own unique number, no duplicates.
+  I captured the exact live trigger source (`enforce_invoice_numbering` +
+  `prevent_invoice_number_mutation`, PG17) — see `knowledge/invoice-numbering-triggers.md`.
+  Numbers are assigned **app-side** (`createInvoiceDraft` reads `invoice_sequences`), the
+  trigger validates. Today: per-(company, series) sequence for invoices; notes **inherit the
+  parent's number**; proforma rejected.
+- **Interpretation taken:** "no numbers that duplicate" → **unified per-company sequence**
+  (all doc types draw one increasing counter per company), matching inv.bg / the BG norm
+  (RESEARCH-1). Alternative (per-series own sequences, numbers repeat across series) is less
+  likely given the wording — flag if you meant that.
+- **Plan (ready to execute):** (1) migration 0006 brings both triggers into the repo verbatim
+  (closes **N24**) via `CREATE OR REPLACE` (idempotent no-op on live, PG17); (2) rewrite
+  `enforce_invoice_numbering` → unified per-company strictly-increasing for invoice/proforma/
+  note, notes keep the parent link (`referenced_invoice_id`) but get their **own** next number,
+  proforma accepted; (3) update `invoice_sequences` usage to per-company, `createInvoiceDraft` /
+  `createNoteFromInvoice` / `getNextNumber` allocation, + numbering tests. Forward-only — existing
+  rows untouched (only 2 historical duplicate-number pairs exist, both in company 5 test data).
+- **Why not done unattended this session:** it rewrites **live numbering** while you're
+  actively creating documents, and numbering is legally regulated (and NAP-DOC is deferred).
+  Old trigger is captured for instant rollback and the change is forward-only, so it's
+  reversible — but it deserves a focused pass, not a rushed one at the end of a long turn.
+- **Needs from you:** confirm unified-per-company (or correct it), and a nod that it's OK to
+  rewrite the live numbering trigger now. Then it's a clean focused task. Unblocks PROF-1 →
+  NEWINV-1 form restriction.
+
 ### CN-FORM — New-invoice form offers doc types the DB rejects (N25) — ✅ RESOLVED (2026-07-08)
 - **Context:** The DocumentCard radio offers `proforma` / `credit_note` / `debit_note`.
   `proforma` can never be inserted (trigger: `Unknown doc_type`); notes via

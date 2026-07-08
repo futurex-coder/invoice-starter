@@ -275,14 +275,16 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 
 ## 4. Cross-cutting
 
-**VAT-1 — VAT paid vs received + tax view** · L · ⭐ *core value — see PRODUCT_CONTEXT §1*
-- The headline differentiated value from the founder interview: per company, per month, show
-  **VAT received** (on issued invoices) vs **VAT paid** (on received invoices), the **net VAT owed
-  to НАП**, and the trend — so owners/accountants see and optimize the monthly tax.
-- Depends on the numbers being trustworthy first: GEN-1 (base-currency aggregation) + DASH-1
-  (aggregation rules) + OI-1 (accounted status). Build correctness, then the view.
-- Verify by running: with mixed income + expense invoices in a month, the VAT-owed figure
-  reconciles by hand; toggling accounted/paid updates it correctly.
+**VAT-1 — VAT paid vs received + tax view** · L · ⭐ *core value* · ✅ **v1 done 2026-07-08**
+- New **ДДС / VAT** page (`/c/[id]/vat`, in the sidebar): last 12 months × currency —
+  ДДС продажби (accrual: all finalized docs, CN subtract — `issuedVatSumSql` in money.ts),
+  ДДС покупки (confirmed received docs), **Нето за НАП** (red = owed, green = refundable),
+  current month highlighted; mixed-currency banner until GEN-1 lands FX.
+- **Verified by hand against the raw DB**: all 8 live rows reconcile exactly (incl. CN
+  issued-in-February subtraction 100−80=+20, draft exclusion, per-currency split, received
+  side −1160 EUR refundable). Zero console errors; mobile: table scrolls, no body overflow.
+- Follow-ups when unblocked: FX-converted single-currency view (GEN-1/D-FX); month detail
+  drill-down (дневник-style doc list per month) — natural next slice with OI-5.
 
 **TRANS-1 — Notifications on new/changed documents** · M · ⭐ *core value (transparency)*
 - Both directions: notify the **accountant** when the owner adds/changes an invoice (income) or a

@@ -8,12 +8,14 @@ import {
   companies,
   partners,
   articles,
+  receivedInvoices,
   ActivityType,
   InvoiceStatus,
   type Invoice,
   type NewInvoice,
 } from '@/lib/db/schema';
 import { getNextInvoiceNumber } from '@/lib/db/queries';
+import { issuedVatSumSql } from '@/lib/db/queries/money';
 import { action, failWith, type ActionResult } from '@/lib/actions/result';
 import { requireCompanyAccess } from '@/lib/auth/guards';
 import { logActivity, logActivityInTx } from '@/lib/db/activity';
@@ -1131,5 +1133,100 @@ export async function getNextNumber(
     const { companyId } = await requireCompanyAccess();
     const nextNumber = await getNextInvoiceNumber(companyId, series ?? 'INV');
     return nextNumber;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// getVatSummary — VAT-1: ДДС received vs paid, net owed to НАП, by month
+// ---------------------------------------------------------------------------
+
+export interface VatMonthRow {
+  /** ISO month, e.g. "2026-07" */
+  month: string;
+  /** Document currency — rows are per currency until GEN-1 lands FX. */
+  currency: string;
+  /** VAT charged on issued documents (accrual: all finalized; CN subtract). */
+  vatIssued: number;
+  /** VAT paid on received documents (confirmed, non-archived). */
+  vatPaid: number;
+  /** vatIssued − vatPaid: positive = owed to НАП, negative = refundable. */
+  vatNet: number;
+}
+
+export async function getVatSummary(input?: {
+  months?: number;
+}): Promise<ActionResult<VatMonthRow[]>> {
+  return action(async () => {
+    const { companyId } = await requireCompanyAccess();
+    const months = Math.min(Math.max(input?.months ?? 12, 1), 36);
+
+    const issued = await db
+      .select({
+        month: sql<string>`to_char(${invoices.issueDate}::date, 'YYYY-MM')`,
+        currency: invoices.currency,
+        vat: issuedVatSumSql,
+      })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.companyId, companyId),
+          sql`${invoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
+        )
+      )
+      .groupBy(
+        sql`to_char(${invoices.issueDate}::date, 'YYYY-MM')`,
+        invoices.currency
+      );
+
+    const paid = await db
+      .select({
+        month: sql<string>`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`,
+        currency: receivedInvoices.currency,
+        vat: sql<string>`COALESCE(SUM(
+          CASE WHEN ${receivedInvoices.status} = 'confirmed'
+               AND ${receivedInvoices.archivedAt} IS NULL
+          THEN ${receivedInvoices.vatAmount}::numeric
+          ELSE 0 END
+        ), 0)`,
+      })
+      .from(receivedInvoices)
+      .where(
+        and(
+          eq(receivedInvoices.companyId, companyId),
+          sql`${receivedInvoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
+        )
+      )
+      .groupBy(
+        sql`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`,
+        receivedInvoices.currency
+      );
+
+    const byKey = new Map<string, VatMonthRow>();
+    const upsert = (month: string | null, currency: string | null) => {
+      const m = month ?? 'unknown';
+      const c = currency ?? 'EUR';
+      const key = `${m}|${c}`;
+      let row = byKey.get(key);
+      if (!row) {
+        row = { month: m, currency: c, vatIssued: 0, vatPaid: 0, vatNet: 0 };
+        byKey.set(key, row);
+      }
+      return row;
+    };
+    for (const r of issued) {
+      const row = upsert(r.month, r.currency);
+      row.vatIssued = Math.round(parseFloat(r.vat) * 100) / 100;
+    }
+    for (const r of paid) {
+      const row = upsert(r.month, r.currency);
+      row.vatPaid = Math.round(parseFloat(r.vat) * 100) / 100;
+    }
+    for (const row of byKey.values()) {
+      row.vatNet = Math.round((row.vatIssued - row.vatPaid) * 100) / 100;
+    }
+
+    return [...byKey.values()].sort(
+      (a, b) => b.month.localeCompare(a.month) || a.currency.localeCompare(b.currency)
+    );
   });
 }

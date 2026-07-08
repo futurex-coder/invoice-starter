@@ -55,3 +55,21 @@ export const overdueCountSql: SQL<number> = sql`
       AND ${invoices.paymentStatus} <> 'paid'
       AND ${invoices.dueDate}::date < CURRENT_DATE
   )`;
+
+/** Signed VAT amount: credit notes negative, everything else positive. */
+export const signedVatSql: SQL<string> = sql`
+  CASE WHEN ${invoices.docType} = 'credit_note'
+       THEN -(${invoices.totals}->>'vatAmount')::numeric
+       ELSE (${invoices.totals}->>'vatAmount')::numeric END`;
+
+/**
+ * VAT charged on issued documents — ACCRUAL basis: every finalized document
+ * counts regardless of payment (ЗДДС owes VAT on issuance, not collection).
+ * Credit notes subtract, debit notes add. Used by VAT-1.
+ */
+export const issuedVatSumSql: SQL<string> = sql`
+  COALESCE(SUM(
+    CASE WHEN ${invoices.status} = 'finalized'
+    THEN ${signedVatSql}
+    ELSE 0 END
+  ), 0)`;

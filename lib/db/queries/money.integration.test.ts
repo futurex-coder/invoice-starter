@@ -22,7 +22,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { eq, like, inArray } from 'drizzle-orm';
+import { like, inArray } from 'drizzle-orm';
 import { db, client } from '@/lib/db/drizzle';
 import {
   users,

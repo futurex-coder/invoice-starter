@@ -176,10 +176,13 @@ Feature work starts off a clean `main`.
   sequential legal document (see decisions register; Invoice Ninja's `lock_invoices`
   setting is the researched compromise pattern).
 
-**OI-11 — "All invoices" view** · S/M · *UX*
-- The Invoices page tabs **Outgoing / Received**. Add an **All** tab (or toggle) listing every
-  invoice — outgoing + received together — with a Direction column to tell them apart. Shares
-  the OI-9 column set + filters. One place to see everything.
+**OI-11 — "All invoices" view** · S/M · ✅ **done 2026-07-08**
+- New **All** tab (`/c/[id]/invoices/all`): UNION of outgoing documents (all statuses —
+  they're your own working set) + confirmed non-archived received docs, ordered by issue
+  date, with Издадена/Получена direction badges, month + search filters (URL-synced),
+  pagination, and per-row links to the right detail page.
+- Verified live: 8 interleaved documents; `month=2026-05` narrows to exactly the one May
+  received invoice.
 
 **BULK-1 — Row selection + bulk email via Google** · M · *depends on EMAIL-1 + AUTH-1*
 - On **every** invoice tab (Outgoing / Received / All): a **checkbox per row** + select-all, and

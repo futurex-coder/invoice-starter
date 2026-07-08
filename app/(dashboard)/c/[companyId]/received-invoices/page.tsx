@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { FileText, Inbox, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -50,8 +50,10 @@ type ReceivedInvoicesFilterState = {
 
 const RECEIVED_INVOICES_DEFAULTS: ReceivedInvoicesFilterState = {
   search: '',
-  // Default: hide drafts. Drafts are surfaced via the pending banner above.
-  status: 'confirmed',
+  // Default: the working set — analyzing / failed / draft / confirmed (only
+  // discarded is hidden). Keeps freshly-uploaded rows visible so the async
+  // scanner can drive their analysis.
+  status: 'all',
   paymentStatus: 'all',
   dateFrom: '',
   dateTo: '',
@@ -59,7 +61,21 @@ const RECEIVED_INVOICES_DEFAULTS: ReceivedInvoicesFilterState = {
 };
 
 function isLifecycleStatus(value: string): value is ReceivedInvoiceLifecycleStatus {
-  return value === 'draft' || value === 'confirmed' || value === 'discarded';
+  return (
+    value === 'analyzing' ||
+    value === 'failed' ||
+    value === 'draft' ||
+    value === 'confirmed' ||
+    value === 'discarded'
+  );
+}
+
+// ASYNC-SCAN: max analyze requests in flight at once (respects the AI API).
+const MAX_CONCURRENT_ANALYSIS = 5;
+const ANALYZE_POLL_MS = 3500;
+
+async function analyzeReceivedInvoice(id: number): Promise<void> {
+  await fetch(`/api/received-invoices/${id}/analyze`, { method: 'POST' });
 }
 function isPaymentStatus(value: string): value is PaymentStatus {
   return value === 'unpaid' || value === 'partial' || value === 'paid';
@@ -134,6 +150,79 @@ export default function ReceivedInvoicesPage() {
   const data = list.result;
 
   const [pendingId, setPendingId] = useState<number | null>(null);
+
+  // ------------------------------------------------------------------
+  // ASYNC-SCAN: drive parallel background analysis for 'analyzing' rows.
+  // The list owns orchestration so a fresh page load (or a tab that was
+  // closed mid-batch) automatically resumes anything still analyzing.
+  // ------------------------------------------------------------------
+  const analyzingIds = useMemo(
+    () =>
+      (data?.items ?? [])
+        .filter((i) => i.status === 'analyzing')
+        .map((i) => i.id),
+    [data]
+  );
+
+  const startedRef = useRef<Set<number>>(new Set());
+  const inFlightRef = useRef(0);
+  const refetchRef = useRef(list.refetch);
+  useEffect(() => {
+    refetchRef.current = list.refetch;
+  }, [list.refetch]);
+
+  useEffect(() => {
+    if (analyzingIds.length === 0) return;
+    let cancelled = false;
+
+    const startNext = () => {
+      for (const id of analyzingIds) {
+        if (cancelled) return;
+        if (inFlightRef.current >= MAX_CONCURRENT_ANALYSIS) return;
+        if (startedRef.current.has(id)) continue;
+        startedRef.current.add(id);
+        inFlightRef.current += 1;
+        void analyzeReceivedInvoice(id)
+          .catch(() => {
+            // Failure is persisted server-side as status 'failed'; the
+            // refetch below surfaces it with a Retry affordance.
+          })
+          .finally(() => {
+            inFlightRef.current -= 1;
+            if (!cancelled) {
+              void refetchRef.current();
+              startNext();
+            }
+          });
+      }
+    };
+    startNext();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [analyzingIds]);
+
+  // Safety-net poll: keep the list fresh while anything is analyzing (also
+  // catches rows another tab/device is processing).
+  useEffect(() => {
+    if (analyzingIds.length === 0) return;
+    const t = setInterval(() => {
+      void refetchRef.current();
+    }, ANALYZE_POLL_MS);
+    return () => clearInterval(t);
+  }, [analyzingIds.length]);
+
+  const handleRetry = useCallback(async (id: number) => {
+    startedRef.current.delete(id);
+    setPendingId(id);
+    try {
+      await analyzeReceivedInvoice(id);
+    } finally {
+      setPendingId(null);
+      await refetchRef.current();
+    }
+  }, []);
 
   type ConfirmTarget = { item: ReceivedInvoiceListItem; mode: 'discard' | 'hardDelete' };
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
@@ -251,7 +340,7 @@ export default function ReceivedInvoicesPage() {
       {data && (
         <PendingReviewBanner
           count={data.pendingCount}
-          description=" — drafts aren't shown in the list below."
+          description=" awaiting review — analyzed and saved as drafts below."
           className="mb-4 items-center"
           action={
             <Button size="sm" variant="outline" onClick={reviewNextPending}>
@@ -303,6 +392,7 @@ export default function ReceivedInvoicesPage() {
                 void list.runMutation(() => restoreDiscardedReceivedInvoice(id))
               }
               onHardDelete={(item) => setConfirmTarget({ item, mode: 'hardDelete' })}
+              onRetry={handleRetry}
             />
           )}
           {data && (

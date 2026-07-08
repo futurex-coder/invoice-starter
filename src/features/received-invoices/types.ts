@@ -1,6 +1,8 @@
 import type { ExtractedInvoice } from '@/app/api/invoices/extract/schema';
 
 export const RECEIVED_INVOICE_STATUSES = [
+  'analyzing',
+  'failed',
   'draft',
   'confirmed',
   'discarded',

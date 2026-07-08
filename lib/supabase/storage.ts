@@ -46,6 +46,22 @@ export async function uploadToBucket(input: {
   }
 }
 
+export async function downloadFromBucket(input: {
+  bucket: string;
+  path: string;
+}): Promise<Buffer> {
+  const { data, error } = await getClient()
+    .storage.from(input.bucket)
+    .download(input.path);
+  if (error || !data) {
+    throw new Error(
+      `Storage download failed: ${error?.message ?? 'no data'}`
+    );
+  }
+  const arrayBuffer = await data.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 export async function createSignedUrl(input: {
   bucket: string;
   path: string;

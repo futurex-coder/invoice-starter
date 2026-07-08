@@ -137,8 +137,29 @@ Feature work starts off a clean `main`.
 
 ### Phase 1.5 — ⭐ TOP PRIORITY — Async expense scanner (non-blocking upload → analyze → draft)
 
-**ASYNC-SCAN — Non-blocking parallel expense scanner** · L · ⭐ *flagship "easy to use"*
-- **Problem (today, synchronous & blocking):** `app/api/received-invoices/upload/route.ts`
+**ASYNC-SCAN — Non-blocking parallel expense scanner** · L · ⭐ *flagship "easy to use"* · ✅ **done 2026-07-08**
+- **Shipped:** upload is now store-only (inserts an `analyzing` row + returns immediately —
+  no AI call in the request); a new `POST /api/received-invoices/[id]/analyze` runs the
+  extraction and flips the row to `draft` (or `failed`+error, retryable); the uploader uploads
+  in parallel and redirects to the list; the list **drives analysis** for any `analyzing` row
+  (capped at 5 concurrent) and SWR-polls until none remain; the table shows `analyzing`
+  (spinner) / `failed` (Retry) / `draft` states, with the file-open link working from upload.
+  Migration `0005_free_ares` (status `analyzing`/`failed`, nullable `rawExtraction`/`extractedAt`,
+  `analysis_started_at`/`analysis_error`). Default list view changed to the working set
+  (analyzing/failed/draft/confirmed; only discarded hidden) so in-progress rows are always
+  visible + driven.
+- **Verified end-to-end against the real DB + AI + storage:** a real uploaded PDF
+  ("таблет фактура.pdf", company 81) went upload→`analyzing`→driver auto-fired→extraction
+  (`claude-sonnet-4-6`)→`draft` with invoice №0814051604, supplier ЗОРА ММС ООД, net 1103.88 +
+  VAT 220.78 = gross 1324.66 EUR (reconciled by hand), 1 line, confidence high. Failure path
+  verified (missing model → `failed` + stored error → Retry). Duplicate detection still fires
+  on the analyzed draft. Verify quad green (type-check, lint 0, tests 222, build).
+- **Fix found while verifying (N27):** the extraction model constant was
+  `claude-sonnet-4-20250514`, now **retired → 404 not_found** on the live API key — every
+  extraction was failing. Updated `EXTRACTION_MODEL_ID` to `claude-sonnet-4-6` (probed the key:
+  4-5 / 4-6 / sonnet-5 / haiku-4-5 all 200; only the dated snapshot 404s). This affected the
+  OLD synchronous flow too — extraction was broken before this change.
+- **Problem (before — synchronous & blocking):** `app/api/received-invoices/upload/route.ts`
   stores the file **and** runs the two-pass Claude extraction *inline* before the row exists,
   and `ReceivedInvoiceUploader.tsx` processes dropped files **serially**. So the user waits
   through up to two AI calls **per file, one file at a time**, staring at "Analyzing" before

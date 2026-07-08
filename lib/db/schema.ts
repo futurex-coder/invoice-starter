@@ -431,8 +431,10 @@ export const receivedInvoices = pgTable(
       { onDelete: 'set null' }
     ),
 
-    // Lifecycle: 'draft' | 'confirmed' | 'discarded'
-    status: varchar('status', { length: 20 }).notNull().default('draft'),
+    // Lifecycle: 'analyzing' | 'failed' | 'draft' | 'confirmed' | 'discarded'
+    // 'analyzing' = file stored, AI extraction running in the background;
+    // 'failed' = extraction errored (retryable). Both precede 'draft'.
+    status: varchar('status', { length: 20 }).notNull().default('analyzing'),
 
     // Original file (Supabase Storage)
     fileBucket: varchar('file_bucket', { length: 64 }).notNull(),
@@ -443,11 +445,16 @@ export const receivedInvoices = pgTable(
     // SHA-256 of the stored bytes — used for "exact same file already uploaded" dedup
     fileChecksumSha256: varchar('file_checksum_sha256', { length: 64 }),
 
-    // Immutable record of the AI extraction (audit trail)
-    rawExtraction: jsonb('raw_extraction').notNull(),
+    // Immutable record of the AI extraction (audit trail). Nullable now that
+    // rows are inserted at upload time (status 'analyzing') before the AI runs;
+    // populated when analysis completes.
+    rawExtraction: jsonb('raw_extraction'),
     extractionConfidence: varchar('extraction_confidence', { length: 10 }),
     extractionModelId: varchar('extraction_model_id', { length: 64 }),
-    extractedAt: timestamp('extracted_at').notNull().defaultNow(),
+    extractedAt: timestamp('extracted_at'),
+    // Background-analysis tracking (async scanner)
+    analysisStartedAt: timestamp('analysis_started_at'),
+    analysisError: text('analysis_error'),
 
     // Reviewed/confirmed values — populated/edited during review
     partnerId: integer('partner_id').references(() => partners.id, {

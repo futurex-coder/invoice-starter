@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,23 +13,18 @@ import {
 import { ReceivedInvoiceUploader } from '@/components/received-invoices/ReceivedInvoiceUploader';
 import { requireStringParam } from '@/lib/route-params';
 
-interface Uploaded {
-  receivedInvoiceId: number;
-  originalName: string;
-}
-
 export default function ReceivedInvoicesUploadPage() {
   const router = useRouter();
   const params = useParams();
   const companyId = requireStringParam(params, 'companyId');
 
-  const [uploaded, setUploaded] = useState<Uploaded[]>([]);
-
-  const startReview = () => {
-    if (uploaded.length === 0) return;
-    router.push(
-      `/c/${companyId}/received-invoices/review/${uploaded[0].receivedInvoiceId}`
-    );
+  // ASYNC-SCAN: uploads are store-only and fast. As soon as the files are in,
+  // send the user to the list — it shows the fresh 'analyzing' rows and drives
+  // the parallel analysis + polling. No blocking, no separate review step here.
+  const handleUploaded = () => {
+    // The list's default view now shows the working set (analyzing / failed /
+    // draft / confirmed) and drives analysis, so the base path is enough.
+    router.push(`/c/${companyId}/received-invoices`);
   };
 
   return (
@@ -44,64 +38,19 @@ export default function ReceivedInvoicesUploadPage() {
         <h1 className="text-lg font-medium lg:text-2xl">Upload received invoices</h1>
       </div>
 
-      <Card className="mb-6">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-base">1. Drop the files</CardTitle>
+          <CardTitle className="text-base">Drop the files</CardTitle>
         </CardHeader>
         <CardContent>
-          <ReceivedInvoiceUploader
-            onAllUploaded={(items) =>
-              setUploaded((prev) => {
-                const seen = new Set(prev.map((p) => p.receivedInvoiceId));
-                const fresh = items.filter(
-                  (i) => !seen.has(i.receivedInvoiceId)
-                );
-                return [...prev, ...fresh];
-              })
-            }
-          />
+          <ReceivedInvoiceUploader onAllUploaded={handleUploaded} />
+          <p className="mt-3 text-xs text-gray-500">
+            Files upload instantly, then analyze in the background. You&apos;ll
+            see them in the list right away and can review each one as soon as
+            it&apos;s ready — nothing is lost, everything is saved as a draft.
+          </p>
         </CardContent>
       </Card>
-
-      {uploaded.length > 0 && (
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">
-              2. Review extracted data
-            </CardTitle>
-            <Button
-              onClick={startReview}
-              className="bg-primary hover:bg-primary/90"
-            >
-              Start review
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2">
-              {uploaded.map((u) => (
-                <li
-                  key={u.receivedInvoiceId}
-                  className="flex items-center gap-3 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
-                >
-                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                  <span className="flex-1 truncate">{u.originalName}</span>
-                  <Link
-                    href={`/c/${companyId}/received-invoices/review/${u.receivedInvoiceId}`}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    Review →
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-xs text-gray-500">
-              You can review them now or come back later — drafts wait in the
-              queue and aren&apos;t counted in any totals until confirmed.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </section>
   );
 }

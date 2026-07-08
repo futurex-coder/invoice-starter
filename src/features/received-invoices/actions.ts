@@ -8,7 +8,7 @@ import {
   partners,
   ActivityType,
 } from '@/lib/db/schema';
-import { logActivity, logActivityInTx } from '@/lib/db/activity';
+import { logActivity } from '@/lib/db/activity';
 import {
   createSignedUrl,
   deleteFromBucket,
@@ -168,132 +168,245 @@ async function findDuplicates(
 }
 
 // ---------------------------------------------------------------------------
-// createDraftFromUpload
-// Called by /api/received-invoices/upload after the file is in Storage and
-// extraction succeeded. Creates a draft row + initial line items from the
-// raw extraction. Returns potential duplicates for warning.
+// ASYNC-SCAN upload → analyze → draft pipeline
+//   1. /api/received-invoices/upload stores the file + createAnalyzingRow (shell)
+//   2. /api/received-invoices/[id]/analyze runs the AI + applyExtractionToRow
+//   3. on failure the analyze route calls markAnalysisFailed (retryable)
 // ---------------------------------------------------------------------------
 
-export async function createDraftFromUpload(input: {
+/**
+ * Pure mapper: turn a raw AI extraction into the DB-shaped draft values
+ * (line rows with computed amounts, header totals, and the extracted header
+ * fields). Shared by the analyze path — no DB access here.
+ */
+function mapExtractionToDraft(extraction: ExtractedInvoice): {
+  supplier: SupplierSnapshot;
+  lines: Array<{
+    sortOrder: number;
+    description: string;
+    quantity: string;
+    unit: string;
+    unitPrice: string;
+    vatRate: number;
+    discountPercent: string;
+    netAmount: string;
+    vatAmount: string;
+    grossAmount: string;
+  }>;
+  totals: { net: number; vat: number; gross: number };
+  invoiceNumber: string | null;
+  issueDate: string | null;
+  supplyDate: string | null;
+  currency: string;
+  paymentMethod: string;
+  customerNote: string | null;
+} {
+  const supplier = supplierFromExtraction(extraction);
+
+  const lines = extraction.line_items.map((l, i) => {
+    const subtotal = l.quantity * l.unit_price;
+    const discount = subtotal * (l.discount_percent / 100);
+    const net = Math.round((subtotal - discount) * 100) / 100;
+    const vat = Math.round(net * (l.vat_rate / 100) * 100) / 100;
+    const gross = Math.round((net + vat) * 100) / 100;
+    return {
+      sortOrder: i,
+      description: l.description,
+      quantity: String(l.quantity),
+      unit: l.unit,
+      unitPrice: String(l.unit_price),
+      vatRate: l.vat_rate,
+      discountPercent: String(l.discount_percent),
+      netAmount: String(net),
+      vatAmount: String(vat),
+      grossAmount: String(gross),
+    };
+  });
+
+  const totals = lines.reduce(
+    (acc, l) => ({
+      net: acc.net + Number(l.netAmount),
+      vat: acc.vat + Number(l.vatAmount),
+      gross: acc.gross + Number(l.grossAmount),
+    }),
+    { net: 0, vat: 0, gross: 0 }
+  );
+
+  return {
+    supplier,
+    lines,
+    totals,
+    invoiceNumber: extraction.invoice_number?.value ?? null,
+    issueDate: extraction.issue_date?.value ?? null,
+    supplyDate: extraction.supply_date?.value ?? null,
+    currency: extraction.currency?.value ?? 'EUR',
+    paymentMethod: extraction.payment_method?.value ?? 'bank',
+    customerNote: extraction.customer_note?.value ?? null,
+  };
+}
+
+/**
+ * ASYNC-SCAN step 1: insert a shell row at upload time, BEFORE the AI runs.
+ * Status is 'analyzing'; extracted fields are empty until `applyExtractionToRow`
+ * fills them. Returns the new id so the client can kick off analysis.
+ */
+export async function createAnalyzingRow(input: {
   fileBucket: string;
   fileObjectKey: string;
   fileMimeType: string;
   fileSizeBytes: number;
   fileOriginalName: string;
   fileChecksumSha256: string;
-  rawExtraction: ExtractedInvoice;
-  extractionModelId: string;
-}): Promise<ActionResult<UploadDraftResult>> {
+}): Promise<ActionResult<{ id: number }>> {
   return action(async () => {
     const { user, companyId } = await requireCompanyAccess();
 
-    const supplier = supplierFromExtraction(input.rawExtraction);
-    const partnerMatch = supplier.eik
-      ? await findPartnerByEik(companyId, supplier.eik)
-      : null;
+    const [row] = await db
+      .insert(receivedInvoices)
+      .values({
+        companyId,
+        uploadedByUserId: user.id,
+        status: 'analyzing',
+        fileBucket: input.fileBucket,
+        fileObjectKey: input.fileObjectKey,
+        fileMimeType: input.fileMimeType,
+        fileSizeBytes: input.fileSizeBytes,
+        fileOriginalName: input.fileOriginalName,
+        fileChecksumSha256: input.fileChecksumSha256,
+        rawExtraction: null,
+        analysisStartedAt: new Date(),
+      })
+      .returning({ id: receivedInvoices.id });
 
-    const lines = input.rawExtraction.line_items.map((l, i) => {
-      const subtotal = l.quantity * l.unit_price;
-      const discount = subtotal * (l.discount_percent / 100);
-      const net = Math.round((subtotal - discount) * 100) / 100;
-      const vat = Math.round(net * (l.vat_rate / 100) * 100) / 100;
-      const gross = Math.round((net + vat) * 100) / 100;
-      return {
-        sortOrder: i,
-        description: l.description,
-        quantity: String(l.quantity),
-        unit: l.unit,
-        unitPrice: String(l.unit_price),
-        vatRate: l.vat_rate,
-        discountPercent: String(l.discount_percent),
-        netAmount: String(net),
-        vatAmount: String(vat),
-        grossAmount: String(gross),
-      };
-    });
+    if (!row) throw new Error('Failed to create received invoice row');
 
-    const totals = lines.reduce(
-      (acc, l) => ({
-        net: acc.net + Number(l.netAmount),
-        vat: acc.vat + Number(l.vatAmount),
-        gross: acc.gross + Number(l.grossAmount),
-      }),
-      { net: 0, vat: 0, gross: 0 }
+    await logActivity(
+      companyId,
+      user.id,
+      ActivityType.UPLOAD_RECEIVED_INVOICE
     );
 
-    const extractedInvoiceNumber =
-      input.rawExtraction.invoice_number?.value ?? null;
-    const extractedIssueDate = input.rawExtraction.issue_date?.value ?? null;
-    const extractedSupplyDate =
-      input.rawExtraction.supply_date?.value ?? null;
-    const extractedCurrency = input.rawExtraction.currency?.value ?? null;
-    const extractedPaymentMethod =
-      input.rawExtraction.payment_method?.value ?? null;
-    const extractedCustomerNote =
-      input.rawExtraction.customer_note?.value ?? null;
+    return { id: row.id };
+  });
+}
 
-    const created = await db.transaction(async (tx) => {
-      const [row] = await tx
-        .insert(receivedInvoices)
-        .values({
-          companyId,
-          uploadedByUserId: user.id,
+/**
+ * ASYNC-SCAN step 2: fill an 'analyzing' row with the AI extraction and flip
+ * it to 'draft'. Idempotent — replaces line items so a re-run (retry / double
+ * fire) can't duplicate them. Company-scoped; only touches rows that are still
+ * 'analyzing' or 'failed' (never overwrites a reviewed draft/confirmed row).
+ */
+export async function applyExtractionToRow(
+  id: number,
+  rawExtraction: ExtractedInvoice,
+  extractionModelId: string
+): Promise<ActionResult<UploadDraftResult>> {
+  return action(async () => {
+    const { companyId } = await requireCompanyAccess();
+
+    const [existing] = await db
+      .select({
+        id: receivedInvoices.id,
+        status: receivedInvoices.status,
+        checksum: receivedInvoices.fileChecksumSha256,
+      })
+      .from(receivedInvoices)
+      .where(
+        and(
+          eq(receivedInvoices.id, id),
+          eq(receivedInvoices.companyId, companyId)
+        )
+      )
+      .limit(1);
+
+    if (!existing) throw new Error('Received invoice not found');
+    if (existing.status !== 'analyzing' && existing.status !== 'failed') {
+      // Already reviewed — do not clobber. Report the current id back.
+      return { id, duplicates: [] };
+    }
+
+    const mapped = mapExtractionToDraft(rawExtraction);
+    const partnerMatch = mapped.supplier.eik
+      ? await findPartnerByEik(companyId, mapped.supplier.eik)
+      : null;
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(receivedInvoices)
+        .set({
           status: 'draft',
-          fileBucket: input.fileBucket,
-          fileObjectKey: input.fileObjectKey,
-          fileMimeType: input.fileMimeType,
-          fileSizeBytes: input.fileSizeBytes,
-          fileOriginalName: input.fileOriginalName,
-          fileChecksumSha256: input.fileChecksumSha256,
-          rawExtraction: input.rawExtraction,
-          extractionConfidence: input.rawExtraction.overall_confidence,
-          extractionModelId: input.extractionModelId,
+          rawExtraction,
+          extractionConfidence: rawExtraction.overall_confidence,
+          extractionModelId,
+          extractedAt: new Date(),
+          analysisError: null,
           partnerId: partnerMatch?.id ?? null,
-          supplierSnapshot: supplier,
-          invoiceNumber: extractedInvoiceNumber,
-          issueDate: extractedIssueDate,
-          supplyDate: extractedSupplyDate,
-          // dueDate no longer extracted (RV-2); the column stays for
-          // historical rows and manual payment tracking.
-          currency: extractedCurrency ?? 'EUR',
+          supplierSnapshot: mapped.supplier,
+          invoiceNumber: mapped.invoiceNumber,
+          issueDate: mapped.issueDate,
+          supplyDate: mapped.supplyDate,
+          currency: mapped.currency,
           fxRate: '1',
-          netAmount: String(Math.round(totals.net * 100) / 100),
-          vatAmount: String(Math.round(totals.vat * 100) / 100),
-          grossAmount: String(Math.round(totals.gross * 100) / 100),
-          paymentMethod: extractedPaymentMethod ?? 'bank',
-          paymentStatus: 'unpaid',
-          accountingStatus: 'pending',
-          notes: extractedCustomerNote,
+          netAmount: String(Math.round(mapped.totals.net * 100) / 100),
+          vatAmount: String(Math.round(mapped.totals.vat * 100) / 100),
+          grossAmount: String(Math.round(mapped.totals.gross * 100) / 100),
+          paymentMethod: mapped.paymentMethod,
+          notes: mapped.customerNote,
+          updatedAt: new Date(),
         })
-        .returning();
+        .where(eq(receivedInvoices.id, id));
 
-      if (!row) throw new Error('Failed to create received invoice draft');
+      // Replace lines (idempotent re-run safety).
+      await tx
+        .delete(receivedInvoiceLines)
+        .where(eq(receivedInvoiceLines.receivedInvoiceId, id));
 
-      if (lines.length > 0) {
+      if (mapped.lines.length > 0) {
         await tx
           .insert(receivedInvoiceLines)
-          .values(lines.map((l) => ({ ...l, receivedInvoiceId: row.id })));
+          .values(
+            mapped.lines.map((l) => ({ ...l, receivedInvoiceId: id }))
+          );
       }
-
-      await logActivityInTx(
-        tx,
-        companyId,
-        user.id,
-        ActivityType.UPLOAD_RECEIVED_INVOICE
-      );
-
-      return row;
     });
 
     const duplicates = await findDuplicates(companyId, {
-      excludeId: created.id,
-      checksum: input.fileChecksumSha256,
+      excludeId: id,
+      checksum: existing.checksum,
       partnerId: partnerMatch?.id ?? null,
-      invoiceNumber: extractedInvoiceNumber,
-      issueDate: extractedIssueDate,
+      invoiceNumber: mapped.invoiceNumber,
+      issueDate: mapped.issueDate,
     });
 
-    return { id: created.id, duplicates };
+    return { id, duplicates };
+  });
+}
+
+/**
+ * ASYNC-SCAN: mark an 'analyzing' row as 'failed' so the list can offer Retry.
+ * Keeps the file (retryable). Company-scoped.
+ */
+export async function markAnalysisFailed(
+  id: number,
+  message: string
+): Promise<ActionResult<{ id: number }>> {
+  return action(async () => {
+    const { companyId } = await requireCompanyAccess();
+    await db
+      .update(receivedInvoices)
+      .set({
+        status: 'failed',
+        analysisError: message.slice(0, 2000),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(receivedInvoices.id, id),
+          eq(receivedInvoices.companyId, companyId),
+          eq(receivedInvoices.status, 'analyzing')
+        )
+      );
+    return { id };
   });
 }
 
@@ -354,6 +467,12 @@ export async function listReceivedInvoices(
 
     if (filters.status) {
       conditions.push(eq(receivedInvoices.status, filters.status));
+    } else {
+      // Default "working set" view: show analyzing / failed / draft / confirmed,
+      // hide only discarded (reachable via the explicit Discarded filter). This
+      // keeps in-progress (async-scan) rows visible so the list can drive their
+      // analysis — otherwise a freshly-uploaded row would be hidden and stall.
+      conditions.push(ne(receivedInvoices.status, 'discarded'));
     }
     if (filters.accountingStatus) {
       conditions.push(

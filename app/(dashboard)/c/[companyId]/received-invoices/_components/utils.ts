@@ -1,6 +1,8 @@
 import type { ReceivedInvoiceListItem } from '@/src/features/received-invoices/actions';
 
 export const STATUS_LABELS: Record<string, string> = {
+  analyzing: 'Analyzing…',
+  failed: 'Failed',
   draft: 'Draft',
   confirmed: 'Confirmed',
   discarded: 'Discarded',

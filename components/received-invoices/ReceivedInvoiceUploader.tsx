@@ -204,12 +204,10 @@ export function ReceivedInvoiceUploader({ className, onAllUploaded }: Props) {
       setItems((prev) => [...prev, ...queued]);
       setBusy(true);
 
-      // Process serially — keeps server load predictable for the AI extract call.
-      const uploaded: UploadedItem[] = [];
-      for (const q of queued) {
-        const result = await processOne(q);
-        if (result) uploaded.push(result);
-      }
+      // ASYNC-SCAN: uploads are store-only + fast now (no AI call here), so run
+      // them in parallel. Analysis is kicked off later, from the list page.
+      const results = await Promise.all(queued.map((q) => processOne(q)));
+      const uploaded = results.filter((r): r is UploadedItem => r !== null);
 
       setBusy(false);
       if (uploaded.length > 0) onAllUploaded?.(uploaded);
@@ -320,13 +318,13 @@ function UploaderRow({
         {phase === 'uploading' && (
           <span className="inline-flex items-center gap-1 text-gray-600">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Analyzing
+            Uploading
           </span>
         )}
         {phase === 'done' && (
           <span className="inline-flex items-center gap-1 text-green-700">
             <CheckCircle2 className="h-3 w-3" />
-            Ready to review
+            Uploaded
           </span>
         )}
         {phase === 'error' && (

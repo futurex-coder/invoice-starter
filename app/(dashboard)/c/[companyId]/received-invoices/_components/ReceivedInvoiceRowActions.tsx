@@ -20,6 +20,7 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
+  RefreshCw,
   Trash2,
   XCircle,
 } from 'lucide-react';
@@ -41,6 +42,7 @@ interface Props {
   onDiscard: (item: ReceivedInvoiceListItem) => void;
   onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
+  onRetry: (id: number) => void;
 }
 
 export function ReceivedInvoiceRowActions({
@@ -55,8 +57,11 @@ export function ReceivedInvoiceRowActions({
   onDiscard,
   onRestore,
   onHardDelete,
+  onRetry,
 }: Props) {
   const archived = item.archivedAt != null;
+  const isAnalyzing = item.status === 'analyzing';
+  const isFailed = item.status === 'failed';
   const isDraft = item.status === 'draft';
   const isConfirmed = item.status === 'confirmed';
   const isDiscarded = item.status === 'discarded';
@@ -75,6 +80,38 @@ export function ReceivedInvoiceRowActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        {isAnalyzing && (
+          <DropdownMenuItem asChild>
+            <a href={fileHref} target="_blank" rel="noreferrer">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Open original file
+            </a>
+          </DropdownMenuItem>
+        )}
+
+        {isFailed && (
+          <>
+            <DropdownMenuItem onClick={() => onRetry(item.id)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry analysis
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a href={fileHref} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open original file
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onDiscard(item)}
+              className="text-red-700 focus:text-red-700"
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              Discard
+            </DropdownMenuItem>
+          </>
+        )}
+
         {isDraft && (
           <>
             <DropdownMenuItem onClick={() => onReview(item.id)}>

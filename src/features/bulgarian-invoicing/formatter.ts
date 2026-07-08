@@ -6,6 +6,7 @@
 
 import type { InvoiceDocument, LineItem, PartySnapshot } from './types';
 import { MONEY_PRECISION, QUANTITY_PRECISION } from './rules';
+import { EUR_BGN_FIXED, roundTo } from '@/lib/fx/convert';
 import {
   parsePartySnapshotStrict,
   parseInvoiceTotalsStrict,
@@ -246,7 +247,6 @@ export function buildPrintModel(
   const recipient = partyToPrintParty(recipientSnap);
   const items = parseStoredLineItems(invoice.items);
   const totals = parseInvoiceTotalsStrict(invoice.totals);
-  const fxRate = Number(invoice.fxRate ?? 1);
   const currency = (invoice.currency ?? 'EUR').toUpperCase();
   const isEur = currency === 'EUR';
 
@@ -301,11 +301,15 @@ export function buildPrintModel(
     amountInWords: invoice.amountInWords?.trim() || null,
     paymentMethodLabel: PAYMENT_METHOD_LABELS[invoice.paymentMethod ?? ''] ?? (invoice.paymentMethod ?? 'Банков път'),
     createdBy,
-    currencyConversion: isEur && fxRate !== 1
+    // Transition-year courtesy: EUR invoices show the BGN equivalent at the
+    // FIXED euro-adoption rate (not the stored fxRate, which now means
+    // doc→base). Dual display is NOT legally required on invoices
+    // (ЗВЕРБ чл.15 ал.3 т.5) — this is informational only.
+    currencyConversion: isEur
       ? {
           amountEur: formatMoney(totals.grossAmount),
-          rate: fxRate,
-          amountBgn: formatMoney(totals.grossAmount * fxRate),
+          rate: EUR_BGN_FIXED,
+          amountBgn: formatMoney(roundTo(totals.grossAmount * EUR_BGN_FIXED, 2)),
         }
       : null,
     bankDetails,

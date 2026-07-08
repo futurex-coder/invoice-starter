@@ -215,6 +215,36 @@ async function allocateNumber(
 }
 
 // ---------------------------------------------------------------------------
+// GEN-1 — freeze the doc→base FX rate at issue time
+// ---------------------------------------------------------------------------
+
+/**
+ * The frozen `fxRate` to stamp on a document being finalized: the multiplier
+ * such that `amount_base = amount_doc × fxRate`, where base = the company's
+ * currency. Returns '1' when the doc is already in the base currency. BGN↔EUR
+ * uses the fixed euro-adoption rate; real foreign currencies use ECB (cached,
+ * with a safe fallback) — see `lib/fx`.
+ */
+async function frozenFxRate(
+  companyId: number,
+  docCurrency: string
+): Promise<string> {
+  const [c] = await db
+    .select({ base: companies.defaultCurrency })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  const base = c?.base ?? 'EUR';
+  if (docCurrency === base) return '1';
+  // Lazy import: `lib/fx/rates` is server-only (ECB fetch); loading it only on
+  // the non-base path keeps it out of the module graph for unit tests that
+  // import these actions (which only ever exercise same-currency finalizes).
+  const { getRateToBase } = await import('@/lib/fx/rates');
+  const rate = await getRateToBase(docCurrency, base);
+  return String(rate);
+}
+
+// ---------------------------------------------------------------------------
 // Supplier from company profile
 // ---------------------------------------------------------------------------
 
@@ -485,6 +515,12 @@ export async function createInvoiceDraft(
       input.lineItems.map((l) => resolveArticle(companyId, l, currency))
     );
 
+    // GEN-1: freeze the doc→base rate only when issuing now; a plain draft
+    // gets '1' and is stamped at its own finalize.
+    const fxRate = input.finalizeImmediately
+      ? await frozenFxRate(companyId, currency)
+      : '1';
+
     const created = await db.transaction(async (tx) => {
       const allocatedNumber = await allocateNumber(tx, companyId);
 
@@ -501,7 +537,7 @@ export async function createInvoiceDraft(
           issueDate: input.issueDate,
           supplyDate: input.supplyDate ?? null,
           currency,
-          fxRate: String(input.fxRate ?? 1),
+          fxRate,
           supplierSnapshot: supplier,
           recipientSnapshot: recipientSnapshot,
           items: calc.items,
@@ -731,11 +767,16 @@ export async function finalizeInvoice(
       existing.amountInWords?.trim() ||
       amountInWordsBg(totals.grossAmount, currency);
 
+    // GEN-1: freeze the doc→base FX rate at issue time so historical totals
+    // never drift when tomorrow's rate moves.
+    const fxRate = await frozenFxRate(companyId, currency);
+
     const [finalized] = await db
       .update(invoices)
       .set({
         status: InvoiceStatus.FINALIZED,
         amountInWords: amountInWords || undefined,
+        fxRate,
         updatedAt: new Date(),
       })
       .where(
@@ -1023,7 +1064,8 @@ async function createNoteFromInvoice(
       ? overrides.supplyDate
       : issueDate;
     const currency = overrides?.currency ?? original.currency;
-    const fxRate = overrides?.fxRate ?? Number(original.fxRate);
+    // GEN-1: a note is finalized on creation → freeze its doc→base rate now.
+    const fxRate = Number(await frozenFxRate(companyId, currency));
 
     // Load original invoice_lines to get article IDs
     const originalLines = await db

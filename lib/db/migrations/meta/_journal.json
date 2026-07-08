@@ -50,6 +50,13 @@
       "when": 1783542490026,
       "tag": "0006_unified_document_numbering",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783547829396,
+      "tag": "0007_backfill_fx_rate",
+      "breakpoints": true
     }
   ]
 }

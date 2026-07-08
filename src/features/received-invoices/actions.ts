@@ -6,6 +6,7 @@ import {
   receivedInvoices,
   receivedInvoiceLines,
   partners,
+  companies,
   ActivityType,
 } from '@/lib/db/schema';
 import { logActivity } from '@/lib/db/activity';
@@ -857,10 +858,27 @@ export async function confirmReceivedInvoice(
 
     const wasAlreadyConfirmed = existing.status === 'confirmed';
 
+    // GEN-1: freeze the doc→base FX rate at confirm (a received invoice starts
+    // counting in expense/VAT aggregates once confirmed). BGN↔EUR fixed; real
+    // foreign currency (USD…) via ECB. amount_base = amount_doc × fxRate.
+    const [co] = await db
+      .select({ base: companies.defaultCurrency })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+    const base = co?.base ?? 'EUR';
+    let fxRate = '1';
+    if (patch.currency !== base) {
+      // Lazy import — server-only ECB service, only on the non-base path.
+      const { getRateToBase } = await import('@/lib/fx/rates');
+      fxRate = String(await getRateToBase(patch.currency, base));
+    }
+
     await db
       .update(receivedInvoices)
       .set({
         status: 'confirmed',
+        fxRate,
         confirmedAt: wasAlreadyConfirmed ? existing.confirmedAt : new Date(),
         updatedAt: new Date(),
       })

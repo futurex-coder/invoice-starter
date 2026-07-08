@@ -211,12 +211,17 @@ Feature work starts off a clean `main`.
 
 ### Phase 4 — Navigation / IA restructure
 
-**MENU-1 — Desktop horizontal header nav + consolidations** · M · *frontend*
-- Desktop: move the nav into a horizontal header (mobile keeps its current pattern).
-- Remove **Received invoices** from the menu.
-- Merge **Activity + General + Security** into one page with tabs.
-- Merge **Company + Members** into one page with tabs (shared "Company" menu item).
-- Reuse existing routing; add a `<Tabs>` primitive if one doesn't exist yet.
+**MENU-1 — Desktop horizontal header nav + consolidations** · M · ✅ **done 2026-07-08**
+- Desktop nav is a horizontal bar (CompanySwitcher + Dashboard · Invoices · ДДС/VAT ·
+  Partners · Articles · Company · Activity, Account right-aligned); mobile keeps the
+  drawer with the same consolidated items. **Received invoices** left the menu (reachable
+  via the Invoices All/Outgoing/Received tabs; prefix-matching keeps Invoices highlighted
+  there). **Company + Members** merged as tabs via a `settings/layout.tsx`. **General +
+  Security** merged under one **Account** entry with tabs. *Deliberate deviation:* company
+  Activity was NOT merged with the user-scoped General/Security (different scopes — company
+  audit vs personal account); it stays a top-level company item — noted for the owner.
+- Verified live: nav renders (no Received), settings tabs click through to Members,
+  Account tabs render, mobile drawer intact with no body overflow.
 
 ---
 

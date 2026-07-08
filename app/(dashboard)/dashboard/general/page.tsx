@@ -10,6 +10,7 @@ import { updateAccount } from '@/app/(login)/actions';
 import { useCurrentUser } from '@/lib/swr/use-current-user';
 import { Suspense } from 'react';
 import { PageShell } from '@/components/page-shell';
+import { AccountTabsNav } from '@/components/account-tabs-nav';
 
 type ActionState = {
   name?: string;
@@ -79,8 +80,9 @@ export default function GeneralPage() {
   return (
     <PageShell>
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        General Settings
+        Account
       </h1>
+      <AccountTabsNav />
 
       <Card>
         <CardHeader>

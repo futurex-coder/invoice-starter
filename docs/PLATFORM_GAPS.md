@@ -22,8 +22,9 @@ raw-enum bugs** (see §1). Verify: build + grep for leftover English + tests.
       tiles. Added "Плащания" to `company-layout-shell`. **LOW** → ad52da1
 - [x] **Hardcoded " EUR"** in `SummaryGrid` + `PaymentKpiGrid` (GEN-1-LABELS in REVIEW_QUEUE) —
       now reads the base currency; cross-company grid flags mixed currencies. **LOW** → this commit
-- [ ] **Proforma DB enum tidy** — `proforma` is a domain DocType but missing from the DB
-      `DocType` enum comment (`schema.ts`); confirm insertability (works via trigger). **LOW**
+- [x] **Proforma DB enum tidy** — added `PROFORMA` to the `schema.ts` `DocType` enum + column
+      comment. Confirmed `doc_type` is a free varchar(30) with no CHECK constraint, so proforma
+      inserts fine (PROF-1 flow). **LOW** → this commit
 - [ ] **Reusable 0%/exempt legal-grounds list** (VAT-2) — replace the free-text "Reason for no
       VAT" with a saved чл.-reference list. Accountants distrust free text. **LOW**, pairs w/ VAT.
 - [x] **Two diverging `formatMoney`** — dashboard used browser locale, docs used deterministic

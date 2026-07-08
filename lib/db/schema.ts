@@ -277,7 +277,9 @@ export const invoices = pgTable(
       onDelete: 'set null',
     }),
 
-    // 'invoice' | 'credit_note' | 'debit_note'
+    // 'invoice' | 'proforma' | 'credit_note' | 'debit_note'
+    // Free varchar (no DB enum/CHECK) — the domain DOC_TYPES union is the source
+    // of truth; proforma inserts via the normal flow (PROF-1).
     docType: varchar('doc_type', { length: 30 }).notNull().default('invoice'),
     // 'draft' | 'finalized' | 'cancelled'
     status: varchar('status', { length: 20 }).notNull().default('draft'),
@@ -825,6 +827,7 @@ export enum CompanyRole {
 
 export enum DocType {
   INVOICE = 'invoice',
+  PROFORMA = 'proforma',
   CREDIT_NOTE = 'credit_note',
   DEBIT_NOTE = 'debit_note',
 }

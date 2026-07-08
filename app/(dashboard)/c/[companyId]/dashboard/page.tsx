@@ -19,7 +19,12 @@ import { InvoiceBreakdownCard } from './_components/InvoiceBreakdownCard';
 import { ReceivedBreakdownCard } from './_components/ReceivedBreakdownCard';
 import { QuickLinksCard, type QuickLink } from './_components/QuickLinksCard';
 import { ActivityFeed } from './_components/ActivityFeed';
-import { getCompanyMetrics, getCompanyExpenseMetrics } from './_components/queries';
+import {
+  getCompanyMetrics,
+  getCompanyExpenseMetrics,
+  getMonthCloseStatus,
+} from './_components/queries';
+import { MonthCloseCard } from './_components/MonthCloseCard';
 import { PageShell } from '@/components/page-shell';
 
 export default async function CompanyDashboardPage({
@@ -44,6 +49,7 @@ export default async function CompanyDashboardPage({
   const [
     metrics,
     expenseMetrics,
+    monthClose,
     partners,
     articlesList,
     activity,
@@ -51,6 +57,7 @@ export default async function CompanyDashboardPage({
   ] = await Promise.all([
     getCompanyMetrics(companyId),
     getCompanyExpenseMetrics(companyId),
+    getMonthCloseStatus(companyId),
     getPartnersForCompany(companyId),
     getArticlesForCompany(companyId),
     getActivityLogs(companyId, { limit: 5 }),
@@ -125,6 +132,8 @@ export default async function CompanyDashboardPage({
           </Link>
         }
       />
+
+      <MonthCloseCard status={monthClose} base={base} />
 
       <MetricsSummary
         metrics={metrics}

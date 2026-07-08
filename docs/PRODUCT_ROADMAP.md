@@ -296,10 +296,15 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 - Verified live: alice's bell showed 5 unread of Bob's Бета actions with labels + relative
   times; mark-seen survives a full reload. Email channel stays with EMAIL-1/D-EMAIL.
 
-**TRANS-2 — Shared "what's left this month" status view** · M · ⭐ *core value (transparency)*
-- One view both owner and accountant see: for the current month, **done vs pending** — invoices
-  still needing review/accounting, missing docs, VAT-ready status. Kills the "do you have everything
-  for НАП this month?" back-and-forth. Depends on OI-1 (accounted status) + OI-5 (month filter).
+**TRANS-2 — Shared "what's left this month" status view** · M · ⭐ *core value* · ✅ **v1 done 2026-07-08**
+- `MonthCloseCard` on the company dashboard (same card for owner + accountant): month
+  checklist — received invoices awaiting review (any month; they block the close),
+  outgoing + received documents issued this month not yet accounted (OI-1 status), net
+  VAT for the month per currency with a link to /vat, and a Готово-за-НАП / Има-недовършено
+  chip. Server-side `getMonthCloseStatus` in the dashboard query layer.
+- Verified live: юли 2026 → 0 review / 2 издадени за осчетоводяване / 0 получени,
+  ДДС −100.00 BGN · 60.00 EUR — every value reconciled by hand. "Missing docs"
+  expectations (what *should* exist but doesn't) deliberately out of v1 scope.
 
 **DASH-1 — Audit all money-aggregation rules** · M · ✅ **done 2026-07-08**
 - Shipped `docs/knowledge/money-aggregation-rules.md` — the canonical rules (code:

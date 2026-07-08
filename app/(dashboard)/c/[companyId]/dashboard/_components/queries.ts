@@ -74,6 +74,121 @@ export async function getCompanyMetrics(companyId: number): Promise<CompanyMetri
   };
 }
 
+// ---------------------------------------------------------------------------
+// TRANS-2 — "what's left this month" (shared owner ↔ accountant view)
+// ---------------------------------------------------------------------------
+
+export interface MonthCloseStatus {
+  /** ISO month, e.g. "2026-07". */
+  month: string;
+  /** Received invoices still awaiting review (drafts block the close regardless of month). */
+  pendingReviewCount: number;
+  /** Finalized outgoing documents issued this month not yet booked. */
+  outgoingPendingAccounting: number;
+  /** Confirmed received documents issued this month not yet booked. */
+  receivedPendingAccounting: number;
+  /** Net VAT for the month per currency (issued − paid; accrual). */
+  vatNet: { currency: string; net: number }[];
+  /** True when nothing is left to review or book. */
+  ready: boolean;
+}
+
+export async function getMonthCloseStatus(
+  companyId: number
+): Promise<MonthCloseStatus> {
+  await ensureCompanyAccess(companyId);
+
+  const monthStart = sql`date_trunc('month', CURRENT_DATE)`;
+
+  const [outgoing, received] = await Promise.all([
+    db
+      .select({
+        currency: invoices.currency,
+        pendingAccounting: sql<number>`count(*) filter (
+          where ${invoices.status} = 'finalized'
+            and ${invoices.accountingStatus} = 'pending'
+            and ${invoices.issueDate}::date >= ${monthStart}
+        )`,
+        vatIssued: sql<string>`coalesce(sum(
+          case when ${invoices.status} = 'finalized'
+               and ${invoices.issueDate}::date >= ${monthStart}
+          then (case when ${invoices.docType} = 'credit_note'
+                     then -(${invoices.totals}->>'vatAmount')::numeric
+                     else (${invoices.totals}->>'vatAmount')::numeric end)
+          else 0 end
+        ), 0)`,
+      })
+      .from(invoices)
+      .where(eq(invoices.companyId, companyId))
+      .groupBy(invoices.currency),
+    db
+      .select({
+        currency: receivedInvoices.currency,
+        pendingReview: sql<number>`count(*) filter (
+          where ${receivedInvoices.status} = 'draft'
+            and ${receivedInvoices.archivedAt} is null
+        )`,
+        pendingAccounting: sql<number>`count(*) filter (
+          where ${receivedInvoices.status} = 'confirmed'
+            and ${receivedInvoices.archivedAt} is null
+            and ${receivedInvoices.accountingStatus} = 'pending'
+            and ${receivedInvoices.issueDate}::date >= ${monthStart}
+        )`,
+        vatPaid: sql<string>`coalesce(sum(
+          case when ${receivedInvoices.status} = 'confirmed'
+               and ${receivedInvoices.archivedAt} is null
+               and ${receivedInvoices.issueDate}::date >= ${monthStart}
+          then ${receivedInvoices.vatAmount}::numeric
+          else 0 end
+        ), 0)`,
+      })
+      .from(receivedInvoices)
+      .where(eq(receivedInvoices.companyId, companyId))
+      .groupBy(receivedInvoices.currency),
+  ]);
+
+  const vatByCurrency = new Map<string, number>();
+  for (const r of outgoing) {
+    const c = r.currency ?? 'EUR';
+    vatByCurrency.set(c, (vatByCurrency.get(c) ?? 0) + parseFloat(r.vatIssued));
+  }
+  for (const r of received) {
+    const c = r.currency ?? 'EUR';
+    vatByCurrency.set(c, (vatByCurrency.get(c) ?? 0) - parseFloat(r.vatPaid));
+  }
+
+  const pendingReviewCount = received.reduce(
+    (a, r) => a + Number(r.pendingReview),
+    0
+  );
+  const outgoingPendingAccounting = outgoing.reduce(
+    (a, r) => a + Number(r.pendingAccounting),
+    0
+  );
+  const receivedPendingAccounting = received.reduce(
+    (a, r) => a + Number(r.pendingAccounting),
+    0
+  );
+
+  return {
+    month: new Date().toISOString().slice(0, 7),
+    pendingReviewCount,
+    outgoingPendingAccounting,
+    receivedPendingAccounting,
+    vatNet: [...vatByCurrency.entries()]
+      .filter(([, net]) => net !== 0)
+      .map(([currency, net]) => ({
+        currency,
+        net: Math.round(net * 100) / 100,
+      }))
+      .sort((a, b) => a.currency.localeCompare(b.currency)),
+    ready:
+      pendingReviewCount === 0 &&
+      outgoingPendingAccounting === 0 &&
+      receivedPendingAccounting === 0,
+  };
+}
+
 export interface CompanyExpenseMetrics {
   expensesPaid: number;
   expensesOutstanding: number;

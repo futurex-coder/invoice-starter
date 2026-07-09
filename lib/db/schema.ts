@@ -14,6 +14,7 @@ import {
   index,
   foreignKey,
   boolean,
+  check,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
@@ -815,6 +816,143 @@ export type UserCompanyMembership = {
   company: Company;
   role: CompanyMember['role'];
 };
+
+// ─────────────────────────────────────────────
+// KONTIROVKA — double-entry journal (KONT-1)
+// ─────────────────────────────────────────────
+
+// journal_entries — Контировка header (one per posted document)
+export const journalEntries = pgTable(
+  'journal_entries',
+  {
+    id: serial('id').primaryKey(),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    postingNumber: integer('posting_number').notNull(), // Контировка N
+    postingDate: date('posting_date').notNull(), // Дата на осчетоводяване
+    kind: varchar('kind', { length: 20 }).notNull().default('document'), // document | vat_close | manual | reversal
+    docTypeCode: varchar('doc_type_code', { length: 2 }), // НАП вид: 01/03/09...
+    documentType: varchar('document_type', { length: 30 }), // Фактура/Кредитно известие/...
+    documentNumber: varchar('document_number', { length: 20 }),
+    documentDate: date('document_date'), // данъчно събитие
+    dealType: varchar('deal_type', { length: 10 }), // sale | purchase
+    vatOperation: varchar('vat_operation', { length: 40 }),
+    basis: varchar('basis', { length: 50 }), // Основание
+    note: text('note'), // Забележка
+    partnerId: integer('partner_id').references(() => partners.id, {
+      onDelete: 'set null',
+    }),
+    partnerName: varchar('partner_name', { length: 255 }),
+    partnerUic: varchar('partner_uic', { length: 15 }),
+    partnerVat: varchar('partner_vat', { length: 20 }),
+    vies: boolean('vies').notNull().default(false),
+    vatPeriod: char('vat_period', { length: 7 }), // 'YYYY-MM' Месец за експорт
+    currency: char('currency', { length: 3 }).notNull().default('EUR'),
+    fxRate: numeric('fx_rate', { precision: 15, scale: 6 })
+      .notNull()
+      .default('1'),
+    sourceInvoiceId: integer('source_invoice_id').references(
+      () => invoices.id,
+      { onDelete: 'restrict' }
+    ),
+    sourceReceivedInvoiceId: integer('source_received_invoice_id').references(
+      () => receivedInvoices.id,
+      { onDelete: 'restrict' }
+    ),
+    status: varchar('status', { length: 20 }).notNull().default('draft'), // draft | posted | reversed
+    reversedByEntryId: integer('reversed_by_entry_id'), // self-FK for сторно
+    createdByUserId: integer('created_by_user_id').references(
+      () => users.id,
+      { onDelete: 'set null' }
+    ),
+    postedAt: timestamp('posted_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('je_company_posting_number_unique').on(
+      t.companyId,
+      t.postingNumber
+    ),
+    index('idx_je_company_period').on(t.companyId, t.vatPeriod),
+    index('idx_je_company_status').on(t.companyId, t.status),
+    uniqueIndex('je_source_invoice_unique')
+      .on(t.sourceInvoiceId)
+      .where(sql`${t.sourceInvoiceId} IS NOT NULL`),
+    uniqueIndex('je_source_received_unique')
+      .on(t.sourceReceivedInvoiceId)
+      .where(sql`${t.sourceReceivedInvoiceId} IS NOT NULL`),
+  ]
+);
+
+// journal_lines — Дебит/Кредит редове (the счетоводна истина; must balance)
+export const journalLines = pgTable(
+  'journal_lines',
+  {
+    id: serial('id').primaryKey(),
+    journalEntryId: integer('journal_entry_id')
+      .notNull()
+      .references(() => journalEntries.id, { onDelete: 'cascade' }),
+    side: varchar('side', { length: 6 }).notNull(), // debit | credit
+    accountCode: varchar('account_code', { length: 20 }).notNull(),
+    accountName: varchar('account_name', { length: 255 }).notNull(),
+    description: varchar('description', { length: 500 }),
+    amount: numeric('amount', { precision: 15, scale: 4 }).notNull(),
+    amountBase: numeric('amount_base', { precision: 15, scale: 4 }).notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+  },
+  (t) => [
+    index('idx_jl_entry').on(t.journalEntryId),
+    index('idx_jl_account').on(t.journalEntryId, t.accountCode),
+  ]
+);
+
+// journal_tax_lines — данъчна проекция (per-rate; feeds дневник/декларация)
+export const journalTaxLines = pgTable(
+  'journal_tax_lines',
+  {
+    id: serial('id').primaryKey(),
+    journalEntryId: integer('journal_entry_id')
+      .notNull()
+      .references(() => journalEntries.id, { onDelete: 'cascade' }),
+    vatOperation: varchar('vat_operation', { length: 40 }).notNull(),
+    register: varchar('register', { length: 10 }), // sales | purchases | null
+    baseCell: varchar('base_cell', { length: 4 }),
+    vatCell: varchar('vat_cell', { length: 4 }),
+    base: numeric('base', { precision: 15, scale: 4 }).notNull().default('0'),
+    baseBase: numeric('base_base', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+    vat: numeric('vat', { precision: 15, scale: 4 }).notNull().default('0'),
+    vatBase: numeric('vat_base', { precision: 15, scale: 4 })
+      .notNull()
+      .default('0'),
+  },
+  (t) => [
+    index('idx_jtl_entry').on(t.journalEntryId),
+    index('idx_jtl_cell').on(t.baseCell, t.vatCell),
+    // §A4: a VAT amount must participate in a register
+    check(
+      'jtl_vat_requires_register',
+      sql`(${t.vat} = 0) OR (${t.register} IS NOT NULL)`
+    ),
+  ]
+);
+
+// journal_sequences — Контировка N counter (per company)
+export const journalSequences = pgTable(
+  'journal_sequences',
+  {
+    id: serial('id').primaryKey(),
+    companyId: integer('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    nextNumber: integer('next_number').notNull().default(1),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('journal_sequences_company_unique').on(t.companyId)]
+);
 
 // ─────────────────────────────────────────────
 // ENUMS (app-level, not pg enums — easier to extend)

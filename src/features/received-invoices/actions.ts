@@ -16,6 +16,7 @@ import {
 } from '@/lib/supabase/storage';
 import { action, type ActionResult } from '@/lib/actions/result';
 import { requireCompanyAccess } from '@/lib/auth/guards';
+import { receivedInvoiceHasActivePosting } from '@/lib/db/queries/journal';
 import { ReceivedInvoiceReviewSchema } from './schema';
 import { calculateReceivedInvoice } from './calculator';
 import type {
@@ -1020,6 +1021,13 @@ export async function setReceivedInvoiceAccountingStatus(
       )
       .limit(1);
     if (!existing) throw new Error('Received invoice not found');
+    // KONT-1 (stress #1): don't let the manual toggle un-book a document that
+    // still has a live контировка — reverse the контировка first.
+    if (status === 'pending' && (await receivedInvoiceHasActivePosting(id))) {
+      throw new Error(
+        'Документът е осчетоводен с контировка — първо сторнирайте контировката.'
+      );
+    }
 
     await db
       .update(receivedInvoices)
@@ -1198,6 +1206,14 @@ export async function deleteReceivedInvoice(
       .limit(1);
 
     if (!existing) throw new Error('Получената фактура не е намерена');
+    // KONT-1: a live контировка locks the document (source FK is ON DELETE
+    // RESTRICT); checked before the plain accounted guard so the message points
+    // at сторниране (the „върнете в изчаква осчетоводяване“ path is itself blocked).
+    if (await receivedInvoiceHasActivePosting(id)) {
+      throw new Error(
+        'Документът е осчетоводен — първо сторнирайте контировката, преди да го изтриете.'
+      );
+    }
     if (existing.accountingStatus === 'accounted') {
       throw new Error(
         'Осчетоводена фактура не може да се изтрие. Първо я върнете в „изчаква осчетоводяване“.'

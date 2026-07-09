@@ -2,7 +2,7 @@
 
 import { useState, Fragment } from 'react';
 import { useParams } from 'next/navigation';
-import { Loader2, Calculator, ChevronRight } from 'lucide-react';
+import { Loader2, Calculator, ChevronRight, ChevronLeft } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -18,30 +18,44 @@ import { formatMoney } from '@/src/features/bulgarian-invoicing/formatter';
 import { PageShell } from '@/components/page-shell';
 import { cn } from '@/lib/utils';
 import { MonthDnevnik } from './_components/MonthDnevnik';
+import { buildMonthGrid } from './_components/month-grid';
 
-const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
+const NOW = new Date();
+const CURRENT_YEAR = NOW.getFullYear();
+const CURRENT_MONTH = NOW.toISOString().slice(0, 7);
+const MONTH_NAMES = [
+  'Януари', 'Февруари', 'Март', 'Април', 'Май', 'Юни',
+  'Юли', 'Август', 'Септември', 'Октомври', 'Ноември', 'Декември',
+];
 
 function monthLabel(iso: string): string {
-  const [y, m] = iso.split('-');
-  const names = [
-    'Януари', 'Февруари', 'Март', 'Април', 'Май', 'Юни',
-    'Юли', 'Август', 'Септември', 'Октомври', 'Ноември', 'Декември',
-  ];
+  const [, m] = iso.split('-');
   const idx = Number(m) - 1;
-  return names[idx] ? `${names[idx]} ${y}` : iso;
+  return MONTH_NAMES[idx] ?? iso;
 }
 
 export default function VatPage() {
   const params = useParams();
-  requireStringParam(params, 'companyId');
-
-  const { data, isLoading, error } = useActionSWR('vatSummary', () =>
-    getVatSummary({ months: 12 })
-  );
-
-  const rows = data?.rows ?? [];
-  const baseCurrency = data?.baseCurrency ?? 'EUR';
+  const companyId = requireStringParam(params, 'companyId');
+  const [year, setYear] = useState(CURRENT_YEAR);
   const [expanded, setExpanded] = useState<string | null>(null);
+
+  // companyId in the key isolates the cache per company (else SWR would serve
+  // one company's VAT summary on another's page).
+  const { data, isLoading, error } = useActionSWR(
+    ['vatSummary', companyId, year],
+    () => getVatSummary({ year })
+  );
+  const baseCurrency = data?.baseCurrency ?? 'EUR';
+
+  // Full month grid for the year (descending), zero-filled so no month is ever
+  // "missing". The current year stops at the current month (no future rows).
+  const months = buildMonthGrid(
+    year,
+    CURRENT_YEAR,
+    NOW.getMonth() + 1,
+    data?.rows ?? []
+  );
 
   return (
     <PageShell>
@@ -53,24 +67,47 @@ export default function VatPage() {
         <p className="mt-1 text-sm text-gray-500">
           ДДС по издадени срещу получени документи, по месец на издаване
           (начислен — всички финализирани документи; кредитните известия се
-          приспадат). Положително нето = дължимо към НАП.
+          приспадат). Положително нето = дължимо към НАП. Разгънете месец за
+          разбивка по документи.
         </p>
       </div>
 
       <ErrorAlert message={error ? error.message : null} className="mb-4" />
 
       <Card>
-        <CardHeader>
-          <CardTitle>Последни 12 месеца</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle>ДДС по месеци</CardTitle>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setYear((y) => y - 1)}
+              aria-label="Предходна година"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="min-w-[4.5rem] text-center text-sm font-semibold">
+              {year} г.
+            </span>
+            <button
+              type="button"
+              onClick={() => setYear((y) => Math.min(y + 1, CURRENT_YEAR))}
+              disabled={year >= CURRENT_YEAR}
+              aria-label="Следваща година"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center p-8">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
-          ) : rows.length === 0 ? (
+          ) : months.length === 0 ? (
             <p className="p-4 text-sm text-gray-500">
-              Няма финализирани или потвърдени документи за периода.
+              Няма данни за избрания период.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -84,16 +121,19 @@ export default function VatPage() {
                   ]}
                 />
                 <tbody>
-                  {rows.map((r) => {
+                  {months.map((r) => {
                     const isCurrent = r.month === CURRENT_MONTH;
                     const isOpen = expanded === r.month;
+                    const isEmpty =
+                      r.vatIssued === 0 && r.vatPaid === 0 && r.vatNet === 0;
                     return (
                       <Fragment key={r.month}>
                         <tr
                           className={cn(
                             DATA_ROW_CLASS,
                             'cursor-pointer',
-                            isCurrent && 'bg-amber-50/60'
+                            isCurrent && 'bg-amber-50/60',
+                            isEmpty && 'text-gray-400'
                           )}
                           onClick={() => setExpanded(isOpen ? null : r.month)}
                           aria-expanded={isOpen}
@@ -125,7 +165,7 @@ export default function VatPage() {
                                 ? 'text-red-700'
                                 : r.vatNet < 0
                                   ? 'text-green-700'
-                                  : 'text-gray-500'
+                                  : 'text-gray-400'
                             )}
                           >
                             {formatMoney(r.vatNet)}
@@ -135,6 +175,7 @@ export default function VatPage() {
                           <tr>
                             <td colSpan={4} className="p-0">
                               <MonthDnevnik
+                                companyId={companyId}
                                 month={r.month}
                                 baseCurrency={baseCurrency}
                               />

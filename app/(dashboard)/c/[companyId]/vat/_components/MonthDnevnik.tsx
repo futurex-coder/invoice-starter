@@ -119,14 +119,17 @@ function LedgerTable({
  * month's ДДС продажби / покупки on the parent row.
  */
 export function MonthDnevnik({
+  companyId,
   month,
   baseCurrency,
 }: {
+  companyId: string;
   month: string;
   baseCurrency: string;
 }) {
-  const { data, isLoading, error } = useActionSWR(['dnevnik', month], () =>
-    getDnevnikForMonth(month)
+  const { data, isLoading, error } = useActionSWR(
+    ['dnevnik', companyId, month],
+    () => getDnevnikForMonth(month)
   );
 
   if (isLoading) {

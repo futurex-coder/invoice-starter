@@ -1450,10 +1450,21 @@ export interface VatSummary {
 
 export async function getVatSummary(input?: {
   months?: number;
+  /** When set, restrict to this calendar year (accountants work by year). */
+  year?: number;
 }): Promise<ActionResult<VatSummary>> {
   return action(async () => {
     const { companyId } = await requireCompanyAccess();
     const months = Math.min(Math.max(input?.months ?? 12, 1), 36);
+    const year = input?.year;
+
+    // Window: a calendar year when `year` is given, else the last N months.
+    const issuedWindow = year
+      ? sql`EXTRACT(YEAR FROM ${invoices.issueDate}::date) = ${year}`
+      : sql`${invoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`;
+    const paidWindow = year
+      ? sql`EXTRACT(YEAR FROM ${receivedInvoices.issueDate}::date) = ${year}`
+      : sql`${receivedInvoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`;
 
     // GEN-1: all figures convert to the company base currency (× frozen
     // fxRate), so the summary is per month — no per-currency split.
@@ -1470,12 +1481,7 @@ export async function getVatSummary(input?: {
         vat: issuedVatSumSql,
       })
       .from(invoices)
-      .where(
-        and(
-          eq(invoices.companyId, companyId),
-          sql`${invoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
-        )
-      )
+      .where(and(eq(invoices.companyId, companyId), issuedWindow))
       .groupBy(sql`to_char(${invoices.issueDate}::date, 'YYYY-MM')`);
 
     const paid = await db
@@ -1489,12 +1495,7 @@ export async function getVatSummary(input?: {
         ), 0)`,
       })
       .from(receivedInvoices)
-      .where(
-        and(
-          eq(receivedInvoices.companyId, companyId),
-          sql`${receivedInvoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
-        )
-      )
+      .where(and(eq(receivedInvoices.companyId, companyId), paidWindow))
       .groupBy(sql`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`);
 
     const byMonth = new Map<string, VatMonthRow>();

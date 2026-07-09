@@ -97,6 +97,35 @@ most one request per minute per *visible* tab. No code change needed.
 
 ---
 
+## T4 — Stale-while-revalidate (kill the spinner on every navigation)  ☑ DONE
+
+Symptom: a full-page `Loader2` (`app/(dashboard)/c/[companyId]/loading.tsx`)
+flashed on **every** navigation, because each dynamic page re-renders on the
+server. Fix has two parts:
+
+1. **Router cache** — `next.config.ts` `experimental.staleTimes: { dynamic: 30,
+   static: 180 }`. Repeat/back navigation to a page visited in the last 30s is
+   served from the client Router Cache instantly — no server render, no
+   `loading.tsx`. (Verified compatible with `cacheComponents`.)
+2. **SWR stale-while-revalidate** — root `SWRConfig` now sets
+   `keepPreviousData: true` + `revalidateIfStale: true` (focus stays off). List
+   data shows the previous/seeded rows immediately and revalidates silently in
+   the background. `useListPageState` only reports `loading` when `result` is
+   still `undefined`, so a background refresh never shows a spinner.
+
+**Verified in a real browser (logged-in session, company 6):**
+
+| Navigation | Spinner shown |
+|---|---|
+| Cold first visit to `/c/6/vat` | yes (expected — first server render) |
+| Warm re-visit within 30s | **no** — instant from Router Cache, content present |
+
+Note: this reverses the earlier `revalidateIfStale:false` (R2/T1) — that
+minimised requests; the user asked for silent freshness instead, and
+`keepPreviousData` keeps it spinner-free. Focus revalidation is still off.
+
+---
+
 ## Verification plan
 - `type-check`, `lint`, `vitest` (250), `next build` all green.
 - Confirm `/api/user` no longer refetches on focus (network trace / reasoning).

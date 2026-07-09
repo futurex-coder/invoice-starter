@@ -334,7 +334,7 @@ export function useListPageState<
 
   const {
     data: result,
-    isLoading: loading,
+    isLoading: swrLoading,
     error: fetchError,
     mutate,
   } = useActionSWR<TResult>(
@@ -342,6 +342,12 @@ export function useListPageState<
     () => action({ ...filters, page, pageSize }),
     swrConfig
   );
+
+  // Only surface the loading state when there is genuinely nothing to show.
+  // With keepPreviousData + the SSR seed, `result` holds the previous/seeded
+  // rows during a background revalidation or key change — so the list renders
+  // stale data instead of a spinner, and updates silently when the fetch lands.
+  const loading = swrLoading && result === undefined;
 
   const refetch = useCallback(async () => {
     return mutate();

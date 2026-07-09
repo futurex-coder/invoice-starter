@@ -32,16 +32,17 @@ export default function RootLayout({
       <body className="min-h-[100dvh] bg-gray-50">
         <SWRConfig
           value={{
-            // PERF (R2/T1): the SSR fallback below is authoritative for the
-            // session, so stop SWR's default background revalidation from
-            // firing a `GET /api/user` on every mount / window-focus /
-            // reconnect (each was a needless DB round-trip carrying no new
-            // info). Data that must refresh does so via explicit mutate()
-            // (sign-out, profile update) or its own refreshInterval
-            // (notifications). List mutations refetch via runMutation.
+            // UX: stale-while-revalidate everywhere. `keepPreviousData` keeps
+            // the last data on screen while a new key loads (so changing a
+            // filter/page shows the old rows instead of a spinner), and
+            // `revalidateIfStale` refreshes cached data in the background on
+            // mount — old data instantly, silent update when it arrives.
+            // Focus revalidation stays OFF to avoid alt-tab request storms;
+            // reconnect is ON so coming back online refreshes.
+            keepPreviousData: true,
+            revalidateIfStale: true,
+            revalidateOnReconnect: true,
             revalidateOnFocus: false,
-            revalidateOnReconnect: false,
-            revalidateIfStale: false,
             dedupingInterval: 5000,
             fallback: {
               // SECURITY: seed with the *safe* user (no passwordHash). The

@@ -337,3 +337,153 @@ export async function postInvoiceContra(
     return result;
   });
 }
+
+/**
+ * Reverse (сторнирай) the active контировка of an invoice. Corrections never
+ * mutate a posted entry (the DB freezes it); instead we write a mirror-negated
+ * counter-entry and flip the original to 'reversed'. The source document is
+ * unlocked (accountingStatus → 'pending') so it can be corrected and re-posted.
+ *
+ * Convention: червено сторно — same accounts/sides, NEGATED amounts. The дневник
+ * and getVatSummary sum signed amounts, so the reversal nets the original out of
+ * its VAT period. The reversal lands in the SAME period as the original (correct
+ * for a pre-filing fix); once period-lock (Slice 4) exists, reversing a filed
+ * period will place the storno in the current open period instead.
+ */
+export async function reverseInvoiceContra(
+  invoiceId: number,
+  reason?: string
+): Promise<ActionResult<{ reversalEntryId: number; postingNumber: number }>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    const [original] = await db
+      .select()
+      .from(journalEntries)
+      .where(
+        and(
+          eq(journalEntries.sourceInvoiceId, invoiceId),
+          eq(journalEntries.companyId, companyId),
+          ne(journalEntries.status, 'reversed')
+        )
+      )
+      .limit(1);
+    if (!original) throw new Error('Няма активна контировка за сторниране');
+    if (original.status !== 'posted') {
+      throw new Error('Само осчетоводена контировка може да се сторнира');
+    }
+
+    const [origLines, origTax] = await Promise.all([
+      db
+        .select()
+        .from(journalLines)
+        .where(eq(journalLines.journalEntryId, original.id))
+        .orderBy(journalLines.sortOrder),
+      db
+        .select()
+        .from(journalTaxLines)
+        .where(eq(journalTaxLines.journalEntryId, original.id)),
+    ]);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const neg = (v: string): string => String(-Number(v));
+
+    const result = await db.transaction(async (tx) => {
+      const seq = await tx.execute<{ allocated: number }>(sql`
+        INSERT INTO journal_sequences (company_id, next_number, updated_at)
+        VALUES (${companyId}, 2, NOW())
+        ON CONFLICT (company_id)
+        DO UPDATE SET next_number = journal_sequences.next_number + 1, updated_at = NOW()
+        RETURNING next_number - 1 AS allocated
+      `);
+      const postingNumber = Number(seq[0]?.['allocated']);
+
+      const [rev] = await tx
+        .insert(journalEntries)
+        .values({
+          companyId,
+          postingNumber,
+          postingDate: today,
+          kind: 'reversal',
+          docTypeCode: original.docTypeCode,
+          documentType: original.documentType,
+          documentNumber: original.documentNumber,
+          documentDate: original.documentDate,
+          dealType: original.dealType,
+          vatOperation: original.vatOperation,
+          basis: original.basis,
+          note:
+            `Сторно на контировка № ${original.postingNumber}` +
+            (reason ? ` — ${reason}` : ''),
+          partnerId: original.partnerId,
+          partnerName: original.partnerName,
+          partnerUic: original.partnerUic,
+          partnerVat: original.partnerVat,
+          vies: original.vies,
+          vatPeriod: original.vatPeriod,
+          currency: original.currency,
+          fxRate: original.fxRate,
+          // A reversal is a counter-entry, not a booking of the document, so it
+          // carries NO sourceInvoiceId — it links back via original.reversedBy.
+          sourceInvoiceId: null,
+          status: 'posted',
+          createdByUserId: user.id,
+          postedAt: new Date(),
+        })
+        .returning({ id: journalEntries.id });
+      if (!rev) throw new Error('Неуспешно създаване на сторно контировка');
+
+      await tx.insert(journalLines).values(
+        origLines.map((l, i) => ({
+          journalEntryId: rev.id,
+          side: l.side,
+          accountCode: l.accountCode,
+          accountName: l.accountName,
+          description: l.description,
+          amount: neg(l.amount),
+          amountBase: neg(l.amountBase),
+          sortOrder: i,
+        }))
+      );
+
+      if (origTax.length > 0) {
+        await tx.insert(journalTaxLines).values(
+          origTax.map((t) => ({
+            journalEntryId: rev.id,
+            vatOperation: t.vatOperation,
+            register: t.register,
+            baseCell: t.baseCell,
+            vatCell: t.vatCell,
+            base: neg(t.base),
+            baseBase: neg(t.baseBase),
+            vat: neg(t.vat),
+            vatBase: neg(t.vatBase),
+          }))
+        );
+      }
+
+      // Flip the original to 'reversed' + link — the ONE mutation the DB
+      // immutability trigger allows on a posted entry.
+      await tx
+        .update(journalEntries)
+        .set({
+          status: 'reversed',
+          reversedByEntryId: rev.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(journalEntries.id, original.id));
+
+      return { reversalEntryId: rev.id, postingNumber };
+    });
+
+    // Unlock the source so it can be corrected and re-posted.
+    await db
+      .update(invoices)
+      .set({ accountingStatus: 'pending', updatedAt: new Date() })
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)));
+
+    await logActivity(companyId, user.id, ActivityType.REVERSE_JOURNAL_ENTRY);
+
+    return result;
+  });
+}

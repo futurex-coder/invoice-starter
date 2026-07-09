@@ -877,12 +877,17 @@ export const journalEntries = pgTable(
     ),
     index('idx_je_company_period').on(t.companyId, t.vatPeriod),
     index('idx_je_company_status').on(t.companyId, t.status),
+    // At most ONE active (non-reversed) контировка per source document. Reversed
+    // entries are excluded so a document can be re-posted after a сторно —
+    // matches invoiceHasActivePosting + postInvoiceContra's `status != reversed`.
     uniqueIndex('je_source_invoice_unique')
       .on(t.sourceInvoiceId)
-      .where(sql`${t.sourceInvoiceId} IS NOT NULL`),
+      .where(sql`${t.sourceInvoiceId} IS NOT NULL AND ${t.status} <> 'reversed'`),
     uniqueIndex('je_source_received_unique')
       .on(t.sourceReceivedInvoiceId)
-      .where(sql`${t.sourceReceivedInvoiceId} IS NOT NULL`),
+      .where(
+        sql`${t.sourceReceivedInvoiceId} IS NOT NULL AND ${t.status} <> 'reversed'`
+      ),
   ]
 );
 

@@ -30,7 +30,11 @@ import {
   deleteInvoice,
   updateInvoiceAccountingStatus,
 } from '@/src/features/bulgarian-invoicing/actions';
-import { getInvoiceContraPreview, postInvoiceContra } from './actions';
+import {
+  getInvoiceContraPreview,
+  postInvoiceContra,
+  reverseInvoiceContra,
+} from './actions';
 
 vi.setConfig({ testTimeout: 20_000, hookTimeout: 60_000 });
 
@@ -217,5 +221,82 @@ describe('postInvoiceContra', () => {
       .where(eq(invoices.id, inv.id));
     expect(stillLocked?.status).toBe('finalized');
     expect(stillLocked?.acc).toBe('accounted');
+  });
+
+  it('reverses a posted контировка: nets the period to zero, unlocks + re-posts', async () => {
+    const draft = unwrap(
+      await createInvoiceDraft({
+        docType: 'invoice',
+        issueDate: TODAY,
+        supplyDate: TODAY,
+        currency: 'EUR',
+        recipient: { name: 'Клиент 2 ООД', eik: `6${RUN.slice(-8)}`, city: 'Варна', street: 'ул. 3' },
+        lineItems: [
+          { description: 'Услуга Б', quantity: 1, unit: 'бр.', unitPrice: 1000, vatRate: 20 },
+        ],
+      }),
+      'createInvoiceDraft2'
+    );
+    const inv = unwrap(await finalizeInvoice(draft.id), 'finalize2');
+    const posted = unwrap(await postInvoiceContra(inv.id), 'post2');
+
+    // reverse
+    const rev = unwrap(await reverseInvoiceContra(inv.id, 'грешна сметка'), 'reverse');
+    expect(rev.postingNumber).toBeGreaterThan(posted.postingNumber);
+
+    // original flipped to reversed + linked to the reversal
+    const [orig] = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.id, posted.entryId));
+    expect(orig?.status).toBe('reversed');
+    expect(orig?.reversedByEntryId).toBe(rev.reversalEntryId);
+
+    // reversal entry: kind reversal, posted, NO source link, same period
+    const [revEntry] = await db
+      .select()
+      .from(journalEntries)
+      .where(eq(journalEntries.id, rev.reversalEntryId));
+    expect(revEntry?.kind).toBe('reversal');
+    expect(revEntry?.status).toBe('posted');
+    expect(revEntry?.sourceInvoiceId).toBeNull();
+    expect(revEntry?.vatPeriod).toBe(TODAY.slice(0, 7));
+
+    // reversal lines are negated + still balanced (Дт = Кт, both = -1200.00)
+    const revLines = await db
+      .select()
+      .from(journalLines)
+      .where(eq(journalLines.journalEntryId, rev.reversalEntryId));
+    expect(revLines.length).toBe(3);
+    const rsum = (side: string) =>
+      revLines.filter((l) => l.side === side).reduce((s, l) => s + Number(l.amountBase), 0);
+    expect(Math.round(rsum('debit') * 100)).toBe(Math.round(rsum('credit') * 100));
+    expect(Math.round(rsum('debit') * 100)).toBe(-120000);
+
+    // the VAT period nets to zero across original + reversal tax lines
+    const taxRows = await db
+      .select()
+      .from(journalTaxLines)
+      .where(inArray(journalTaxLines.journalEntryId, [posted.entryId, rev.reversalEntryId]));
+    expect(taxRows.reduce((s, t) => s + Number(t.vat), 0)).toBe(0);
+    expect(taxRows.reduce((s, t) => s + Number(t.base), 0)).toBe(0);
+
+    // source unlocked back to pending
+    const [unlocked] = await db
+      .select({ acc: invoices.accountingStatus })
+      .from(invoices)
+      .where(eq(invoices.id, inv.id));
+    expect(unlocked?.acc).toBe('pending');
+
+    // re-post now succeeds (unique index excludes the reversed original) — a new entry
+    const reposted = unwrap(await postInvoiceContra(inv.id), 're-post');
+    expect(reposted.entryId).not.toBe(posted.entryId);
+    expect(reposted.postingNumber).toBeGreaterThan(rev.postingNumber);
+
+    // reverse the re-posting too, then a third reverse errors (no active posting)
+    unwrap(await reverseInvoiceContra(inv.id), 'reverse-2');
+    expect(unwrapError(await reverseInvoiceContra(inv.id), 'reverse-3')).toMatch(
+      /няма активна контировка/i
+    );
   });
 });

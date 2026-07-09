@@ -33,6 +33,19 @@ it appends an entry using the template below and then either:
 _(The agent appends below. Seeded with the known-open product decisions from
 `PRODUCT_ROADMAP.md` §2 so they live in one place.)_
 
+### VAT-2-GROUNDS — curated 0%/exempt legal-grounds list needs accountant review — PROCEEDED (reversible)
+- **When:** run 3, 2026-07-09.
+- **Context:** the invoice "Без ДДС" reason was free text (accountants distrust it). Replaced it
+  with a curated ЗДДС dropdown (`src/features/bulgarian-invoicing/vat-grounds.ts`) + a "Друго"
+  free-text fallback in `LineItemsCard`.
+- **What I did (reversible default):** seeded 10 common grounds — чл. 21 ал.2 (услуги ЕС/обратно
+  начисляване), чл. 53 ал.1 (ВОД), чл. 28 (износ), чл. 30 (межд. транспорт), чл. 39/40/41/44/45/46
+  (освободени доставки). Nothing is lost vs before: any case not listed still goes through "Друго".
+- **Needs from you (Koceto):** review the list for **accuracy + completeness** — exact ал./точка
+  wording, whether to add e.g. чл. 21 ал.2 sub-cases, чл. 69 ал.2, чл. 140/143 (marge/туризъм),
+  чл. 173 (0% by decision). Add/adjust entries in `vat-grounds.ts` (the stored/printed string is
+  `"<ref> — <описание>"`; a round-trip test guards the format). Not blocking; free text covers the gap.
+
 ### GEN-1-LABELS — hardcoded "EUR" labels after currency conversion — ✅ RESOLVED (run 3)
 - **When:** logged GEN-1 A3/A4 (run 2, 2026-07-09); fixed run 3.
 - **Context:** GEN-1 converts every aggregate to the company base currency. Two display spots

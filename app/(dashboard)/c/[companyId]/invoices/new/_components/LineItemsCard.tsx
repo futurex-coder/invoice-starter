@@ -1,15 +1,30 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { EntityPicker } from '@/components/forms/entity-picker';
 import { calculateInvoice } from '@/src/features/bulgarian-invoicing';
 import type { BgVatRate } from '@/src/features/bulgarian-invoicing/types';
+import {
+  VAT_EXEMPTION_GROUNDS,
+  vatGroundValue,
+  isKnownVatGround,
+} from '@/src/features/bulgarian-invoicing/vat-grounds';
 import type { Article } from '@/lib/db/schema';
 import type { LineItemForm, VatMode } from './types';
+
+const CUSTOM_VAT_GROUND = '__custom__';
 
 interface Props {
   lineItems: LineItemForm[];
@@ -70,11 +85,9 @@ export function LineItemsCard({
               </div>
             </RadioGroup>
             {vatMode === 'no_vat' && (
-              <Input
-                className="mt-2"
-                placeholder="Основание за неначисляване на ДДС"
+              <NoVatReasonPicker
                 value={noVatReason}
-                onChange={(e) => onNoVatReasonChange(e.target.value)}
+                onChange={onNoVatReasonChange}
               />
             )}
           </div>
@@ -197,5 +210,66 @@ export function LineItemsCard({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Legal-grounds picker for a 0%/exempt (без ДДС) invoice. Offers the curated
+ * ЗДДС references and falls back to free text via "Друго". The stored value is
+ * the plain reason string, so editing an existing invoice restores the right
+ * mode (a recognised ground shows as selected; anything else opens free text).
+ */
+export function NoVatReasonPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (reason: string) => void;
+}) {
+  const [custom, setCustom] = useState(
+    () => value.length > 0 && !isKnownVatGround(value)
+  );
+
+  const selectValue = custom
+    ? CUSTOM_VAT_GROUND
+    : VAT_EXEMPTION_GROUNDS.map(vatGroundValue).find((v) => v === value);
+
+  return (
+    <div className="mt-2 space-y-2">
+      <Select
+        value={selectValue}
+        onValueChange={(v) => {
+          if (v === CUSTOM_VAT_GROUND) {
+            setCustom(true);
+            // Clear a previously-picked ground; keep already-typed custom text.
+            if (isKnownVatGround(value)) onChange('');
+          } else {
+            setCustom(false);
+            onChange(v);
+          }
+        }}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Изберете основание за 0% ДДС" />
+        </SelectTrigger>
+        <SelectContent>
+          {VAT_EXEMPTION_GROUNDS.map((g) => (
+            <SelectItem key={g.ref} value={vatGroundValue(g)}>
+              {g.ref} — {g.description}
+            </SelectItem>
+          ))}
+          <SelectItem value={CUSTOM_VAT_GROUND}>
+            Друго (посочете основание)
+          </SelectItem>
+        </SelectContent>
+      </Select>
+      {custom && (
+        <Input
+          placeholder="Основание за неначисляване на ДДС"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
   );
 }

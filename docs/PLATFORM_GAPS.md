@@ -25,8 +25,9 @@ raw-enum bugs** (see §1). Verify: build + grep for leftover English + tests.
 - [x] **Proforma DB enum tidy** — added `PROFORMA` to the `schema.ts` `DocType` enum + column
       comment. Confirmed `doc_type` is a free varchar(30) with no CHECK constraint, so proforma
       inserts fine (PROF-1 flow). **LOW** → this commit
-- [ ] **Reusable 0%/exempt legal-grounds list** (VAT-2) — replace the free-text "Reason for no
-      VAT" with a saved чл.-reference list. Accountants distrust free text. **LOW**, pairs w/ VAT.
+- [x] **Reusable 0%/exempt legal-grounds list** (VAT-2) — replaced the free-text "Reason for no
+      VAT" with a curated ЗДДС dropdown (`vat-grounds.ts`) + "Друго" free-text fallback. List
+      seeded (10 grounds) + logged for accountant review (VAT-2-GROUNDS). **LOW** → this commit
 - [x] **Two diverging `formatMoney`** — dashboard used browser locale, docs used deterministic
       `1 234.56`. Unified: one impl in `lib/format`, re-exported by the invoice formatter. **LOW-MED** → this commit
 

@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../drizzle';
 import { users, type SafeUser } from '../schema';
@@ -8,7 +9,11 @@ import { verifyToken } from '@/lib/auth/session';
 // AUTH & SESSION
 // ─────────────────────────────────────────────
 
-export async function getUser() {
+// PERF (P3): `cache()` dedups getUser within a single request. Without it,
+// getUser runs 3–4× per render (root-layout SWR fallback + company layout +
+// page + /api/user), each a serial ~31 ms round-trip to the pooler. React
+// keys the cache per-request, so this is a pure dedup with no behaviour change.
+export const getUser = cache(async () => {
   const sessionCookie = (await cookies()).get('session');
   if (!sessionCookie || !sessionCookie.value) {
     return null;
@@ -38,7 +43,7 @@ export async function getUser() {
   }
 
   return user[0];
-}
+});
 
 /**
  * Like {@link getUser}, but strips the `passwordHash` field.

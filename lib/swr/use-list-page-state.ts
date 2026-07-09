@@ -43,6 +43,15 @@ export interface UseListPageStateOptions<
   action: (
     params: TFilters & { page: number; pageSize: number }
   ) => Promise<ActionResult<TResult>>;
+  /**
+   * PERF (R2/T2): SSR-fetched result for the **default view** (filters at
+   * their defaults, page 1). When provided, it seeds the SWR cache so the list
+   * renders from server data on first paint instead of firing a fetch on mount.
+   * It is applied *only* while the current filters/page equal the defaults, so
+   * a URL-filtered entry point still fetches its own data. With the app's
+   * global `revalidateIfStale:false`, the seed is used without a mount refetch.
+   */
+  fallbackData?: TResult;
 }
 
 export interface ListPageState<
@@ -172,6 +181,7 @@ export function useListPageState<
     searchDebounceMs = DEFAULT_SEARCH_DEBOUNCE_MS,
     urlSync = true,
     action,
+    fallbackData,
   } = options;
 
   const router = useRouter();
@@ -311,14 +321,33 @@ export function useListPageState<
     [swrKey, filters, page]
   );
 
+  // PERF (R2/T2): seed the SWR cache with SSR data only while showing the
+  // default view (filters == defaults, page 1) — the exact slice the server
+  // pre-fetched. A URL-filtered entry point has a different key and fetches
+  // normally.
+  const isDefaultView = useMemo(
+    () => page === 1 && JSON.stringify(filters) === JSON.stringify(defaults),
+    [page, filters, defaults]
+  );
+  const swrConfig =
+    isDefaultView && fallbackData !== undefined ? { fallbackData } : undefined;
+
   const {
     data: result,
-    isLoading: loading,
+    isLoading: swrLoading,
     error: fetchError,
     mutate,
-  } = useActionSWR<TResult>(swrCacheKey, () =>
-    action({ ...filters, page, pageSize })
+  } = useActionSWR<TResult>(
+    swrCacheKey,
+    () => action({ ...filters, page, pageSize }),
+    swrConfig
   );
+
+  // Only surface the loading state when there is genuinely nothing to show.
+  // With keepPreviousData + the SSR seed, `result` holds the previous/seeded
+  // rows during a background revalidation or key change — so the list renders
+  // stale data instead of a spinner, and updates silently when the fetch lands.
+  const loading = swrLoading && result === undefined;
 
   const refetch = useCallback(async () => {
     return mutate();

@@ -72,7 +72,7 @@ dedupingInterval: 5000,
 that alt-tabs a lot, this is the difference between a request every few seconds and
 none.
 
-### T2 — Server-seed list pages so they render on first paint (fixes R3)  ◐ invoices DONE — High / med
+### T2 — Server-seed list pages so they render on first paint (fixes R3)  ☑ DONE (all 4 lists) — High / med
 Give each list page an SSR-fetched first page as SWR `fallbackData`, so the default
 view renders immediately with **no mount POST**:
 1. Add an optional `fallbackData` to `useListPageState` → forwarded to `useSWR`.
@@ -89,10 +89,11 @@ Rollout: **invoices** first (flagship, fully verified), then **partners**,
 waterfall. One fewer round-trip per list navigation and meaningful TTI/perceived-
 speed improvement, especially on cold JS.
 
-### T3 — Notification poll cadence  ☐ Low / low
-Keep 60 s (acceptable) but ensure it's paused when the tab is hidden (SWR default
-`refreshWhenHidden:false` already does this — verified, documented). No code change
-unless we later want a longer interval.
+### T3 — Notification poll cadence  ☑ DONE (no code change) Low / low
+Kept 60 s. SWR's default `refreshWhenHidden:false` already pauses the interval
+when the tab is hidden, so a backgrounded tab makes **zero** notification
+requests. Combined with T1 removing its focus-revalidation, the bell now makes at
+most one request per minute per *visible* tab. No code change needed.
 
 ---
 
@@ -116,16 +117,30 @@ only remaining automatic client requests are the notifications `refreshInterval`
 - **T1a:** profile-update success now calls `mutate('/api/user')` so the header
   stays correct without focus-revalidation.
 
-**T2 (list SSR seeding) — invoices done, verified live.** `/c/5/invoices` now
-returns **8 invoice rows in the SSR HTML** (verified with a real session; the
-empty-state markup is absent). Before, the `'use client'` page shipped an empty
-loading table and fetched rows via a server-action POST only after hydration.
-Infra added: `useListPageState({ fallbackData })` (applied only for the default
-view) + a shared `queryInvoicesList(companyId, filters)` so the action and the
-server page return an identical shape. Seeds by URL companyId (not the cookie).
+**T2 (list SSR seeding) — all 4 lists done, verified live.** Each list `page.tsx`
+is now a thin server component that SSR-fetches page 1 and seeds SWR via
+`fallbackData`; the interactive body moved to a `*PageClient.tsx`. Verified with a
+real session — rows are present in the SSR HTML (empty-state markup absent), row
+counts exactly matching the DB:
 
-Remaining lists (**partners, articles, received-invoices**) follow the exact same
-recipe — tracked below.
+| Route | DB rows | `<tr>` in SSR HTML (1 header + data) |
+|-------|--------:|-------------------------------------|
+| `/c/5/invoices`         | 8 | 8 status labels rendered |
+| `/c/5/partners`         | 4 | 5 |
+| `/c/5/articles`         | 3 | 4 |
+| `/c/5/received-invoices`| 1 | 2 |
+
+Before, each `'use client'` page shipped an empty loading table and fetched rows
+via a server-action POST only after hydration. Infra: `useListPageState({
+fallbackData })` (applied only when filters==defaults & page 1) + shared
+`query*List(companyId, filters)` functions (in each feature's `queries.ts`) so the
+action and the server page return an identical shape. **Seeds by URL companyId,
+never the active-company cookie** — so a direct link to another company can't seed
+the wrong rows under `revalidateIfStale:false`.
+
+Note: a URL entered *with* filters (`?status=…`) SSR-seeds the default slice and
+the client fetches the filtered slice on mount (different SWR key). The common
+case — a bare list navigation — is fully server-rendered.
 
 **Verify quad (branch `perf/audit-p1-p5`):** `tsc` 0 errors · `eslint` 0 warnings
 · `vitest` 250 passed · `next build` success (routes still `ƒ`/`◐` as expected).

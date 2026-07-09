@@ -16,6 +16,7 @@ import {
 } from '@/lib/db/schema';
 import { getNextInvoiceNumber } from '@/lib/db/queries';
 import { issuedVatSumSql } from '@/lib/db/queries/money';
+import { invoiceHasActivePosting } from '@/lib/db/queries/journal';
 import { action, failWith, type ActionResult } from '@/lib/actions/result';
 import { requireCompanyAccess } from '@/lib/auth/guards';
 import { logActivity, logActivityInTx } from '@/lib/db/activity';
@@ -865,6 +866,14 @@ export async function cancelInvoice(
     if (!isDomainStatus(existing.status) || !canTransition(existing.status, 'cancelled')) {
       throw new Error(`Cannot cancel invoice with status "${existing.status}"`);
     }
+    // KONT-1 (stress #3): a posted контировка must be reversed before the source
+    // can be cancelled — else it drops from getVatSummary while its дневник row
+    // survives. Keyed on posting existence, not accountingStatus.
+    if (await invoiceHasActivePosting(invoiceId)) {
+      throw new Error(
+        'Документът е осчетоводен — първо сторнирайте контировката, преди да анулирате.'
+      );
+    }
 
     const [cancelled] = await db
       .update(invoices)
@@ -960,6 +969,16 @@ export async function deleteInvoice(
 
     if (!existing) {
       throw new Error('Фактурата не е намерена');
+    }
+    // KONT-1 (stress #1/#F2d): refuse deletion behind a live контировка (the
+    // source FK is ON DELETE RESTRICT; this gives a clean, actionable message).
+    // Checked BEFORE the plain accountingStatus guard so a posted document is
+    // pointed at сторниране — not at „върнете в изчаква осчетоводяване“, which
+    // the un-account guard itself now refuses (that would be a dead end).
+    if (await invoiceHasActivePosting(invoiceId)) {
+      throw new Error(
+        'Документът е осчетоводен — първо сторнирайте контировката, преди да го изтриете.'
+      );
     }
     if (existing.accountingStatus === 'accounted') {
       throw new Error(
@@ -1098,6 +1117,18 @@ export async function updateInvoiceAccountingStatus(
     // and cancelled documents are out of the ledger.
     if (existing.status !== InvoiceStatus.FINALIZED) {
       throw new Error('Only finalized documents can change accounting status');
+    }
+    // KONT-1 (stress #1): the manual accountingStatus toggle must not be able to
+    // move a document back to „изчаква осчетоводяване“ while a live контировка
+    // sits in the ledger — that would silently un-book a filed entry. The only
+    // way out of „accounted“ for a posted document is a reversing entry.
+    if (
+      accountingStatus === 'pending' &&
+      (await invoiceHasActivePosting(invoiceId))
+    ) {
+      throw new Error(
+        'Документът е осчетоводен с контировка — първо сторнирайте контировката.'
+      );
     }
 
     const [updated] = await db

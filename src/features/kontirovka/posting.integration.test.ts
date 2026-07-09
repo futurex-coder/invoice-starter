@@ -26,6 +26,9 @@ import type { ActionResult } from '@/lib/actions/result';
 import {
   createInvoiceDraft,
   finalizeInvoice,
+  cancelInvoice,
+  deleteInvoice,
+  updateInvoiceAccountingStatus,
 } from '@/src/features/bulgarian-invoicing/actions';
 import { getInvoiceContraPreview, postInvoiceContra } from './actions';
 
@@ -191,5 +194,28 @@ describe('postInvoiceContra', () => {
     await expect(
       db.update(journalEntries).set({ note: 'опит за промяна' }).where(eq(journalEntries.id, posted.entryId))
     ).rejects.toThrow(/неизменяема/i);
+
+    // KONT-1 posting-existence guards (stress #1/#3/#4): the source is locked
+    // behind the live контировка until it is reversed.
+    //   un-accounting is refused
+    expect(
+      unwrapError(await updateInvoiceAccountingStatus(inv.id, 'pending'), 'un-account')
+    ).toMatch(/сторнирайте контировката/i);
+    //   cancel is refused
+    expect(unwrapError(await cancelInvoice(inv.id), 'cancel')).toMatch(
+      /сторнирайте контировката/i
+    );
+    //   delete is refused
+    expect(unwrapError(await deleteInvoice(inv.id), 'delete')).toMatch(
+      /сторнирайте контировката/i
+    );
+
+    // the invoice is still finalized + accounted after the blocked attempts
+    const [stillLocked] = await db
+      .select({ status: invoices.status, acc: invoices.accountingStatus })
+      .from(invoices)
+      .where(eq(invoices.id, inv.id));
+    expect(stillLocked?.status).toBe('finalized');
+    expect(stillLocked?.acc).toBe('accounted');
   });
 });

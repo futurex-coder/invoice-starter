@@ -1,7 +1,8 @@
 'use client';
 
+import { useState, Fragment } from 'react';
 import { useParams } from 'next/navigation';
-import { Loader2, Calculator } from 'lucide-react';
+import { Loader2, Calculator, ChevronRight } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -16,6 +17,7 @@ import { DataTableHead, DATA_ROW_CLASS } from '@/components/list-page/DataTableH
 import { formatMoney } from '@/src/features/bulgarian-invoicing/formatter';
 import { PageShell } from '@/components/page-shell';
 import { cn } from '@/lib/utils';
+import { MonthDnevnik } from './_components/MonthDnevnik';
 
 const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 
@@ -39,6 +41,7 @@ export default function VatPage() {
 
   const rows = data?.rows ?? [];
   const baseCurrency = data?.baseCurrency ?? 'EUR';
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
     <PageShell>
@@ -83,41 +86,62 @@ export default function VatPage() {
                 <tbody>
                   {rows.map((r) => {
                     const isCurrent = r.month === CURRENT_MONTH;
+                    const isOpen = expanded === r.month;
                     return (
-                      <tr
-                        key={r.month}
-                        className={cn(
-                          DATA_ROW_CLASS,
-                          isCurrent && 'bg-amber-50/60'
-                        )}
-                      >
-                        <td className="px-4 py-3 text-sm font-medium">
-                          {monthLabel(r.month)}
-                          {isCurrent && (
-                            <span className="ml-2 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
-                              текущ
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm">
-                          {formatMoney(r.vatIssued)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm">
-                          {formatMoney(r.vatPaid)}
-                        </td>
-                        <td
+                      <Fragment key={r.month}>
+                        <tr
                           className={cn(
-                            'px-4 py-3 text-right text-sm font-semibold',
-                            r.vatNet > 0
-                              ? 'text-red-700'
-                              : r.vatNet < 0
-                                ? 'text-green-700'
-                                : 'text-gray-500'
+                            DATA_ROW_CLASS,
+                            'cursor-pointer',
+                            isCurrent && 'bg-amber-50/60'
                           )}
+                          onClick={() => setExpanded(isOpen ? null : r.month)}
+                          aria-expanded={isOpen}
                         >
-                          {formatMoney(r.vatNet)}
-                        </td>
-                      </tr>
+                          <td className="px-4 py-3 text-sm font-medium">
+                            <ChevronRight
+                              className={cn(
+                                'mr-1.5 inline h-3.5 w-3.5 text-gray-400 transition-transform',
+                                isOpen && 'rotate-90'
+                              )}
+                            />
+                            {monthLabel(r.month)}
+                            {isCurrent && (
+                              <span className="ml-2 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                                текущ
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm">
+                            {formatMoney(r.vatIssued)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm">
+                            {formatMoney(r.vatPaid)}
+                          </td>
+                          <td
+                            className={cn(
+                              'px-4 py-3 text-right text-sm font-semibold',
+                              r.vatNet > 0
+                                ? 'text-red-700'
+                                : r.vatNet < 0
+                                  ? 'text-green-700'
+                                  : 'text-gray-500'
+                            )}
+                          >
+                            {formatMoney(r.vatNet)}
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr>
+                            <td colSpan={4} className="p-0">
+                              <MonthDnevnik
+                                month={r.month}
+                                baseCurrency={baseCurrency}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

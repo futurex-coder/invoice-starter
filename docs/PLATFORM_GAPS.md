@@ -34,6 +34,15 @@ raw-enum bugs** (see §1). Verify: build + grep for leftover English + tests.
 - [x] **Two diverging `formatMoney`** — dashboard used browser locale, docs used deterministic
       `1 234.56`. Unified: one impl in `lib/format`, re-exported by the invoice formatter. **LOW-MED** → this commit
 
+### Owner-requested extras (shipped this session)
+- [x] **Payments page consolidated into received-invoices** (owner call). → d11b047
+- [x] **Manual invoice number at creation** — optional; jumps the NUM-1 sequence forward, DB
+      trigger keeps it strictly increasing. Integration-tested. → f2f5423
+- [x] **Delete outgoing invoices** — allowed until accounted; blocks parents-with-notes; heals the
+      sequence so deleting the latest number leaves no gap. Integration-tested. → 1e6fd64
+- [x] **Delete received invoices** — incl. confirmed (were archive-only), until accounted; file +
+      lines cascade. → 61bea2c
+
 ## 2. Core BG compliance artefacts (MED, high value — the accountant's real job)
 - [ ] **ДДС дневник продажби / покупки** — per-document sales & purchase ledgers in НАП column
       format (over existing `invoices`/`receivedInvoices`). The monthly deliverable; the VAT

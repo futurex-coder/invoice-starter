@@ -71,8 +71,8 @@ export interface VatOperationMeta {
 
 // The registry. Cells per WIRING §1.7 (sales) / §1.8 (purchases).
 export const VAT_OPERATION_META: Readonly<Record<VatOperation, VatOperationMeta>> = {
-  sale_std_20: { code: 'sale_std_20', label: 'Облагаема доставка 20%', register: 'sales', hasVatLeg: true, baseCell: 11, vatCell: 21, vies: false, dual: false, tier: 'core' },
-  sale_std_9: { code: 'sale_std_9', label: 'Облагаема доставка 9%', register: 'sales', hasVatLeg: true, baseCell: 13, vatCell: 23, vies: false, dual: false, tier: 'v1' },
+  sale_std_20: { code: 'sale_std_20', label: 'Облагаеми доставки и др. с 20% ДДС', register: 'sales', hasVatLeg: true, baseCell: 11, vatCell: 21, vies: false, dual: false, tier: 'core' },
+  sale_std_9: { code: 'sale_std_9', label: 'Облагаеми доставки и др. с 9% ДДС', register: 'sales', hasVatLeg: true, baseCell: 13, vatCell: 23, vies: false, dual: false, tier: 'v1' },
   sale_export_0: { code: 'sale_export_0', label: 'Износ извън ЕС (чл.28)', register: 'sales', hasVatLeg: false, baseCell: 14, vatCell: null, vies: false, dual: false, tier: 'v1' },
   sale_ics_0: { code: 'sale_ics_0', label: 'ВОД на стоки (чл.53 ал.1)', register: 'sales', hasVatLeg: false, baseCell: 15, vatCell: null, vies: true, dual: false, tier: 'v1' },
   sale_intl_transport_0: { code: 'sale_intl_transport_0', label: 'Международен транспорт (чл.30)', register: 'sales', hasVatLeg: false, baseCell: 16, vatCell: null, vies: false, dual: false, tier: 'v2' },

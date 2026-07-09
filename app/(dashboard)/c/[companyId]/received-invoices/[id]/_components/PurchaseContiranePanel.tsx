@@ -1,12 +1,13 @@
 'use client';
 
 /**
- * KONT-1 Slice 3 — „Меню Контиране“ for a purchase (received invoice). Same
- * Дебит/Кредит layout as the sales panel, plus the two classifications a purchase
- * needs and a sale doesn't: the Основание (basis → 60x/30x/204/304) and whether
- * the input VAT is deductible (пълен кредит vs чл.70 без право). Changing either
- * re-derives the preview; „Осчетоводи“ posts with the chosen classification.
- * Once posted the panel locks to what was booked and offers „Сторнирай“.
+ * KONT-1 Slice 3 — „Меню Контиране" for a purchase (received invoice). Renders the
+ * shared <KontirovkaForm>, plus the two classifications a purchase needs and a sale
+ * doesn't, in the Основание position: the basis (→ 60x/30x/204/304) and whether the
+ * input VAT is deductible (пълен кредит vs чл.70 без право). Changing either
+ * re-derives the preview; „Осчетоводи" posts with the chosen classification. Once
+ * posted the panel locks to what was booked and offers „Сторнирай". `onCancel`
+ * adds an „Отказ" button when opened inside the ДДС-дневник dialog.
  */
 
 import { useState } from 'react';
@@ -30,10 +31,15 @@ import {
 } from '@/src/features/kontirovka/actions';
 import type { AccountingBasis } from '@/src/features/kontirovka/contra';
 import {
-  BASIS_LABELS,
-  ContraField,
-  LedgerColumn,
-} from '@/components/kontirovka/contra-ledger';
+  DEAL_TYPE_LABELS,
+  getViesLabel,
+} from '@/src/features/kontirovka/vat-operations';
+import {
+  formatPostingNumber,
+  formatExportMonth,
+} from '@/src/features/kontirovka/format';
+import { BASIS_LABELS, ContraField } from '@/components/kontirovka/contra-ledger';
+import { KontirovkaForm } from '@/components/kontirovka/KontirovkaForm';
 import { BookCheck, Loader2, Scale, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +49,8 @@ interface Props {
   currency: string;
   /** Called after a successful post/reverse so the parent can revalidate. */
   onChanged?: () => void;
+  /** When provided (dialog mode), renders an „Отказ" button. */
+  onCancel?: () => void;
 }
 
 export function PurchaseContiranePanel({
@@ -50,6 +58,7 @@ export function PurchaseContiranePanel({
   receivedInvoiceId,
   currency,
   onChanged,
+  onCancel,
 }: Props) {
   const [basis, setBasis] = useState<AccountingBasis>('services');
   const [noCredit, setNoCredit] = useState(false);
@@ -130,6 +139,47 @@ export function PurchaseContiranePanel({
   const shownBasis = posted ? preview.basis : basis;
   const shownNoCredit = posted ? preview.noCredit : noCredit;
 
+  // Основание + чл.70 render in the Основание position of the shared form.
+  const classificationSlot = (
+    <>
+      <ContraField label="Основание">
+        <Select
+          value={shownBasis}
+          disabled={posted || busy || !preview.hasVat}
+          onValueChange={(v) => {
+            if (isBasis(v)) setBasis(v);
+          }}
+        >
+          <SelectTrigger className="h-8 w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {preview.basisOptions.map((b) => (
+              <SelectItem key={b} value={b}>
+                {BASIS_LABELS[b]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </ContraField>
+      <label
+        className={cn(
+          'flex items-center gap-2 border-b border-gray-100 py-1.5 text-sm',
+          (posted || !preview.hasVat) && 'opacity-60'
+        )}
+      >
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-gray-300"
+          checked={shownNoCredit}
+          disabled={posted || busy || !preview.hasVat}
+          onChange={(e) => setNoCredit(e.target.checked)}
+        />
+        Без право на данъчен кредит (чл.70)
+      </label>
+    </>
+  );
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
@@ -151,36 +201,6 @@ export function PurchaseContiranePanel({
             </span>
           ) : null}
         </CardTitle>
-        {posted ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-red-600 hover:text-red-700"
-            onClick={() => setConfirmReverseOpen(true)}
-            disabled={busy}
-          >
-            {busy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Undo2 className="mr-2 h-4 w-4" />
-            )}
-            Сторнирай
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            className="bg-green-600 hover:bg-green-700"
-            onClick={handlePost}
-            disabled={busy || !canPost}
-          >
-            {busy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <BookCheck className="mr-2 h-4 w-4" />
-            )}
-            Осчетоводи
-          </Button>
-        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {actionError && <Alert variant="error">{actionError}</Alert>}
@@ -191,77 +211,71 @@ export function PurchaseContiranePanel({
           </Alert>
         )}
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-          <ContraField label="Тип на документа">{preview.documentType}</ContraField>
-          <ContraField label="Документ №">{preview.documentNumber}</ContraField>
-          <ContraField label="Дата (данъчно събитие)">
-            {formatDateBg(preview.documentDate)}
-          </ContraField>
-          <ContraField label="Доставчик">
-            {preview.partnerName || '—'}
-            {preview.partnerUic ? (
-              <span className="text-gray-400"> · {preview.partnerUic}</span>
-            ) : null}
-          </ContraField>
-          <ContraField label="Операция по ДДС">{preview.vatOperationLabel}</ContraField>
-          <ContraField label="Месец за експорт">{preview.vatPeriod}</ContraField>
-        </div>
+        <KontirovkaForm
+          header={{
+            postingNumberLabel: formatPostingNumber(preview.postingNumber),
+            postingDateLabel: preview.postingDate
+              ? formatDateBg(preview.postingDate)
+              : '—',
+            documentType: preview.documentType,
+            documentNumber: preview.documentNumber,
+            documentDateLabel: preview.documentDate
+              ? formatDateBg(preview.documentDate)
+              : '—',
+            partnerName: preview.partnerName,
+            partnerUic: preview.partnerUic,
+            partnerLabel: 'Доставчик',
+            basisLabel: BASIS_LABELS[preview.basis],
+            note: preview.note,
+            dealTypeLabel: DEAL_TYPE_LABELS[preview.dealType],
+            vatOperationLabel: preview.vatOperationLabel,
+            viesLabel: getViesLabel(preview.vies),
+            exportMonthLabel: formatExportMonth(preview.vatPeriod),
+          }}
+          debitLines={debitLines}
+          creditLines={creditLines}
+          currency={currency}
+          totalDebit={preview.totalDebit}
+          totalCredit={preview.totalCredit}
+          classificationSlot={classificationSlot}
+        />
 
-        {/* Purchase-only classification: Основание + данъчен кредит */}
-        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-gray-200 p-3 sm:flex-row sm:items-end">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-500">Основание (сметка)</span>
-            <Select
-              value={shownBasis}
-              disabled={posted || busy || !preview.hasVat}
-              onValueChange={(v) => {
-                if (isBasis(v)) setBasis(v);
-              }}
+        <div className="flex items-center justify-end gap-2 pt-1">
+          {onCancel && (
+            <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
+              Отказ
+            </Button>
+          )}
+          {posted ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:text-red-700"
+              onClick={() => setConfirmReverseOpen(true)}
+              disabled={busy}
             >
-              <SelectTrigger className="h-8 w-56">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {preview.basisOptions.map((b) => (
-                  <SelectItem key={b} value={b}>
-                    {BASIS_LABELS[b]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <label
-            className={cn(
-              'flex items-center gap-2 text-sm',
-              (posted || !preview.hasVat) && 'opacity-60'
-            )}
-          >
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-gray-300"
-              checked={shownNoCredit}
-              disabled={posted || busy || !preview.hasVat}
-              onChange={(e) => setNoCredit(e.target.checked)}
-            />
-            Без право на данъчен кредит (чл.70)
-          </label>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <LedgerColumn
-            title="Дебит"
-            lines={debitLines}
-            total={preview.totalDebit}
-            currency={currency}
-            accent="debit"
-          />
-          <LedgerColumn
-            title="Кредит"
-            lines={creditLines}
-            total={preview.totalCredit}
-            currency={currency}
-            accent="credit"
-          />
+              {busy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Undo2 className="mr-2 h-4 w-4" />
+              )}
+              Сторнирай
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handlePost}
+              disabled={busy || !canPost}
+            >
+              {busy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <BookCheck className="mr-2 h-4 w-4" />
+              )}
+              Осчетоводи
+            </Button>
+          )}
         </div>
       </CardContent>
 

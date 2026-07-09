@@ -178,6 +178,10 @@ interface ContraPreviewBase {
   balanced: boolean;
   alreadyPosted: boolean;
   postingNumber: number | null;
+  /** Дата на осчетоводяване — the posting date once posted; null while a draft. */
+  postingDate: string | null;
+  /** Забележка — free-text note carried on the posted entry (null otherwise). */
+  note: string | null;
 }
 
 export interface ContraPreview extends ContraPreviewBase {
@@ -227,6 +231,8 @@ export async function getInvoiceContraPreview(
       .select({
         id: journalEntries.id,
         postingNumber: journalEntries.postingNumber,
+        postingDate: journalEntries.postingDate,
+        note: journalEntries.note,
       })
       .from(journalEntries)
       .where(
@@ -257,6 +263,8 @@ export async function getInvoiceContraPreview(
       balanced: d.balanced,
       alreadyPosted: !!existing,
       postingNumber: existing?.postingNumber ?? null,
+      postingDate: existing?.postingDate ?? null,
+      note: existing?.note ?? null,
     };
   });
 }
@@ -656,6 +664,8 @@ export async function getReceivedInvoiceContraPreview(
       .select({
         id: journalEntries.id,
         postingNumber: journalEntries.postingNumber,
+        postingDate: journalEntries.postingDate,
+        note: journalEntries.note,
         basis: journalEntries.basis,
         vatOperation: journalEntries.vatOperation,
       })
@@ -704,6 +714,8 @@ export async function getReceivedInvoiceContraPreview(
       balanced: d.balanced,
       alreadyPosted: !!existing,
       postingNumber: existing?.postingNumber ?? null,
+      postingDate: existing?.postingDate ?? null,
+      note: existing?.note ?? null,
     };
   });
 }

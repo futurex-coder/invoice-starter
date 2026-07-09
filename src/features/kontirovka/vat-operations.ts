@@ -96,6 +96,17 @@ export function getVatOperationMeta(op: VatOperation): VatOperationMeta {
   return VAT_OPERATION_META[op];
 }
 
+/** „Тип на сделката" — the Microinvest deal-type label. */
+export const DEAL_TYPE_LABELS: Record<DealType, string> = {
+  sale: 'Продажба',
+  purchase: 'Покупка',
+};
+
+/** „VIES" field text — whether the deal is declared in the VIES декларация. */
+export function getViesLabel(vies: boolean): string {
+  return vies ? 'Участва в декларацията (VIES)' : 'Не участва в декларацията';
+}
+
 // ── Keying map: exact vat-grounds ref → VatOperation (fixes stress #2 / P1) ───
 
 // Keyed on the EXACT `ref` constants in vat-grounds.ts (whitespace as stored).

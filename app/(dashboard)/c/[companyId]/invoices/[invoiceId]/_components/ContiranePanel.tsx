@@ -1,14 +1,11 @@
 'use client';
 
 /**
- * KONT-1 Slice 2 — „Меню Контиране“ (the Microinvest journalizing panel).
- *
- * Shows the derived double-entry статия for a finalized sale document: a header
- * (Контировка №, тип, операция по ДДС, контрагент, месец за експорт) and two
- * columns — Дебит on the left, Кредит on the right — with running totals and a
- * balance indicator. „Осчетоводи“ is gated on a balanced entry; once posted the
- * panel locks and offers „Сторнирай“ (which writes a reversing entry and unlocks
- * the source). Field/label wording follows docs/KONTIROVKA_MICROINVEST_NAMING.md.
+ * KONT-1 Slice 2 — „Меню Контиране" (the Microinvest journalizing panel) for a
+ * finalized SALE. Renders the shared <KontirovkaForm> (two-column header + Дт/Кт
+ * grids); the classification is derived (read-only). „Осчетоводи" is gated on a
+ * balanced entry; once posted the panel locks and offers „Сторнирай". When opened
+ * inside the ДДС-дневник dialog, `onCancel` adds an „Отказ" button.
  */
 
 import { useState } from 'react';
@@ -17,17 +14,22 @@ import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
-import { formatMoney, formatDateBg } from '@/src/features/bulgarian-invoicing/formatter';
+import { formatDateBg } from '@/src/features/bulgarian-invoicing/formatter';
 import {
   getInvoiceContraPreview,
   postInvoiceContra,
   reverseInvoiceContra,
 } from '@/src/features/kontirovka/actions';
 import {
-  BASIS_LABELS,
-  ContraField,
-  LedgerColumn,
-} from '@/components/kontirovka/contra-ledger';
+  DEAL_TYPE_LABELS,
+  getViesLabel,
+} from '@/src/features/kontirovka/vat-operations';
+import {
+  formatPostingNumber,
+  formatExportMonth,
+} from '@/src/features/kontirovka/format';
+import { BASIS_LABELS } from '@/components/kontirovka/contra-ledger';
+import { KontirovkaForm } from '@/components/kontirovka/KontirovkaForm';
 import { BookCheck, Loader2, Scale, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,9 +39,17 @@ interface Props {
   currency: string;
   /** Called after a successful post/reverse so the parent can revalidate. */
   onChanged?: () => void;
+  /** When provided (dialog mode), renders an „Отказ" button. */
+  onCancel?: () => void;
 }
 
-export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Props) {
+export function ContiranePanel({
+  companyId,
+  invoiceId,
+  currency,
+  onChanged,
+  onCancel,
+}: Props) {
   const {
     data: preview,
     isLoading,
@@ -134,88 +144,73 @@ export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Pr
             </span>
           )}
         </CardTitle>
-        {posted ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-red-600 hover:text-red-700"
-            onClick={() => setConfirmReverseOpen(true)}
-            disabled={busy}
-          >
-            {busy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Undo2 className="mr-2 h-4 w-4" />
-            )}
-            Сторнирай
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            className="bg-green-600 hover:bg-green-700"
-            onClick={handlePost}
-            disabled={busy || !preview.balanced}
-          >
-            {busy ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <BookCheck className="mr-2 h-4 w-4" />
-            )}
-            Осчетоводи
-          </Button>
-        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {actionError && <Alert variant="error">{actionError}</Alert>}
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
-          <ContraField label="Тип на документа">{preview.documentType}</ContraField>
-          <ContraField label="Документ №">{preview.documentNumber}</ContraField>
-          <ContraField label="Дата (данъчно събитие)">
-            {formatDateBg(preview.documentDate)}
-          </ContraField>
-          <ContraField label="Контрагент">
-            {preview.partnerName || '—'}
-            {preview.partnerUic ? (
-              <span className="text-gray-400"> · {preview.partnerUic}</span>
-            ) : null}
-          </ContraField>
-          <ContraField label="Операция по ДДС">{preview.vatOperationLabel}</ContraField>
-          <ContraField label="Основание">{BASIS_LABELS[preview.basis]}</ContraField>
-          <ContraField label="Месец за експорт">{preview.vatPeriod}</ContraField>
-          {preview.vies ? (
-            <ContraField label="VIES">
-              <span className="inline-flex items-center rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-800">
-                Да
-              </span>
-            </ContraField>
-          ) : null}
-        </div>
+        <KontirovkaForm
+          header={{
+            postingNumberLabel: formatPostingNumber(preview.postingNumber),
+            postingDateLabel: preview.postingDate
+              ? formatDateBg(preview.postingDate)
+              : '—',
+            documentType: preview.documentType,
+            documentNumber: preview.documentNumber,
+            documentDateLabel: formatDateBg(preview.documentDate),
+            partnerName: preview.partnerName,
+            partnerUic: preview.partnerUic,
+            partnerLabel: 'Партньор',
+            basisLabel: BASIS_LABELS[preview.basis],
+            note: preview.note,
+            dealTypeLabel: DEAL_TYPE_LABELS[preview.dealType],
+            vatOperationLabel: preview.vatOperationLabel,
+            viesLabel: getViesLabel(preview.vies),
+            exportMonthLabel: formatExportMonth(preview.vatPeriod),
+          }}
+          debitLines={debitLines}
+          creditLines={creditLines}
+          currency={currency}
+          totalDebit={preview.totalDebit}
+          totalCredit={preview.totalCredit}
+        />
 
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <LedgerColumn
-            title="Дебит"
-            lines={debitLines}
-            total={preview.totalDebit}
-            currency={currency}
-            accent="debit"
-          />
-          <LedgerColumn
-            title="Кредит"
-            lines={creditLines}
-            total={preview.totalCredit}
-            currency={currency}
-            accent="credit"
-          />
+        <div className="flex items-center justify-end gap-2 pt-1">
+          {onCancel && (
+            <Button variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
+              Отказ
+            </Button>
+          )}
+          {posted ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:text-red-700"
+              onClick={() => setConfirmReverseOpen(true)}
+              disabled={busy}
+            >
+              {busy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Undo2 className="mr-2 h-4 w-4" />
+              )}
+              Сторнирай
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handlePost}
+              disabled={busy || !preview.balanced}
+            >
+              {busy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <BookCheck className="mr-2 h-4 w-4" />
+              )}
+              Осчетоводи
+            </Button>
+          )}
         </div>
-
-        {!posted && !preview.balanced && (
-          <p className="text-sm text-red-600">
-            Контировката не е балансирана (Дебит {formatMoney(preview.totalDebit)}{' '}
-            {currency} ≠ Кредит {formatMoney(preview.totalCredit)} {currency}) —
-            осчетоводяването е блокирано.
-          </p>
-        )}
       </CardContent>
 
       <ConfirmDialog

@@ -55,6 +55,8 @@ function bgnPreview(overrides: Partial<ContraPreview> = {}): ContraPreview {
     balanced: true,
     alreadyPosted: false,
     postingNumber: null,
+    postingDate: null,
+    note: null,
     ...overrides,
   };
 }
@@ -73,9 +75,16 @@ describe('ContiranePanel', () => {
     renderPanel();
 
     expect(await screen.findByText('Меню Контиране')).toBeInTheDocument();
-    // header wiring
+    // Microinvest header fields
     expect(screen.getByText('Облагаеми доставки и др. с 20% ДДС')).toBeInTheDocument();
-    expect(screen.getByText('2026-01')).toBeInTheDocument();
+    expect(screen.getByText('01.2026')).toBeInTheDocument(); // Месец за експорт MM.YYYY
+    expect(screen.getByText('Продажба')).toBeInTheDocument(); // Тип на сделката
+    expect(screen.getByText('Не участва в декларацията')).toBeInTheDocument(); // VIES
+    expect(screen.getByText('(нова)')).toBeInTheDocument(); // Контировка N pre-post
+    // 3-column grids with headers
+    expect(screen.getAllByText('Сметка').length).toBe(2);
+    expect(screen.getByText('Общо Дебит')).toBeInTheDocument();
+    expect(screen.getByText('Общо Кредит')).toBeInTheDocument();
     // all three lines rendered with their Microinvest analytic codes
     expect(screen.getByText('411/1')).toBeInTheDocument();
     expect(screen.getByText('Клиенти в лева')).toBeInTheDocument();
@@ -95,7 +104,6 @@ describe('ContiranePanel', () => {
 
     expect(await screen.findByText('Небалансирана')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Осчетоводи/i })).toBeDisabled();
-    expect(screen.getByText(/не е балансирана/i)).toBeInTheDocument();
   });
 
   it('posts via postInvoiceContra when Осчетоводи is clicked', async () => {
@@ -112,11 +120,14 @@ describe('ContiranePanel', () => {
 
   it('locks to a posted state and offers Сторнирай', async () => {
     vi.mocked(getInvoiceContraPreview).mockResolvedValue({
-      data: bgnPreview({ alreadyPosted: true, postingNumber: 7 }),
+      data: bgnPreview({ alreadyPosted: true, postingNumber: 7, postingDate: '2026-01-20' }),
     });
     renderPanel();
 
     expect(await screen.findByText(/Осчетоводена · Контировка № 7/)).toBeInTheDocument();
+    // posted → Контировка N padded to 10 digits, Дата на осчетоводяване shown
+    expect(screen.getByText('0000000007')).toBeInTheDocument();
+    expect(screen.getByText('20.01.2026')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Сторнирай/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Осчетоводи/i })).not.toBeInTheDocument();
   });

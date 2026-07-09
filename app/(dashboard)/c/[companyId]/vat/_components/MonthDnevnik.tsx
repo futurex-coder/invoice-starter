@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { getDnevnikForMonth } from '@/src/features/kontirovka/actions';
@@ -10,9 +11,22 @@ import {
   formatDateBg,
 } from '@/src/features/bulgarian-invoicing/formatter';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { ContiranePanel } from '@/app/(dashboard)/c/[companyId]/invoices/[invoiceId]/_components/ContiranePanel';
+import { PurchaseContiranePanel } from '@/app/(dashboard)/c/[companyId]/received-invoices/[id]/_components/PurchaseContiranePanel';
+
+/** A document whose Меню Контиране can be opened from a дневник row. */
+type DocRef = { kind: 'sale'; id: number; currency: string } | { kind: 'purchase'; id: number; currency: string };
 
 interface DisplayRow {
   key: string;
+  /** the document this row points to (opens its Меню Контиране) */
+  ref: DocRef;
   docNo: string;
   isNote: boolean;
   date: string;
@@ -33,11 +47,13 @@ function LedgerTable({
   rows,
   baseCurrency,
   emptyText,
+  onOpen,
 }: {
   title: string;
   rows: DisplayRow[];
   baseCurrency: string;
   emptyText: string;
+  onOpen: (ref: DocRef) => void;
 }) {
   const totalNet = round2(rows.reduce((s, r) => s + r.netBase, 0));
   const totalVat = round2(rows.reduce((s, r) => s + r.vatBase, 0));
@@ -64,7 +80,20 @@ function LedgerTable({
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.key} className="border-b border-gray-100 last:border-0">
+                <tr
+                  key={r.key}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Отвори контировка за ${r.docNo}`}
+                  onClick={() => onOpen(r.ref)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onOpen(r.ref);
+                    }
+                  }}
+                  className="cursor-pointer border-b border-gray-100 last:border-0 hover:bg-sky-50/60 focus:bg-sky-50 focus:outline-none"
+                >
                   <td className="px-3 py-2 align-top">
                     <div className="font-medium">
                       {r.docNo}
@@ -127,10 +156,11 @@ export function MonthDnevnik({
   month: string;
   baseCurrency: string;
 }) {
-  const { data, isLoading, error } = useActionSWR(
+  const { data, isLoading, error, mutate } = useActionSWR(
     ['dnevnik', companyId, month],
     () => getDnevnikForMonth(month)
   );
+  const [selected, setSelected] = useState<DocRef | null>(null);
 
   if (isLoading) {
     return (
@@ -145,6 +175,7 @@ export function MonthDnevnik({
 
   const salesRows: DisplayRow[] = (data?.sales ?? []).map((r) => ({
     key: `s${r.id}`,
+    ref: { kind: 'sale', id: r.id, currency: r.currency },
     docNo: r.number != null ? formatInvoiceNumber(r.number) : `#${r.id}`,
     isNote: r.docType === 'credit_note' || r.docType === 'debit_note',
     date: formatDateBg(r.issueDate),
@@ -158,6 +189,7 @@ export function MonthDnevnik({
 
   const purchaseRows: DisplayRow[] = (data?.purchases ?? []).map((r) => ({
     key: `p${r.id}`,
+    ref: { kind: 'purchase', id: r.id, currency: r.currency },
     docNo: r.invoiceNumber ?? `#${r.id}`,
     isNote: false,
     date: r.issueDate ? formatDateBg(r.issueDate) : '—',
@@ -174,20 +206,57 @@ export function MonthDnevnik({
       {data?.postedVat ? (
         <PostedVatStrip postedVat={data.postedVat} baseCurrency={baseCurrency} />
       ) : null}
+      <p className="text-xs text-gray-500">
+        Натиснете върху документ, за да отворите неговата контировка (Меню
+        Контиране).
+      </p>
       <div className="grid gap-4 lg:grid-cols-2">
         <LedgerTable
           title="Дневник продажби"
           rows={salesRows}
           baseCurrency={baseCurrency}
           emptyText="Няма продажби за месеца."
+          onOpen={setSelected}
         />
         <LedgerTable
           title="Дневник покупки"
           rows={purchaseRows}
           baseCurrency={baseCurrency}
           emptyText="Няма покупки за месеца."
+          onOpen={setSelected}
         />
       </div>
+
+      <Dialog
+        open={selected !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogTitle className="sr-only">Меню Контиране</DialogTitle>
+          <DialogDescription className="sr-only">
+            Осчетоводяване на документа — дебит/кредит контировка.
+          </DialogDescription>
+          {selected?.kind === 'sale' ? (
+            <ContiranePanel
+              companyId={companyId}
+              invoiceId={selected.id}
+              currency={selected.currency}
+              onChanged={() => mutate()}
+              onCancel={() => setSelected(null)}
+            />
+          ) : selected?.kind === 'purchase' ? (
+            <PurchaseContiranePanel
+              companyId={companyId}
+              receivedInvoiceId={selected.id}
+              currency={selected.currency}
+              onChanged={() => mutate()}
+              onCancel={() => setSelected(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

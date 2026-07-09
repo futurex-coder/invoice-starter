@@ -58,6 +58,8 @@ function purchasePreview(overrides: Partial<ReceivedContraPreview> = {}): Receiv
     balanced: true,
     alreadyPosted: false,
     postingNumber: null,
+    postingDate: null,
+    note: null,
     ...overrides,
   };
 }
@@ -78,14 +80,20 @@ describe('PurchaseContiranePanel', () => {
     expect(await screen.findByText('Меню Контиране')).toBeInTheDocument();
     expect(screen.getByText('Покупка с пълен данъчен кредит 20%')).toBeInTheDocument();
     expect(screen.getByText('Доставчик ООД')).toBeInTheDocument();
-    // all three purchase lines
+    // Microinvest header fields (purchase = Покупка)
+    expect(screen.getByText('Покупка')).toBeInTheDocument(); // Тип на сделката
+    expect(screen.getByText('02.2026')).toBeInTheDocument(); // Месец за експорт MM.YYYY
+    expect(screen.getByText('Не участва в декларацията')).toBeInTheDocument(); // VIES
+    // all three purchase lines + 3-column grid headers
     expect(screen.getByText('602')).toBeInTheDocument();
     expect(screen.getByText('453/1')).toBeInTheDocument();
     expect(screen.getByText('401/2')).toBeInTheDocument();
     expect(screen.getByText('Доставчици в евро')).toBeInTheDocument();
-    // purchase-only classification controls
-    expect(screen.getByText('Основание (сметка)')).toBeInTheDocument();
+    expect(screen.getByText('Общо Дебит')).toBeInTheDocument();
+    // purchase-only classification controls (Основание Select + чл.70 toggle)
+    expect(screen.getByText('Основание')).toBeInTheDocument();
     expect(screen.getByText(/Без право на данъчен кредит/)).toBeInTheDocument();
+    expect(screen.getByRole('combobox')).toBeEnabled();
     // balanced + enabled post
     expect(screen.getByText('Балансирана')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Осчетоводи/i })).toBeEnabled();

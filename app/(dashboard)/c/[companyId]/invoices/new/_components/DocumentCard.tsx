@@ -25,6 +25,8 @@ interface Props {
   onDocTypeChange: (value: string) => void;
   isEditing: boolean;
   nextInvoiceNumber: number | null;
+  manualNumber: string;
+  onManualNumberChange: (value: string) => void;
   issueDate: string;
   onIssueDateChange: (value: string) => void;
   supplyDate: string;
@@ -40,6 +42,8 @@ export function DocumentCard({
   onDocTypeChange,
   isEditing,
   nextInvoiceNumber,
+  manualNumber,
+  onManualNumberChange,
   issueDate,
   onIssueDateChange,
   supplyDate,
@@ -70,14 +74,42 @@ export function DocumentCard({
             ))}
           </RadioGroup>
         </div>
-        {!isEditing && nextInvoiceNumber != null && (
-          <Alert variant="info">
-            <span>
-              Следващ номер: <strong>{String(nextInvoiceNumber).padStart(10, '0')}</strong>
-            </span>
-            <span className="ml-2 text-blue-600 text-xs">(присвоява се автоматично при запазване)</span>
-          </Alert>
-        )}
+        {!isEditing &&
+          (docType === 'invoice' ? (
+            <div>
+              <Label htmlFor="manualNumber">Номер на документа</Label>
+              <Input
+                id="manualNumber"
+                inputMode="numeric"
+                className="mt-1"
+                placeholder={
+                  nextInvoiceNumber != null
+                    ? `Автоматично: ${String(nextInvoiceNumber).padStart(10, '0')}`
+                    : 'Автоматичен номер'
+                }
+                value={manualNumber}
+                onChange={(e) =>
+                  onManualNumberChange(e.target.value.replace(/[^\d]/g, ''))
+                }
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Оставете празно за автоматичен номер. Ръчният номер трябва да е
+                по-голям от последния използван.
+              </p>
+            </div>
+          ) : (
+            nextInvoiceNumber != null && (
+              <Alert variant="info">
+                <span>
+                  Следващ номер:{' '}
+                  <strong>{String(nextInvoiceNumber).padStart(10, '0')}</strong>
+                </span>
+                <span className="ml-2 text-blue-600 text-xs">
+                  (присвоява се автоматично при запазване)
+                </span>
+              </Alert>
+            )
+          ))}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="issueDate">Дата на издаване *</Label>

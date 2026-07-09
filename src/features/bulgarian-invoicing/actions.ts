@@ -74,6 +74,14 @@ export interface LineItemWithArticle extends LineItemInput {
 interface CreateInvoiceDraftInput {
   docType: DocType;
   series?: string;
+  /**
+   * Optional manual document number (regular invoices only). When omitted the
+   * next number in the company sequence is auto-allocated. When set it must be
+   * greater than the company's current highest number — the DB trigger enforces
+   * this (strictly increasing, no duplicates), so manual entry can only jump the
+   * sequence forward, e.g. to continue an external series.
+   */
+  number?: number;
   issueDate: string;
   supplyDate?: string | null;
   currency?: string;
@@ -453,6 +461,25 @@ export async function createInvoiceDraft(
     const recipientSnapshot = recipientInputToSnapshot(input.recipient);
 
     const series = input.series ?? DEFAULT_SERIES[input.docType];
+
+    // Manual document number (regular invoices only). Basic shape is checked
+    // here; the "> current max" rule is enforced in the transaction + the DB
+    // trigger so it stays race-safe.
+    let manualNumber: number | null = null;
+    if (input.number !== undefined && input.number !== null) {
+      if (input.docType !== 'invoice') {
+        throw new Error(
+          'Ръчен номер може да се задава само на фактури, не на известия или проформи.'
+        );
+      }
+      if (!Number.isInteger(input.number) || input.number <= 0) {
+        throw new Error(
+          'Номерът на фактурата трябва да е цяло положително число.'
+        );
+      }
+      manualNumber = input.number;
+    }
+
     const calc = calculateInvoice(input.lineItems);
     const currency = input.currency ?? 'EUR';
     const words =
@@ -522,7 +549,24 @@ export async function createInvoiceDraft(
       : '1';
 
     const created = await db.transaction(async (tx) => {
-      const allocatedNumber = await allocateNumber(tx, companyId);
+      let allocatedNumber: number;
+      if (manualNumber !== null) {
+        // Must be above the company's current highest number (the DB trigger is
+        // the final guard; this gives a clean message before hitting it).
+        const maxRows = await tx.execute<{ max: number }>(sql`
+          SELECT COALESCE(MAX(number), 0) AS max
+          FROM invoices WHERE company_id = ${companyId}
+        `);
+        const currentMax = Number(maxRows[0]?.['max'] ?? 0);
+        if (manualNumber <= currentMax) {
+          throw new Error(
+            `Номер ${manualNumber} е зает или по-малък от последния (${currentMax}). Изберете по-голям номер.`
+          );
+        }
+        allocatedNumber = manualNumber;
+      } else {
+        allocatedNumber = await allocateNumber(tx, companyId);
+      }
 
       const [row] = await tx
         .insert(invoices)

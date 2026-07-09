@@ -201,6 +201,12 @@ export default function NewInvoicePage() {
     };
   };
 
+  /** Manual invoice number override — only for regular invoices, blank = auto. */
+  const manualNumberOverride = (): number | undefined =>
+    state.docType === 'invoice' && state.manualNumber.trim()
+      ? Number(state.manualNumber)
+      : undefined;
+
   const surfaceFailure = (res: {
     error?: string;
     validationErrors?: { field: string; message: string }[];
@@ -231,7 +237,11 @@ export default function NewInvoicePage() {
       return res.data.id;
     }
     const supplier = buildSupplierSnapshot(companyProfile);
-    const res = await createInvoiceDraft({ ...payload, supplier });
+    const res = await createInvoiceDraft({
+      ...payload,
+      supplier,
+      number: manualNumberOverride(),
+    });
     setSaving(false);
     if (res.error || !res.data) {
       surfaceFailure(res);
@@ -273,6 +283,7 @@ export default function NewInvoicePage() {
     const res = await createInvoiceDraft({
       ...buildPayload(),
       supplier,
+      number: manualNumberOverride(),
       finalizeImmediately: true,
     });
     setSaving(false);
@@ -330,6 +341,8 @@ export default function NewInvoicePage() {
         onDocTypeChange={(v) => update({ docType: parseDocType(v) })}
         isEditing={Boolean(editId)}
         nextInvoiceNumber={nextInvoiceNumber ?? null}
+        manualNumber={state.manualNumber}
+        onManualNumberChange={(v) => update({ manualNumber: v })}
         issueDate={state.issueDate}
         onIssueDateChange={(v) => update({ issueDate: v })}
         supplyDate={state.supplyDate}

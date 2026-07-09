@@ -570,3 +570,56 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     expect(unwrapError(res, 'immediate note')).toMatch(/original invoice/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Manual document number (owner-entered) — NUM-1 allows jumping the unified
+// sequence forward; the DB trigger keeps it strictly increasing.
+// ---------------------------------------------------------------------------
+
+describe('manual invoice number', () => {
+  it('accepts a manual number above the current max and advances the sequence past it', async () => {
+    // Establish the current max via an auto-allocated draft.
+    const auto = unwrap(await createInvoiceDraft(baseDraftInput()), 'auto draft');
+    const jumped = auto.number + 50;
+
+    const manual = unwrap(
+      await createInvoiceDraft({ ...baseDraftInput(), number: jumped }),
+      'manual-number draft'
+    );
+    expect(manual.number).toBe(jumped);
+
+    // The unified sequence must continue ABOVE the manual jump, not the old max.
+    const next = unwrap(
+      await createInvoiceDraft(baseDraftInput()),
+      'post-jump auto draft'
+    );
+    expect(next.number).toBe(jumped + 1);
+  });
+
+  it('rejects a manual number at or below the current max', async () => {
+    const auto = unwrap(await createInvoiceDraft(baseDraftInput()), 'auto draft');
+    const res = await createInvoiceDraft({
+      ...baseDraftInput(),
+      number: auto.number,
+    });
+    expect(unwrapError(res, 'duplicate manual number')).toMatch(
+      /зает|по-малък/i
+    );
+  });
+
+  it('rejects a fractional or non-positive manual number', async () => {
+    const frac = await createInvoiceDraft({ ...baseDraftInput(), number: 5.5 });
+    expect(unwrapError(frac, 'fractional number')).toMatch(/цяло/i);
+    const zero = await createInvoiceDraft({ ...baseDraftInput(), number: 0 });
+    expect(unwrapError(zero, 'zero number')).toMatch(/цяло/i);
+  });
+
+  it('refuses a manual number on a proforma (invoices only)', async () => {
+    const res = await createInvoiceDraft({
+      ...baseDraftInput(),
+      docType: 'proforma',
+      number: 999_999,
+    });
+    expect(unwrapError(res, 'proforma manual number')).toMatch(/фактури/i);
+  });
+});

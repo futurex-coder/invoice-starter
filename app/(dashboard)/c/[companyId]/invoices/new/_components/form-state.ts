@@ -13,6 +13,8 @@ export interface FormState {
   recipient: RecipientForm;
   selectedPartnerId: number | '';
   docType: DocType;
+  /** Optional manual invoice number (blank = auto-allocate). Invoices only. */
+  manualNumber: string;
   issueDate: string;
   supplyDate: string;
   language: string;
@@ -35,6 +37,7 @@ export function makeInitialFormState(): FormState {
     recipient: emptyRecipient,
     selectedPartnerId: '',
     docType: 'invoice',
+    manualNumber: '',
     issueDate: today,
     supplyDate: today,
     language: 'bg',

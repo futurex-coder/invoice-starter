@@ -1173,6 +1173,62 @@ export async function hardDeleteDiscardedReceivedInvoice(
 }
 
 // ---------------------------------------------------------------------------
+// deleteReceivedInvoice — permanently remove ANY received invoice (any status,
+// including confirmed) that isn't accounted yet, plus its stored file. This is
+// the direct delete the review flow's soft `discard` never covered for confirmed
+// documents (which previously could only be archived). Accounted (booked)
+// documents are locked — set them back to pending first.
+// ---------------------------------------------------------------------------
+
+export async function deleteReceivedInvoice(
+  id: number
+): Promise<ActionResult<{ id: number }>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    const [existing] = await db
+      .select()
+      .from(receivedInvoices)
+      .where(
+        and(
+          eq(receivedInvoices.id, id),
+          eq(receivedInvoices.companyId, companyId)
+        )
+      )
+      .limit(1);
+
+    if (!existing) throw new Error('Получената фактура не е намерена');
+    if (existing.accountingStatus === 'accounted') {
+      throw new Error(
+        'Осчетоводена фактура не може да се изтрие. Първо я върнете в „изчаква осчетоводяване“.'
+      );
+    }
+
+    try {
+      await deleteFromBucket({
+        bucket: existing.fileBucket,
+        path: existing.fileObjectKey,
+      });
+    } catch (e) {
+      logger.warn('storage delete failed (continuing)', { err: e });
+    }
+
+    await db
+      .delete(receivedInvoices)
+      .where(
+        and(
+          eq(receivedInvoices.id, id),
+          eq(receivedInvoices.companyId, companyId)
+        )
+      );
+
+    await logActivity(companyId, user.id, ActivityType.DELETE_RECEIVED_INVOICE);
+
+    return { id };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Payments summary — company-base-currency money KPIs (owed / paid this month /
 // overdue) shown on the received-invoices page. The per-document detail lives in
 // that list itself (payment-status filter + row actions), so this is totals only.

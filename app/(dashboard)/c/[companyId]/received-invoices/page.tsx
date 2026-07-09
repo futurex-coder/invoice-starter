@@ -18,6 +18,7 @@ import {
   discardReceivedInvoice,
   restoreDiscardedReceivedInvoice,
   hardDeleteDiscardedReceivedInvoice,
+  deleteReceivedInvoice,
   getPaymentsSummary,
   type ListReceivedInvoicesFilters,
 } from '@/src/features/received-invoices/actions';
@@ -234,7 +235,10 @@ export default function ReceivedInvoicesPage() {
     }
   }, []);
 
-  type ConfirmTarget = { item: ReceivedInvoiceListItem; mode: 'discard' | 'hardDelete' };
+  type ConfirmTarget = {
+    item: ReceivedInvoiceListItem;
+    mode: 'discard' | 'hardDelete' | 'delete';
+  };
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
 
   // Adapter: the existing ReceivedInvoiceFilters component sends a
@@ -306,8 +310,12 @@ export default function ReceivedInvoicesPage() {
       await list.runMutation(() =>
         mode === 'discard'
           ? discardReceivedInvoice(item.id)
-          : hardDeleteDiscardedReceivedInvoice(item.id)
+          : mode === 'delete'
+            ? deleteReceivedInvoice(item.id)
+            : hardDeleteDiscardedReceivedInvoice(item.id)
       );
+      // A permanent delete can remove a confirmed row → refresh the money KPIs.
+      if (mode === 'delete') void refetchSummary();
     } finally {
       setPendingId(null);
     }
@@ -412,6 +420,7 @@ export default function ReceivedInvoicesPage() {
                 void list.runMutation(() => restoreDiscardedReceivedInvoice(id))
               }
               onHardDelete={(item) => setConfirmTarget({ item, mode: 'hardDelete' })}
+              onDelete={(item) => setConfirmTarget({ item, mode: 'delete' })}
               onRetry={handleRetry}
             />
           )}
@@ -430,13 +439,13 @@ export default function ReceivedInvoicesPage() {
         open={confirmTarget !== null}
         onOpenChange={(open) => !open && setConfirmTarget(null)}
         title={
-          confirmTarget?.mode === 'hardDelete'
-            ? 'Окончателно изтриване на фактурата?'
-            : 'Отхвърляне на черновата?'
+          confirmTarget?.mode === 'discard'
+            ? 'Отхвърляне на черновата?'
+            : 'Окончателно изтриване на фактурата?'
         }
         description={buildDescription(confirmTarget)}
         confirmText={
-          confirmTarget?.mode === 'hardDelete' ? 'Изтрий окончателно' : 'Отхвърли'
+          confirmTarget?.mode === 'discard' ? 'Отхвърли' : 'Изтрий окончателно'
         }
         variant="destructive"
         onConfirm={handleConfirmAction}

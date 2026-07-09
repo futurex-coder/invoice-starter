@@ -27,6 +27,7 @@ interface RowProps {
   onDiscard: (item: ReceivedInvoiceListItem) => void;
   onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
+  onDelete: (item: ReceivedInvoiceListItem) => void;
   onRetry: (id: number) => void;
 }
 
@@ -152,6 +153,7 @@ interface TableProps {
   onDiscard: (item: ReceivedInvoiceListItem) => void;
   onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
+  onDelete: (item: ReceivedInvoiceListItem) => void;
   onRetry: (id: number) => void;
 }
 
@@ -189,6 +191,7 @@ export function ReceivedInvoicesTable(props: TableProps) {
             onDiscard={props.onDiscard}
             onRestore={props.onRestore}
             onHardDelete={props.onHardDelete}
+            onDelete={props.onDelete}
             onRetry={props.onRetry}
           />
         ))}

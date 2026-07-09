@@ -42,6 +42,7 @@ interface Props {
   onDiscard: (item: ReceivedInvoiceListItem) => void;
   onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
+  onDelete: (item: ReceivedInvoiceListItem) => void;
   onRetry: (id: number) => void;
 }
 
@@ -57,6 +58,7 @@ export function ReceivedInvoiceRowActions({
   onDiscard,
   onRestore,
   onHardDelete,
+  onDelete,
   onRetry,
 }: Props) {
   const archived = item.archivedAt != null;
@@ -109,6 +111,13 @@ export function ReceivedInvoiceRowActions({
               <XCircle className="mr-2 h-4 w-4" />
               Отхвърли
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onDelete(item)}
+              className="text-red-700 focus:text-red-700"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Изтрий окончателно
+            </DropdownMenuItem>
           </>
         )}
 
@@ -131,6 +140,13 @@ export function ReceivedInvoiceRowActions({
             >
               <XCircle className="mr-2 h-4 w-4" />
               Отхвърли черновата
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onDelete(item)}
+              className="text-red-700 focus:text-red-700"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Изтрий окончателно
             </DropdownMenuItem>
           </>
         )}
@@ -206,6 +222,19 @@ export function ReceivedInvoiceRowActions({
                 </>
               )}
             </DropdownMenuItem>
+
+            {item.accountingStatus !== 'accounted' && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onDelete(item)}
+                  className="text-red-700 focus:text-red-700"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Изтрий окончателно
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         )}
 

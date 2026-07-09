@@ -1,14 +1,12 @@
 'use client';
 
 /**
- * KONT-1 Slice 2 — „Меню Контиране“ (the Microinvest journalizing panel).
- *
- * Shows the derived double-entry статия for a finalized sale document: a header
- * (Контировка №, тип, операция по ДДС, контрагент, месец за експорт) and two
- * columns — Дебит on the left, Кредит on the right — with running totals and a
- * balance indicator. „Осчетоводи“ is gated on a balanced entry; once posted the
- * panel locks and offers „Сторнирай“ (which writes a reversing entry and unlocks
- * the source). Field/label wording follows docs/KONTIROVKA_MICROINVEST_NAMING.md.
+ * KONT-1 Slice 3 — „Меню Контиране“ for a purchase (received invoice). Same
+ * Дебит/Кредит layout as the sales panel, plus the two classifications a purchase
+ * needs and a sale doesn't: the Основание (basis → 60x/30x/204/304) and whether
+ * the input VAT is deductible (пълен кредит vs чл.70 без право). Changing either
+ * re-derives the preview; „Осчетоводи“ posts with the chosen classification.
+ * Once posted the panel locks to what was booked and offers „Сторнирай“.
  */
 
 import { useState } from 'react';
@@ -16,13 +14,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { useActionSWR } from '@/lib/swr/use-action-swr';
-import { formatMoney, formatDateBg } from '@/src/features/bulgarian-invoicing/formatter';
 import {
-  getInvoiceContraPreview,
-  postInvoiceContra,
-  reverseInvoiceContra,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { formatDateBg } from '@/src/features/bulgarian-invoicing/formatter';
+import {
+  getReceivedInvoiceContraPreview,
+  postReceivedInvoiceContra,
+  reverseReceivedInvoiceContra,
 } from '@/src/features/kontirovka/actions';
+import type { AccountingBasis } from '@/src/features/kontirovka/contra';
 import {
   BASIS_LABELS,
   ContraField,
@@ -33,20 +39,29 @@ import { cn } from '@/lib/utils';
 
 interface Props {
   companyId: string;
-  invoiceId: number;
+  receivedInvoiceId: number;
   currency: string;
   /** Called after a successful post/reverse so the parent can revalidate. */
   onChanged?: () => void;
 }
 
-export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Props) {
+export function PurchaseContiranePanel({
+  companyId,
+  receivedInvoiceId,
+  currency,
+  onChanged,
+}: Props) {
+  const [basis, setBasis] = useState<AccountingBasis>('services');
+  const [noCredit, setNoCredit] = useState(false);
+
   const {
     data: preview,
     isLoading,
     error: fetchError,
     mutate,
-  } = useActionSWR(['contraPreview', companyId, invoiceId], () =>
-    getInvoiceContraPreview(invoiceId)
+  } = useActionSWR(
+    ['receivedContraPreview', companyId, receivedInvoiceId, basis, noCredit],
+    () => getReceivedInvoiceContraPreview(receivedInvoiceId, { basis, noCredit })
   );
 
   const [actionError, setActionError] = useState<string | null>(null);
@@ -56,7 +71,7 @@ export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Pr
   const handlePost = async () => {
     setBusy(true);
     setActionError(null);
-    const res = await postInvoiceContra(invoiceId);
+    const res = await postReceivedInvoiceContra(receivedInvoiceId, { basis, noCredit });
     setBusy(false);
     if (res.error) {
       setActionError(res.error);
@@ -69,7 +84,7 @@ export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Pr
   const handleReverseConfirmed = async () => {
     setBusy(true);
     setActionError(null);
-    const res = await reverseInvoiceContra(invoiceId);
+    const res = await reverseReceivedInvoiceContra(receivedInvoiceId);
     setBusy(false);
     if (res.error) {
       setActionError(res.error);
@@ -110,6 +125,10 @@ export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Pr
   const debitLines = preview.lines.filter((l) => l.side === 'debit');
   const creditLines = preview.lines.filter((l) => l.side === 'credit');
   const posted = preview.alreadyPosted;
+  const canPost = preview.hasVat && preview.balanced && !posted;
+  // When posted, the pickers reflect what was actually booked (server override).
+  const shownBasis = posted ? preview.basis : basis;
+  const shownNoCredit = posted ? preview.noCredit : noCredit;
 
   return (
     <Card>
@@ -120,19 +139,17 @@ export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Pr
             <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
               Осчетоводена · Контировка № {preview.postingNumber}
             </span>
-          ) : (
+          ) : preview.hasVat ? (
             <span
               className={cn(
                 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
-                preview.balanced
-                  ? 'bg-gray-100 text-gray-600'
-                  : 'bg-red-100 text-red-700'
+                preview.balanced ? 'bg-gray-100 text-gray-600' : 'bg-red-100 text-red-700'
               )}
             >
               <Scale className="h-3 w-3" />
               {preview.balanced ? 'Балансирана' : 'Небалансирана'}
             </span>
-          )}
+          ) : null}
         </CardTitle>
         {posted ? (
           <Button
@@ -154,7 +171,7 @@ export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Pr
             size="sm"
             className="bg-green-600 hover:bg-green-700"
             onClick={handlePost}
-            disabled={busy || !preview.balanced}
+            disabled={busy || !canPost}
           >
             {busy ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -168,28 +185,66 @@ export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Pr
       <CardContent className="space-y-4">
         {actionError && <Alert variant="error">{actionError}</Alert>}
 
+        {!preview.hasVat && (
+          <Alert variant="warning">
+            Покупка без ДДС — автоматичното осчетоводяване предстои в следващ етап.
+          </Alert>
+        )}
+
         <div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
           <ContraField label="Тип на документа">{preview.documentType}</ContraField>
           <ContraField label="Документ №">{preview.documentNumber}</ContraField>
           <ContraField label="Дата (данъчно събитие)">
             {formatDateBg(preview.documentDate)}
           </ContraField>
-          <ContraField label="Контрагент">
+          <ContraField label="Доставчик">
             {preview.partnerName || '—'}
             {preview.partnerUic ? (
               <span className="text-gray-400"> · {preview.partnerUic}</span>
             ) : null}
           </ContraField>
           <ContraField label="Операция по ДДС">{preview.vatOperationLabel}</ContraField>
-          <ContraField label="Основание">{BASIS_LABELS[preview.basis]}</ContraField>
           <ContraField label="Месец за експорт">{preview.vatPeriod}</ContraField>
-          {preview.vies ? (
-            <ContraField label="VIES">
-              <span className="inline-flex items-center rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-800">
-                Да
-              </span>
-            </ContraField>
-          ) : null}
+        </div>
+
+        {/* Purchase-only classification: Основание + данъчен кредит */}
+        <div className="flex flex-col gap-3 rounded-lg border border-dashed border-gray-200 p-3 sm:flex-row sm:items-end">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-gray-500">Основание (сметка)</span>
+            <Select
+              value={shownBasis}
+              disabled={posted || busy || !preview.hasVat}
+              onValueChange={(v) => {
+                if (isBasis(v)) setBasis(v);
+              }}
+            >
+              <SelectTrigger className="h-8 w-56">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {preview.basisOptions.map((b) => (
+                  <SelectItem key={b} value={b}>
+                    {BASIS_LABELS[b]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <label
+            className={cn(
+              'flex items-center gap-2 text-sm',
+              (posted || !preview.hasVat) && 'opacity-60'
+            )}
+          >
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300"
+              checked={shownNoCredit}
+              disabled={posted || busy || !preview.hasVat}
+              onChange={(e) => setNoCredit(e.target.checked)}
+            />
+            Без право на данъчен кредит (чл.70)
+          </label>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -208,14 +263,6 @@ export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Pr
             accent="credit"
           />
         </div>
-
-        {!posted && !preview.balanced && (
-          <p className="text-sm text-red-600">
-            Контировката не е балансирана (Дебит {formatMoney(preview.totalDebit)}{' '}
-            {currency} ≠ Кредит {formatMoney(preview.totalCredit)} {currency}) —
-            осчетоводяването е блокирано.
-          </p>
-        )}
       </CardContent>
 
       <ConfirmDialog
@@ -229,5 +276,16 @@ export function ContiranePanel({ companyId, invoiceId, currency, onChanged }: Pr
         onConfirm={handleReverseConfirmed}
       />
     </Card>
+  );
+}
+
+function isBasis(v: string): v is AccountingBasis {
+  return (
+    v === 'services' ||
+    v === 'goods' ||
+    v === 'production' ||
+    v === 'materials' ||
+    v === 'fixed_asset' ||
+    v === 'other'
   );
 }

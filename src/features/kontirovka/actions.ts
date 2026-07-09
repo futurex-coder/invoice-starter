@@ -537,9 +537,12 @@ interface PurchaseContraOptions {
   noCredit: boolean;
 }
 
+function isAccountingBasis(v: unknown): v is AccountingBasis {
+  return typeof v === 'string' && ACCOUNTING_BASES.some((b) => b === v);
+}
+
 function normalizePurchaseOptions(opts?: Partial<PurchaseContraOptions>): PurchaseContraOptions {
-  const basis =
-    opts?.basis && ACCOUNTING_BASES.includes(opts.basis) ? opts.basis : 'services';
+  const basis = isAccountingBasis(opts?.basis) ? opts.basis : 'services';
   return { basis, noCredit: opts?.noCredit === true };
 }
 
@@ -639,16 +642,15 @@ export async function getReceivedInvoiceContraPreview(
 ): Promise<ActionResult<ReceivedContraPreview>> {
   return action(async () => {
     const { companyId } = await requireCompanyAccess();
-    const options = normalizePurchaseOptions(opts);
     const ri = await loadReceivedInvoiceForPosting(companyId, receivedInvoiceId);
-    const d = deriveReceivedInvoiceContra(ri, options);
-    const meta = getVatOperationMeta(d.vatOperation);
     const issueDate = ri.issueDate ?? '';
 
     const [existing] = await db
       .select({
         id: journalEntries.id,
         postingNumber: journalEntries.postingNumber,
+        basis: journalEntries.basis,
+        vatOperation: journalEntries.vatOperation,
       })
       .from(journalEntries)
       .where(
@@ -658,6 +660,19 @@ export async function getReceivedInvoiceContraPreview(
         )
       )
       .limit(1);
+
+    // Once posted, show the classification that was ACTUALLY booked (the entry's
+    // stored basis + credit choice) — not a re-derivation from the caller's
+    // defaults — so the locked panel mirrors the ledger. Deriving with the stored
+    // options reproduces the persisted Дт/Кт exactly (the derivation is pure).
+    const options = existing
+      ? normalizePurchaseOptions({
+          basis: isAccountingBasis(existing.basis) ? existing.basis : 'services',
+          noCredit: existing.vatOperation === 'purchase_no_credit',
+        })
+      : normalizePurchaseOptions(opts);
+    const d = deriveReceivedInvoiceContra(ri, options);
+    const meta = getVatOperationMeta(d.vatOperation);
 
     return {
       receivedInvoiceId,

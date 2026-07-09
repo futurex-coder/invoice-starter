@@ -286,4 +286,20 @@ describe('postReceivedInvoiceContra — basis picker', () => {
       amount: 300,
     });
   });
+
+  it('after posting, the preview reflects the BOOKED classification, not the caller defaults', async () => {
+    const riId = await seedConfirmedReceived({ net: 400, vat: 80, gross: 480, number: 'F-400' });
+    // book it as goods
+    unwrap(await postReceivedInvoiceContra(riId, { basis: 'goods', noCredit: false }), 'post-goods');
+
+    // a preview call with the DEFAULT opts (services) must still show goods → 304,
+    // because the posted panel mirrors the ledger, not a re-derivation.
+    const preview = unwrap(await getReceivedInvoiceContraPreview(riId), 'preview-default');
+    expect(preview.alreadyPosted).toBe(true);
+    expect(preview.basis).toBe('goods');
+    expect(preview.lines.find((l) => l.side === 'debit' && l.code === '304')).toMatchObject({
+      amount: 400,
+    });
+    expect(preview.lines.find((l) => l.code === '602')).toBeUndefined();
+  });
 });

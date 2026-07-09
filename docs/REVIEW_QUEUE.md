@@ -247,3 +247,23 @@ _(The agent appends below. Seeded with the known-open product decisions from
   all emails" — recommend limiting to invoice-relevant emails auto-matched to partners.
 - **Blocks:** EMAIL-1, EMAIL-2.
 - **Answer (2026-07-08):** -  leave emails for later, we will do them later
+
+### PREVIEW-FLOOD — dev preview unusable: RSC-prefetch/SWR storm saturates the dev server — OPEN
+- **When:** KONT-1 Slice 2, verifying the Меню Контиране panel (2026-07-10).
+- **Context:** Loading any dashboard route in the embedded preview produces a flood of
+  hundreds of near-identical `GET /c/<id>/vat?_rsc=…` + `POST /c/<id>/{vat,invoices,partners}`
+  requests (see preview_network on `/c/5/invoices/11`). On the D: HDD single dev process this
+  starves the actual page's `getInvoice()` server action, so the invoice detail page sits on
+  its loading spinner forever and `preview_screenshot` times out. **Pre-existing** — predates
+  KONT-1 (likely the `stale-while-revalidate` layout prefetch + link prefetching interacting
+  with `cacheComponents`/PPR); reproduces on unchanged routes (`/c/81/invoices`).
+- **What I did (reversible):** did NOT block the slice — verified the panel with a deterministic
+  DOM test (`ContiranePanel.test.tsx`, 5 cases) + the post/reverse integration tests instead of
+  a browser click-through. Production `npm run build` is clean, so this is a dev-preview /
+  environment problem, not a shipped defect *as far as build+tests show*.
+- **Needs from you:** decide whether the request storm also happens in a **real browser on the
+  SSD checkout** (memory note: keep dev on C:). If it does, it's a genuine prefetch/refetch loop
+  worth fixing (candidate: audit `Link` prefetch on the sidebar + the SWR revalidate cadence in
+  the `(dashboard)` layout / `getNotifications`). If it's only the embedded preview on the HDD,
+  it's just an env limitation. Either way the Меню Контиране UI itself is unverified *in-browser*
+  — worth a manual click-through of post → Осчетоводена badge → Сторнирай when you next run it.

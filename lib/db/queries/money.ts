@@ -30,6 +30,17 @@ export const signedGrossSql: SQL<string> = sql`
         ELSE (${invoices.totals}->>'grossAmount')::numeric END)
   * ${invoices.fxRate}::numeric`;
 
+/**
+ * Signed net (данъчна основа) amount in the COMPANY BASE currency: credit notes
+ * negative, everything else positive, each converted via its frozen fxRate.
+ * Used by the ДДС-дневник per-document rows (KONT-1 Slice 1).
+ */
+export const signedNetSql: SQL<string> = sql`
+  (CASE WHEN ${invoices.docType} = 'credit_note'
+        THEN -(${invoices.totals}->>'netAmount')::numeric
+        ELSE (${invoices.totals}->>'netAmount')::numeric END)
+  * ${invoices.fxRate}::numeric`;
+
 /** Collected money (cash view): finalized docs whose payment is settled. */
 export const collectedSumSql: SQL<string> = sql`
   COALESCE(SUM(

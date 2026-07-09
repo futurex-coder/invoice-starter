@@ -170,19 +170,88 @@ export function MonthDnevnik({
   }));
 
   return (
-    <div className="grid gap-4 bg-gray-50/60 p-4 lg:grid-cols-2">
-      <LedgerTable
-        title="Дневник продажби"
-        rows={salesRows}
-        baseCurrency={baseCurrency}
-        emptyText="Няма продажби за месеца."
-      />
-      <LedgerTable
-        title="Дневник покупки"
-        rows={purchaseRows}
-        baseCurrency={baseCurrency}
-        emptyText="Няма покупки за месеца."
-      />
+    <div className="space-y-4 bg-gray-50/60 p-4">
+      {data?.postedVat ? (
+        <PostedVatStrip postedVat={data.postedVat} baseCurrency={baseCurrency} />
+      ) : null}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <LedgerTable
+          title="Дневник продажби"
+          rows={salesRows}
+          baseCurrency={baseCurrency}
+          emptyText="Няма продажби за месеца."
+        />
+        <LedgerTable
+          title="Дневник покупки"
+          rows={purchaseRows}
+          baseCurrency={baseCurrency}
+          emptyText="Няма покупки за месеца."
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The REAL VAT for the month from posted контировки — distinct from the accrual
+ * Прогноза on the parent row. Shows изходящ − входящ = нето (за внасяне /
+ * възстановяване) plus how many documents are already осчетоводени.
+ */
+function PostedVatStrip({
+  postedVat,
+  baseCurrency,
+}: {
+  postedVat: {
+    outputVat: number;
+    inputVat: number;
+    netVat: number;
+    salesCount: number;
+    purchasesCount: number;
+  };
+  baseCurrency: string;
+}) {
+  const { outputVat, inputVat, netVat, salesCount, purchasesCount } = postedVat;
+  const nothingPosted = salesCount === 0 && purchasesCount === 0;
+  const payable = netVat >= 0;
+  return (
+    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold text-emerald-900">
+          Осчетоводен ДДС (реален)
+        </h4>
+        <span className="text-xs text-emerald-700">
+          {salesCount + purchasesCount} осчетоводени документа
+        </span>
+      </div>
+      {nothingPosted ? (
+        <p className="text-sm text-emerald-800/80">
+          Още няма осчетоводени контировки за месеца — числата горе са прогноза.
+          Осчетоводете фактурите, за да видите реалния ДДС.
+        </p>
+      ) : (
+        <div className="grid grid-cols-3 gap-3 text-sm">
+          <div>
+            <div className="text-xs text-emerald-700">Изходящ ДДС (продажби)</div>
+            <div className="font-medium tabular-nums">
+              {formatMoney(outputVat)} {baseCurrency}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-emerald-700">Входящ ДДС (покупки)</div>
+            <div className="font-medium tabular-nums">
+              {formatMoney(inputVat)} {baseCurrency}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-emerald-700">
+              {payable ? 'ДДС за внасяне' : 'ДДС за възстановяване'}
+            </div>
+            <div className="font-semibold tabular-nums text-emerald-900">
+              {formatMoney(Math.abs(netVat))} {baseCurrency}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

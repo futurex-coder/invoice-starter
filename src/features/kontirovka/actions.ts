@@ -22,6 +22,10 @@ import {
   type PurchaseLedgerRow,
 } from '@/lib/db/queries/dnevnik';
 import {
+  getPostedVatForPeriod,
+  type PostedVatPeriod,
+} from '@/lib/db/queries/vat-posted';
+import {
   parseInvoiceTotalsStrict,
   parsePartySnapshotStrict,
 } from '@/src/features/bulgarian-invoicing/parsers';
@@ -47,6 +51,8 @@ export interface MonthDnevnik {
   sales: SalesLedgerRow[];
   /** Дневник покупки — one row per confirmed received document. */
   purchases: PurchaseLedgerRow[];
+  /** Real VAT for the month from POSTED контировки (кл.20/40/50-60 proxy). */
+  postedVat: PostedVatPeriod;
 }
 
 /**
@@ -72,12 +78,13 @@ export async function getDnevnikForMonth(
       to: `${month}-${String(lastDay).padStart(2, '0')}`,
     };
 
-    const [sales, purchases] = await Promise.all([
+    const [sales, purchases, postedVat] = await Promise.all([
       getSalesLedger(companyId, range),
       getPurchaseLedger(companyId, range),
+      getPostedVatForPeriod(companyId, month),
     ]);
 
-    return { month, sales, purchases };
+    return { month, sales, purchases, postedVat };
   });
 }
 

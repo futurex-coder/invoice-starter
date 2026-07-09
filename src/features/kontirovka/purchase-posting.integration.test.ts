@@ -55,7 +55,9 @@ vi.mock('@/lib/auth/guards', () => ({
 const RUN = Date.now().toString();
 const MARKER = '[KONT-PURCH-TEST]';
 const OWNER_EMAIL = `kont-purch-${RUN}@test.local`;
-const COMPANY_EIK = `9${RUN.slice(-8)}`;
+// Distinct leading digit per integration file (posting=9, purchase=8, posted-vat=4)
+// so the globally-unique company EIK can't collide across parallel workers.
+const COMPANY_EIK = `8${RUN.slice(-8)}`;
 const SUPPLIER_EIK = `2${RUN.slice(-8)}`;
 const TODAY = new Date().toISOString().slice(0, 10);
 

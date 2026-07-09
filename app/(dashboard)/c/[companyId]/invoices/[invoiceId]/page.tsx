@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getInvoice, finalizeInvoice, cancelInvoice, updateInvoicePaymentInfo } from '@/src/features/bulgarian-invoicing/actions';
+import { getInvoice, finalizeInvoice, cancelInvoice, deleteInvoice, updateInvoicePaymentInfo } from '@/src/features/bulgarian-invoicing/actions';
 import { formatDocTypeLabel, formatInvoiceNumber, formatDateBg, formatMoney } from '@/src/features/bulgarian-invoicing/formatter';
 import {
   parseInvoiceTotalsStrict,
@@ -25,7 +25,7 @@ import {
 } from '@/src/features/bulgarian-invoicing/parsers';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
 import { requireStringParam } from '@/lib/route-params';
-import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Trash2, Loader2 } from 'lucide-react';
 import { PageShell } from '@/components/page-shell';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert } from '@/components/ui/alert';
@@ -67,6 +67,7 @@ export default function InvoiceDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const { data: currentUser } = useCurrentUser();
 
   const error = actionError ?? (fetchError ? fetchError.message : null);
@@ -93,6 +94,19 @@ export default function InvoiceDetailPage() {
       throw new Error(res.error);
     }
     if (res.data) mutate(res.data, { revalidate: false });
+  };
+
+  const handleDeleteConfirmed = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    const res = await deleteInvoice(id);
+    setActionLoading(false);
+    if (res.error) {
+      setActionError(res.error);
+      throw new Error(res.error);
+    }
+    // The document no longer exists — return to the list.
+    router.push(`/c/${companyId}/invoices`);
   };
 
   const handlePrint = () => {
@@ -122,6 +136,8 @@ export default function InvoiceDetailPage() {
   const recipient = parsePartySnapshotStrict(invoice.recipientSnapshot);
   const isDraft = invoice.status === 'draft';
   const isCancelled = invoice.status === 'cancelled';
+  // EDIT-RULE: deletable until accounted (same lock as editing).
+  const isAccounted = invoice.accountingStatus === 'accounted';
 
   if (printMode) {
     return (
@@ -200,6 +216,18 @@ export default function InvoiceDetailPage() {
             <Button variant="outline" size="sm" onClick={() => setConfirmCancelOpen(true)} disabled={actionLoading}>
               <XCircle className="mr-2 h-4 w-4" />
               Анулирай фактурата
+            </Button>
+          )}
+          {!isAccounted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:text-red-700"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={actionLoading}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Изтрий
             </Button>
           )}
         </div>
@@ -310,6 +338,21 @@ export default function InvoiceDetailPage() {
         cancelText="Запази фактурата"
         variant="destructive"
         onConfirm={handleCancelConfirmed}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Изтриване на документа?"
+        description={
+          invoice.number != null
+            ? `Документ № ${formatInvoiceNumber(invoice.number)} ще бъде изтрит за постоянно, заедно с редовете му. Това действие е необратимо. За издадена фактура обикновено е по-правилно да я анулирате.`
+            : 'Тази чернова ще бъде изтрита за постоянно. Това действие е необратимо.'
+        }
+        confirmText="Изтрий за постоянно"
+        cancelText="Отказ"
+        variant="destructive"
+        onConfirm={handleDeleteConfirmed}
       />
     </PageShell>
   );

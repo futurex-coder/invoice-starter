@@ -937,6 +937,84 @@ export async function uncancelInvoice(
 }
 
 // ---------------------------------------------------------------------------
+// deleteInvoice — permanently remove a document that isn't accounted yet.
+// Mirrors the EDIT-RULE lock: once `accounted`, a document is immutable AND
+// undeletable until set back to pending. Blocks deletion when credit/debit notes
+// still reference the invoice (the self-FK is ON DELETE SET NULL, so deleting the
+// parent would orphan them). Afterwards the unified sequence tracker is healed to
+// MAX(number)+1, so deleting the LATEST document reclaims its number (no gap);
+// deleting an older one leaves the inherent gap.
+// ---------------------------------------------------------------------------
+
+export async function deleteInvoice(
+  invoiceId: number
+): Promise<ActionResult<{ id: number }>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    const [existing] = await db
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error('Фактурата не е намерена');
+    }
+    if (existing.accountingStatus === 'accounted') {
+      throw new Error(
+        'Осчетоводена фактура не може да се изтрие. Първо я върнете в „изчаква осчетоводяване“.'
+      );
+    }
+
+    // A parent invoice with notes cannot be deleted — the notes' parent link
+    // (referenced_invoice_id) is ON DELETE SET NULL and would be orphaned.
+    const [note] = await db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.companyId, companyId),
+          eq(invoices.referencedInvoiceId, invoiceId)
+        )
+      )
+      .limit(1);
+    if (note) {
+      throw new Error(
+        'Фактурата има кредитни/дебитни известия и не може да се изтрие. Първо изтрийте известията.'
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(invoices)
+        .where(
+          and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId))
+        );
+
+      // Heal the unified sequence: next = MAX(number)+1 over what remains, so
+      // deleting the latest document reclaims its number instead of gapping.
+      await tx.execute(sql`
+        INSERT INTO invoice_sequences (company_id, series, next_number, updated_at)
+        VALUES (
+          ${companyId}, '*',
+          (SELECT COALESCE(MAX(number), 0) + 1 FROM invoices WHERE company_id = ${companyId}),
+          NOW()
+        )
+        ON CONFLICT (company_id, series)
+        DO UPDATE SET
+          next_number = (SELECT COALESCE(MAX(number), 0) + 1 FROM invoices WHERE company_id = ${companyId}),
+          updated_at = NOW()
+      `);
+    });
+
+    await logActivity(companyId, user.id, ActivityType.DELETE_INVOICE);
+
+    return { id: invoiceId };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // updateInvoicePaymentInfo — update paymentStatus / dueDate on any non-cancelled invoice
 // ---------------------------------------------------------------------------
 

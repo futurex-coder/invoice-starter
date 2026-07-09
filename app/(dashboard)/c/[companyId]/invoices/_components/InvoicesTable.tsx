@@ -26,6 +26,7 @@ import {
   FileCheck2,
   ChevronRight,
   RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -54,6 +55,7 @@ interface RowProps {
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
+  onDelete: (invoice: Invoice) => void;
   onMarkPayment: (id: number, status: 'paid' | 'unpaid') => void;
   onMarkAccounting: (id: number, status: 'accounted' | 'pending') => void;
 }
@@ -134,6 +136,7 @@ function InvoiceRow({
   onCopy,
   onCreditNote,
   onDebitNote,
+  onDelete,
   onMarkPayment,
   onMarkAccounting,
 }: RowProps) {
@@ -178,6 +181,17 @@ function InvoiceRow({
       : []),
     ...(isCancelled
       ? [{ icon: RotateCcw, label: 'Възстанови', onClick: () => onUncancel(invoice.id) }]
+      : []),
+    // Delete: allowed until the document is accounted (mirrors the edit lock).
+    ...(!isAccounted
+      ? [
+          {
+            icon: Trash2,
+            label: 'Изтрий',
+            onClick: () => onDelete(invoice),
+            destructive: true,
+          },
+        ]
       : []),
   ];
 
@@ -288,6 +302,7 @@ interface TableProps {
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
+  onDelete: (invoice: Invoice) => void;
   onMarkPayment: (id: number, status: 'paid' | 'unpaid') => void;
   onMarkAccounting: (id: number, status: 'accounted' | 'pending') => void;
 }
@@ -330,6 +345,7 @@ export function InvoicesTable(props: TableProps) {
               onCopy={props.onCopy}
               onCreditNote={props.onCreditNote}
               onDebitNote={props.onDebitNote}
+              onDelete={props.onDelete}
               onMarkPayment={props.onMarkPayment}
               onMarkAccounting={props.onMarkAccounting}
             />

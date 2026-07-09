@@ -8,6 +8,7 @@ import {
   listInvoices,
   cancelInvoice,
   uncancelInvoice,
+  deleteInvoice,
   createCreditNoteFromInvoice,
   createDebitNoteFromInvoice,
   updateInvoicePaymentInfo,
@@ -96,6 +97,7 @@ export default function InvoicesPage() {
   const result = list.result;
 
   const [confirmCancel, setConfirmCancel] = useState<{ id: number; label: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; label: string } | null>(null);
 
   const handleFiltersChange = (patch: Partial<ListInvoicesFilters>) => {
     if ('status' in patch) list.setFilter('status', patch.status ?? 'all');
@@ -124,6 +126,19 @@ export default function InvoicesPage() {
   // EDIT-RULE: cancel is reversible.
   const handleUncancel = (id: number) => {
     void list.runMutation(() => uncancelInvoice(id));
+  };
+
+  const handleDeleteClick = (invoice: Invoice) => {
+    const label =
+      invoice.number != null
+        ? `№ ${formatInvoiceNumber(invoice.number)}`
+        : `#${invoice.id}`;
+    setConfirmDelete({ id: invoice.id, label });
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDelete) return;
+    await list.runMutation(() => deleteInvoice(confirmDelete.id));
   };
 
   const [pendingId, setPendingId] = useState<number | null>(null);
@@ -212,6 +227,7 @@ export default function InvoicesPage() {
           onCopy={(id) => router.push(`/c/${companyId}/invoices/new?copy=${id}`)}
           onCreditNote={handleCreditNote}
           onDebitNote={handleDebitNote}
+          onDelete={handleDeleteClick}
           onMarkPayment={handleMarkPayment}
           onMarkAccounting={handleMarkAccounting}
         />
@@ -230,6 +246,21 @@ export default function InvoicesPage() {
         cancelText="Запази фактурата"
         variant="destructive"
         onConfirm={handleCancelConfirmed}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        title="Изтриване на документа?"
+        description={
+          confirmDelete
+            ? `Документ ${confirmDelete.label} ще бъде изтрит за постоянно, заедно с редовете му. Това действие е необратимо. За издадена фактура обикновено е по-правилно да я анулирате.`
+            : undefined
+        }
+        confirmText="Изтрий за постоянно"
+        cancelText="Отказ"
+        variant="destructive"
+        onConfirm={handleDeleteConfirmed}
       />
     </PageShell>
   );

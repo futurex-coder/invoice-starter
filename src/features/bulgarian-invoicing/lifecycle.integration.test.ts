@@ -43,6 +43,7 @@ import {
   uncancelInvoice,
   updateInvoiceAccountingStatus,
   createCreditNoteFromInvoice,
+  deleteInvoice,
   getInvoice,
 } from './actions';
 
@@ -621,5 +622,51 @@ describe('manual invoice number', () => {
       number: 999_999,
     });
     expect(unwrapError(res, 'proforma manual number')).toMatch(/фактури/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteInvoice — permanent delete of a non-accounted document; the latest
+// number is reclaimed (no gap), accounted docs and parents-with-notes refuse.
+// ---------------------------------------------------------------------------
+
+describe('deleteInvoice', () => {
+  it('deletes the latest document and reclaims its number (no gap)', async () => {
+    const a = unwrap(await createInvoiceDraft(baseDraftInput()), 'draft a');
+    const del = unwrap(await deleteInvoice(a.id), 'delete');
+    expect(del.id).toBe(a.id);
+
+    // The row is gone.
+    expect(await getInvoice(a.id)).toHaveProperty('error');
+
+    // The next auto number reuses the just-freed number — no gap.
+    const b = unwrap(await createInvoiceDraft(baseDraftInput()), 'draft b');
+    expect(b.number).toBe(a.number);
+  });
+
+  it('refuses to delete an accounted document', async () => {
+    const d = unwrap(await createInvoiceDraft(baseDraftInput()), 'draft');
+    unwrap(await finalizeInvoice(d.id), 'finalize');
+    unwrap(
+      await updateInvoiceAccountingStatus(d.id, 'accounted'),
+      'mark accounted'
+    );
+    expect(unwrapError(await deleteInvoice(d.id), 'delete accounted')).toMatch(
+      /осчетоводена/i
+    );
+    // Un-account so the shared sequence isn't blocked for later assertions.
+    unwrap(
+      await updateInvoiceAccountingStatus(d.id, 'pending'),
+      'un-account'
+    );
+  });
+
+  it('refuses to delete an invoice that has a credit/debit note', async () => {
+    const inv = unwrap(await createInvoiceDraft(baseDraftInput()), 'inv');
+    unwrap(await finalizeInvoice(inv.id), 'finalize');
+    unwrap(await createCreditNoteFromInvoice(inv.id), 'credit note');
+    expect(unwrapError(await deleteInvoice(inv.id), 'delete parent')).toMatch(
+      /известия/i
+    );
   });
 });

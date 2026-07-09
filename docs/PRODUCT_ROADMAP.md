@@ -26,6 +26,19 @@ atomic, tick the item here in the same commit, and record durable findings in
 BG-specific as-is — no message catalog, no locale switch. Revisit only when a second
 market is actually targeted (tracked as N19 in `REFACTOR_BACKLOG.md`, deferred).
 
+**⭐ Current direction (set 2026-07-08, owner) — POLISH THE CORE, DEFER EMAIL + AUTH.**
+The goal for run 2 onward is to make what we already have **complete, correct, and easy to
+use** — not to add big new surfaces. Concretely:
+- **Deferred to "later" (do NOT build now):** Phase 6 **AUTH-1** (Google login), Phase 7
+  **EMAIL-1/EMAIL-2** (send + ingest email), and **BULK-1** (depends on both). Leave the
+  decisions register rows open; skip these items entirely this phase.
+- **Top priority: ASYNC-SCAN** (below) — make the expense scanner non-blocking: upload →
+  rows appear instantly → parallel background analysis → auto-saved as draft → click to
+  review, open the original file anytime. This is the flagship "easy to use" change.
+- After ASYNC-SCAN: **RV-3** review redesign, then the remaining polish items. Every flow
+  should be finished to the "verified by running, happy + edge paths" bar in §C of the
+  kickoff — no half-built features.
+
 ---
 
 ## 1. How to run this phase — the four gears
@@ -57,14 +70,14 @@ type-check/lint/tests.
 
 ## 2. Decisions register — lock these before building the dependent item
 
-| ID | Decision | Status | Recommendation |
+| ID | Decision | Status | Resolution / Recommendation |
 |---|---|---|---|
-| **D-CANCEL** | How should invoice Cancel behave? (OI-3) | ❓ OPEN — **ask Koceto** | Today: mark `cancelled`, immutable, reverse via credit note. Confirm what's actually wrong; save his answer to memory. |
-| **D-EDIT** | Can **finalized/cancelled outgoing** invoices be edited? (OI-10) | ❓ OPEN — **compliance** | BG law: a finalized фактура is a sequential legal document, immutable, corrected via credit note. "Edit anything" for outgoing finalized breaks that + the unique-number guarantee. Received invoices (your own records) can be freely editable — no legal issue. Options: (a) drafts-only editable (≈today); (b) finalized editable with version history + audit trail; (c) finalized editable but auto-issues a correction doc. Needs your decision before OI-10. |
-| **D-FX** | FX rate source for currency conversion (GEN-1) | ❓ OPEN | ECB daily reference rates (free, EUR-authoritative); cache daily; **freeze the rate onto each document at finalize** so historical totals never drift. `invoices.fxRate` + `receivedInvoices.fxRate` columns already exist. |
-| **D-AUTH** | Adopt an auth library or extend hand-rolled `jose` sessions? (AUTH-1) | ❓ OPEN | ADR comparing Auth.js (NextAuth v5) vs. lightweight `arctic` + existing `users` table. `/security-review` mandatory. |
-| **D-EMAIL-SEND** | SMTP transport for outbound (EMAIL-1) | ❓ OPEN | Already have `nodemailer` + `sendInvitationEmail`. Pick a provider (Resend/Postmark/SES) for deliverability. |
-| **D-EMAIL-READ** | Scope of "look over all emails" (EMAIL-2) | ❓ OPEN | Scope to **invoice-relevant emails auto-matched to partners**, not a full mail client. Gmail API (OAuth) over IMAP if users are on Gmail; the Gmail MCP connector can prototype. |
+| **D-CANCEL** | How should invoice Cancel behave? (OI-3) | ✅ **RESOLVED 2026-07-08** | Cancel is **reversible** (add Uncancel). **`accounted` is the lock** — see EDIT-RULE. Delete allowed while not accounted. |
+| **D-EDIT** | Can finalized outgoing invoices be edited? (OI-10) | ✅ **RESOLVED 2026-07-08** | Editability gated on **`accounted`**, not draft/finalized: anything not `accounted` is fully editable + deletable; `accounted` locks it (toggle un-account to edit again). → **EDIT-RULE**. Compliance caveat: keep an audit trail of edits to finalized docs. |
+| **D-FX** | FX rate source for currency conversion (GEN-1) | ✅ **RESOLVED 2026-07-08 — approved** | ECB daily reference rates; cache daily; **freeze the rate onto each document at finalize**. `invoices.fxRate` + `receivedInvoices.fxRate` exist. **GEN-1 unblocked.** |
+| **D-NUM** | Numbering for notes / all doc types (CN-NUMBERING) | ✅ **RESOLVED 2026-07-08 — REVERSED** | EVERY document (invoice/CN/DN/proforma) gets its **own unique new number**, no duplicates. Reverses run-1's inherit-parent-number. → **NUM-1** (DB-trigger rewrite; closes N24). |
+| **D-AUTH** | Google login approach (AUTH-1) | ⏸️ **DEFERRED 2026-07-08** | Use **Supabase Auth** Google login when revisited. Not this phase. |
+| **D-EMAIL-SEND / READ** | Email transport + ingestion (EMAIL-1/2) | ⏸️ **DEFERRED 2026-07-08** | Leave email for later entirely. |
 
 ---
 
@@ -119,6 +132,157 @@ Feature work starts off a clean `main`.
   URL-synced `?search=` (no partner-detail route exists yet); CN/DN "→ parent" link kept.
 - Verified live: links render on all 7 rows, number-link click-through loads the detail
   page, no console errors.
+
+---
+
+### Phase 1.5 — ⭐ TOP PRIORITY — Async expense scanner (non-blocking upload → analyze → draft)
+
+**ASYNC-SCAN — Non-blocking parallel expense scanner** · L · ⭐ *flagship "easy to use"* · ✅ **done 2026-07-08**
+- **Shipped:** upload is now store-only (inserts an `analyzing` row + returns immediately —
+  no AI call in the request); a new `POST /api/received-invoices/[id]/analyze` runs the
+  extraction and flips the row to `draft` (or `failed`+error, retryable); the uploader uploads
+  in parallel and redirects to the list; the list **drives analysis** for any `analyzing` row
+  (capped at 5 concurrent) and SWR-polls until none remain; the table shows `analyzing`
+  (spinner) / `failed` (Retry) / `draft` states, with the file-open link working from upload.
+  Migration `0005_free_ares` (status `analyzing`/`failed`, nullable `rawExtraction`/`extractedAt`,
+  `analysis_started_at`/`analysis_error`). Default list view changed to the working set
+  (analyzing/failed/draft/confirmed; only discarded hidden) so in-progress rows are always
+  visible + driven.
+- **Verified end-to-end against the real DB + AI + storage:** a real uploaded PDF
+  ("таблет фактура.pdf", company 81) went upload→`analyzing`→driver auto-fired→extraction
+  (`claude-sonnet-4-6`)→`draft` with invoice №0814051604, supplier ЗОРА ММС ООД, net 1103.88 +
+  VAT 220.78 = gross 1324.66 EUR (reconciled by hand), 1 line, confidence high. Failure path
+  verified (missing model → `failed` + stored error → Retry). Duplicate detection still fires
+  on the analyzed draft. Verify quad green (type-check, lint 0, tests 222, build).
+- **Fix found while verifying (N27):** the extraction model constant was
+  `claude-sonnet-4-20250514`, now **retired → 404 not_found** on the live API key — every
+  extraction was failing. Updated `EXTRACTION_MODEL_ID` to `claude-sonnet-4-6` (probed the key:
+  4-5 / 4-6 / sonnet-5 / haiku-4-5 all 200; only the dated snapshot 404s). This affected the
+  OLD synchronous flow too — extraction was broken before this change.
+- **Problem (before — synchronous & blocking):** `app/api/received-invoices/upload/route.ts`
+  stores the file **and** runs the two-pass Claude extraction *inline* before the row exists,
+  and `ReceivedInvoiceUploader.tsx` processes dropped files **serially**. So the user waits
+  through up to two AI calls **per file, one file at a time**, staring at "Analyzing" before
+  anything appears. That's the exact blocking we're removing.
+- **Target UX (owner's words):** "when I upload files I want to see them in the table right
+  after they're uploaded; then the scanner runs them **in parallel** so the user isn't
+  blocked; when a row is analyzed I can click it to review, and I can open the uploaded file;
+  everything the analyzer produces is saved directly but **as a draft until reviewed**."
+- **Design — split "store the file" from "analyze the file":**
+  1. **Data model** — extend `received_invoices.status` with two pre-draft states:
+     `'analyzing'` (file stored, AI running) and `'failed'` (extraction errored, retryable).
+     New order: `analyzing → (failed) → draft → confirmed → discarded`. Make `rawExtraction`
+     **nullable** (row now exists before the AI runs) and `extractedAt` nullable; add
+     `analysisStartedAt timestamp` + `analysisError text`. Add `'analyzing'`/`'failed'` to
+     `RECEIVED_INVOICE_STATUSES` in `src/features/received-invoices/types.ts`. **One migration**
+     (`db:generate` → review SQL → apply). NOTE: `rawExtraction` default `.default('draft')`
+     status must change to `.default('analyzing')`.
+  2. **Upload route → store-only.** Validate + upload to Supabase + insert a shell row with
+     `status:'analyzing'`, `rawExtraction:null`, `analysisStartedAt:now()`, and the file
+     columns; return `{id, originalName}` immediately. No AI call in this request. Refactor the
+     extraction-application half of `createDraftFromUpload` (actions.ts:177-298 — totals,
+     partner match, line insert, dedup) into a reusable `applyExtractionToRow(id, extraction)`
+     used by the analyze route; keep a shell-insert `createAnalyzingRow(...)`.
+  3. **New analyze route** `POST /api/received-invoices/[id]/analyze` (withApiCompanyAuth) —
+     loads the row, reads the stored bytes back from the bucket, runs `extractInvoiceFromBytes`,
+     calls `applyExtractionToRow` (writes extracted values + lines, sets `rawExtraction`,
+     `extractedAt`, `extractionConfidence/ModelId`), flips `status → 'draft'`. On error: set
+     `status:'failed'` + `analysisError`, keep the file (retryable). Idempotent/guarded so a
+     double-fire can't double-insert lines (re-analysis should replace lines like
+     `applyReviewPatch` does).
+  4. **Uploader** — upload all dropped files **in parallel** (store-only calls; keep the
+     client-side WebP compression), collect the returned ids, then fire the analyze requests
+     **in parallel with a concurrency cap (~5)** so a big drop doesn't hammer the API; then
+     **redirect to the received-invoices table** (not the two-step review page). The user sees
+     rows immediately.
+  5. **Table** (`_components/ReceivedInvoicesTable.tsx`) — render the new states: `analyzing`
+     = spinner + "Analyzing…" (row NOT yet review-clickable, but the **file-open link works
+     from the instant of upload**); `failed` = red state + **Retry** button (re-POSTs analyze);
+     `draft`/`confirmed`/`discarded` as today. **SWR-poll the list while any row is
+     `analyzing`** (short interval, stop when none remain) so rows self-update to `draft`
+     without a manual refresh. `listReceivedInvoices` + `ReceivedInvoiceListItem` must carry the
+     new `status` values (already `ReceivedInvoiceLifecycleStatus`); `pendingCount` still counts
+     `draft` only.
+  6. **Review + open-file** already exist (`review/[id]`, `PreviewPane`, file redirect route) —
+     they just work once a row reaches `draft`. Auto-save-as-draft is inherent: analysis writes
+     draft values, so nothing is ever lost even if the user never opens the review screen.
+- **Platform note (deliberate):** parallelism is **client-orchestrated** (fire N analyze
+  requests after upload), NOT a server background worker — this app is Vercel serverless where
+  post-response background work isn't guaranteed to finish. The `failed`/Retry state + a
+  "re-analyze stuck rows" affordance cover a tab closed mid-batch. Log this in REVIEW_QUEUE if
+  you deviate.
+- **Verify by running (per §C):** drop **multiple** files at once → all rows appear as
+  `analyzing` within ~1s → they flip to `draft` independently as each analysis finishes (prove
+  parallelism: total wall-clock ≈ slowest single file, not the sum) → open the original file
+  on an `analyzing` row (must work) → force a failure (bad/blank image) → row shows `failed` +
+  Retry → click a `draft` row → review → confirm. Reconcile one extracted total by hand.
+  Mobile + desktop; zero console errors; no failed network requests (other than the induced one).
+- **Edge cases:** 0 files; 10+ files at once (cap holds, no rate-limit storms); duplicate file
+  (checksum dedup still surfaces in review); non-invoice image (low confidence → still a draft,
+  flagged); very large PDF; user navigates away mid-batch (rows stay `analyzing`, Retry recovers).
+
+---
+
+### Phase 1.6 — Editability, numbering & new-invoice rules (from 2026-07-08 owner answers)
+
+**EDIT-RULE — `accounted` is the single edit/delete lock** · M · *unblocks OI-3, OI-10 outgoing* · 🟡 **edit + uncancel done 2026-07-08; delete deferred**
+- Rule (D-CANCEL + D-EDIT): an invoice is **freely editable and deletable while its
+  `accountingStatus` ≠ `accounted`**; once `accounted` it locks. The Accounted toggle is always
+  available, so un-accounting re-opens editing. **Cancel is reversible** (Uncancel).
+- **Shipped (outgoing):** `updateInvoiceDraft` now gates on `accountingStatus !== 'accounted'`
+  (was draft-only) — finalized invoices are editable while pending accounting, preserving their
+  status + number, and re-validated against the finalized rules; accounted → locked
+  (server-enforced, not just UI). New **`uncancelInvoice`** action (cancelled → finalized) +
+  `UNCANCEL_INVOICE` activity type. Invoice list row menu: **Edit** now shows for finalized
+  (not accounted); **Reinstate (uncancel)** shows for cancelled. New-invoice edit page allows
+  loading a finalized invoice (blocks accounted + cancelled with a clear message). Verified via
+  the real-DB lifecycle integration suite (finalized-editable, accounted-locks, uncancel
+  restores, uncancel-rejects-non-cancelled) — 223 tests green.
+- **Deferred — DELETE** (its own slice): safest as a **soft delete** (`invoices.deletedAt` +
+  filter it out of every list / dashboard / money / VAT aggregation) so a deleted invoice can't
+  silently corrupt totals and the number isn't reused. That query-sweep is wide and risky to do
+  while the owner is live-creating documents, so it's split out. Decide hard-vs-soft + numbering-
+  gap handling (pairs with NUM-1) before building.
+- **Compliance caveat (logged):** editing a finalized фактура in place diverges from BG
+  immutability; the UPDATE_INVOICE activity entry is the audit trail. Per owner decision.
+
+**NUM-1 — Unique number per document, all types** · L · *schema/trigger* · ✅ **done 2026-07-08** · *closes N24*
+- Rule (D-NUM): every document — invoice, credit note, debit note, proforma — takes the **next
+  number in one unified per-company sequence** (+1 each time); **no duplicate numbers**. The
+  note→parent link stays via `referencedInvoiceId`; only the number changes.
+- **Shipped:** migration `0006_unified_document_numbering` brings both numbering triggers into
+  the repo (**closes N24**) and rewrites `enforce_invoice_numbering` to unified per-company
+  strictly-increasing for all doc types, accepting proforma; notes keep the parent link but get
+  their own number. App-side allocation (`allocateNumber`) now uses one per-company counter
+  (the `'*'` sentinel series, decoupled from the display series); `createNoteFromInvoice`
+  allocates a fresh number + its own CN/DN display series; `getNextInvoiceNumber` reads the
+  unified counter (max-based fallback). Existing data seeded forward (each company continues
+  above its current max); historical duplicate-numbered notes remain as history (forward-only).
+- **Verified end-to-end on the real DB:** lifecycle integration suite (17 tests) — invoice gets
+  a unique number, each note gets its own number above the parent, multiple notes never share a
+  number, proforma path unblocked; money suite reseeded to unified 1–8 and green. Verify quad
+  green (type-check, lint 0, tests 223, build). Unblocks **PROF-1** → NEWINV-1 form restriction.
+
+**PROF-1 — Proforma as a real doc type** · M · ✅ **done 2026-07-08**
+- **Shipped:** proforma is insertable (NUM-1 trigger accepts it) with its own unified number
+  and 'PRF' display series; **excluded from every money/VAT aggregate** (collected / outstanding
+  / overdue / issued-VAT in `money.ts`, and the month-close card's pending-accounting + VAT sums)
+  — a proforma is a non-binding quote, not a tax document. **Convert-to-invoice** reuses the
+  proven copy pipeline: a "Convert to invoice" row action on a finalized proforma opens a fresh
+  **invoice** draft pre-filled from it (docType forced to invoice). Labels already localised
+  (Проформа фактура / ПРОФОРМА ФАКТУРА print header / ПФ badge). Credit/debit-note row actions
+  are now correctly gated to real invoices only (bonus: notes could previously be offered on
+  notes/proformas → trigger error).
+- **Verified:** money integration suite pins a finalized+paid 5000 proforma changing NOTHING
+  (collected/outstanding/overdue unchanged); lifecycle suite creates + finalizes a proforma via
+  the real app path (own unified number, 'PRF' series). Follow-up (not v1): mark a proforma
+  "converted" / link the generated invoice back to it (today convert just copies).
+
+**NEWINV-1 — New-invoice form: Invoice + Proforma only, remove Preview** · S · ✅ **done 2026-07-08**
+- **Shipped:** the **Preview** button is gone from the new-invoice ActionsBar — only **Save
+  draft** and **Finalize** remain (per NI1-PREVIEW; preview/print stays on a saved invoice). The
+  DocumentCard doc-type radio now offers **Invoice + Proforma only** (credit/debit notes are
+  raised from a finalized invoice's row menu). Unblocked by NUM-1 (proforma insertable) + PROF-1.
 
 ---
 
@@ -188,7 +352,7 @@ Feature work starts off a clean `main`.
 - Verified live: 8 interleaved documents; `month=2026-05` narrows to exactly the one May
   received invoice.
 
-**BULK-1 — Row selection + bulk email via Google** · M · *depends on EMAIL-1 + AUTH-1*
+**BULK-1 — Row selection + bulk email via Google** · M · *depends on EMAIL-1 + AUTH-1* · ⏸️ **DEFERRED (2026-07-08 direction — email/auth on hold)**
 - On **every** invoice tab (Outgoing / Received / All): a **checkbox per row** + select-all, and
   a bulk-action bar to **email the selected invoices + their info** (PDF attachments + a summary)
   via **Google/Gmail** (ties to AUTH-1 Google auth + EMAIL-1 send transport).
@@ -231,21 +395,26 @@ Feature work starts off a clean `main`.
 
 ### Phase 5 — Received-invoice review redesign
 
-**RV-3 — Redesign the whole review-received-invoice screen** · L · 🟡 **queued (deliberately not
-started at the end of the 2026-07-08 overnight run — an L rebuild of the app's core
-differentiator shouldn't land half-done)**
-- Already absorbed: RV-2 ✅ (due date gone), RV-4 ✅ (name-only partners + real-document
-  line tolerance), RV-1 first slice ✅ (image zoom + mobile collapse).
-- Remaining rebuild: field grouping (Supplier / Document / Items as distinct cards with
-  clearer hierarchy), inline validation that **guides rather than blocks** (soft warnings
-  vs the red rings; the schema is already tolerant post-RV-4), wider desktop layout
-  (viewer deserves >50%), true mobile bottom drawer for the scan, and the review→confirm
-  flow driven end-to-end with a multi-page + foreign-supplier scan.
-- Implementation notes for the next session: the form is already `useReducer`-based
-  (`review-form-state.ts`) with `FieldMetaMap` confidence hints — build ON that, don't
-  replace it; `ReviewForm.tsx` is 900+ lines — extract the Supplier/Document/Items cards
-  as separate components as part of the regroup; the numbering/tax constraints live in
-  `knowledge/invoice-numbering-triggers.md`.
+**RV-3 — Redesign the review-received-invoice screen** · L · ✅ **v2 done 2026-07-08**
+- Absorbed earlier: RV-2 ✅ (due date gone), RV-4 ✅ (name-only partners + line tolerance),
+  RV-1 ✅ (image zoom + mobile collapse). The form was **already** card-grouped
+  (Supplier / Document / Items / Totals / Payment / Notes) with **soft, guiding validation**
+  (amber/rose confidence rings + `FieldHint`, no hard blocks) — so RV-3 v2 focused on layout,
+  hierarchy, and the confirm moment rather than a risky 905-line teardown.
+- **Shipped (2026-07-08):** the scanned document now gets the **larger share on desktop**
+  (`lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]`, viewer >50%, still sticky; stacks
+  viewer-first on mobile). **Icon-led card headers** (Building2 / FileText / ListChecks /
+  Calculator / CreditCard / StickyNote) for scannability. The **grand total is emphasized**
+  in the Totals card and **shown right at the Confirm button** in the sticky action bar, so
+  you see exactly what you're accepting. `tabular-nums` on all money.
+- Verified: type-check + lint 0 + build green (route compiles/prerenders). Live visual
+  verification was blocked by the preview harness (rAF wedge on heavy client pages + fresh-tab
+  session loss — documented in `knowledge/func-audit-2026-07.md`); changes are presentational
+  only (grid ratio, header icons, total placement), so build + type-check cover correctness.
+- **Optional follow-ups (not blocking):** extract Supplier/Document/Items into separate
+  components (the file is ~925 lines); a true mobile bottom-drawer for the scan; lift the
+  PreviewPane zoom state so it persists. Money amounts here render in the document's own
+  currency — GEN-1 will convert them to the company base currency.
 
 **RV-1 — Better scanned-invoice viewer** · M/L · 🟡 **first slice shipped 2026-07-08**
 - Shipped: **image zoom** (50–400% with ± / reset — scanned images previously had no zoom
@@ -270,9 +439,9 @@ differentiator shouldn't land half-done)**
 
 ---
 
-### Phase 6 — Google auth ⚠️ ADR (D-AUTH) + `/security-review`
+### Phase 6 — Google auth ⚠️ ADR (D-AUTH) + `/security-review` · ⏸️ **DEFERRED (2026-07-08 direction — do NOT build this phase)**
 
-**AUTH-1 — Google login + account linking** · L
+**AUTH-1 — Google login + account linking** · L · ⏸️ **DEFERRED**
 - Add Google OAuth sign-in and **linking to existing accounts** (match by verified email
   to the `users` table). Current sessions are hand-rolled (`jose` + bcrypt), so this is real
   work — the ADR decides library vs. hand-roll.
@@ -281,13 +450,13 @@ differentiator shouldn't land half-done)**
 
 ---
 
-### Phase 7 — Email ⚠️ ADR (D-EMAIL-SEND / D-EMAIL-READ)
+### Phase 7 — Email ⚠️ ADR (D-EMAIL-SEND / D-EMAIL-READ) · ⏸️ **DEFERRED (2026-07-08 direction — do NOT build this phase)**
 
-**EMAIL-1 — Send invoices by email** · M
+**EMAIL-1 — Send invoices by email** · M · ⏸️ **DEFERRED**
 - Extend the existing `nodemailer` + `sendInvitationEmail` path to email a finalized invoice
   (PDF attachment or link) to the partner. Pick a deliverability provider (D-EMAIL-SEND).
 
-**EMAIL-2 — Ingest + browse sent/received email** · L
+**EMAIL-2 — Ingest + browse sent/received email** · L · ⏸️ **DEFERRED**
 - Read invoice-relevant emails into the DB so they can be consumed and attached to records.
   Scope per D-EMAIL-READ (auto-match to partners, not a full mail client). Gmail API is the
   fast path; the Gmail MCP connector can prototype ingestion + matching.
@@ -402,14 +571,23 @@ i18n is **out of scope for now** (per product decision). Stays deferred as N19 i
 
 ---
 
-## 5. Suggested first moves for the Fable session
+## 5. Suggested first moves — run 2 (2026-07-08 direction)
 
-1. Run **RESEARCH-1** (parallel subagents, one per site) → `docs/knowledge/competitor-invoicing.md`.
-   Capture features + functionality + data model, not just UX; surface gaps we're missing.
-2. Run **FUNC-AUDIT** — drive the existing flows in a live preview and catalog correctness /
-   edge-case / data-integrity gaps. Turn findings into new roadmap items.
-3. Knock out **Phase 1** quick wins (OI-2, NI-2, RV-2, NI-1, OI-8) — fast, no decisions —
-   verifying each in a running preview before committing.
-4. Write the **GEN-1/D-FX ADR** and **DASH-1 audit** in parallel — money correctness is the
-   highest-stakes item; get the design right early.
-5. Get **D-CANCEL** answered by Koceto and saved to memory so OI-3 can unblock.
+Phases 0–7 of the original plan are shipped except the deferred/queued items. Run 2 focuses on
+**polish, correctness, and ease of use** — build EMAIL/AUTH nothing.
+
+1. **ASYNC-SCAN** (Phase 1.5) — the flagship change. Build it end-to-end in the order in its
+   spec (migration → store-only upload → analyze route → uploader parallelism → table states +
+   poll), verifying each slice by running the app. This is the top priority.
+2. **Phase 1.6 (now unblocked by the 2026-07-08 answers):** **NUM-1** (unique number per doc —
+   DB-trigger rewrite, closes N24) → **PROF-1** (proforma) → **NEWINV-1** (form = Invoice +
+   Proforma, remove Preview) → **EDIT-RULE** (accounted-gates edit/delete + Uncancel). NUM-1 is
+   the foundation for the others; sequence matters.
+3. **RV-3** — the review-screen redesign (spec in Phase 5). Pairs with ASYNC-SCAN (same flow).
+4. **GEN-1** currency conversion — **D-FX approved**, so this is unblocked; lands in `money.ts`.
+5. Remaining **polish** across the app to the §C "verified by running, happy + edge paths" bar.
+6. **Do NOT** start AUTH-1, EMAIL-1/2, or BULK-1 — deferred by owner direction.
+
+### Historical — original run-1 first moves (done)
+1. ~~Run **RESEARCH-1**~~ ✅ · 2. ~~Run **FUNC-AUDIT**~~ ✅ · 3. ~~Phase 1 quick wins~~ ✅ ·
+4. ~~DASH-1 audit~~ ✅ (GEN-1 ADR still open on D-FX) · 5. **D-CANCEL** still open (ask Koceto).

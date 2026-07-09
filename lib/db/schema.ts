@@ -277,7 +277,9 @@ export const invoices = pgTable(
       onDelete: 'set null',
     }),
 
-    // 'invoice' | 'credit_note' | 'debit_note'
+    // 'invoice' | 'proforma' | 'credit_note' | 'debit_note'
+    // Free varchar (no DB enum/CHECK) — the domain DOC_TYPES union is the source
+    // of truth; proforma inserts via the normal flow (PROF-1).
     docType: varchar('doc_type', { length: 30 }).notNull().default('invoice'),
     // 'draft' | 'finalized' | 'cancelled'
     status: varchar('status', { length: 20 }).notNull().default('draft'),
@@ -431,8 +433,10 @@ export const receivedInvoices = pgTable(
       { onDelete: 'set null' }
     ),
 
-    // Lifecycle: 'draft' | 'confirmed' | 'discarded'
-    status: varchar('status', { length: 20 }).notNull().default('draft'),
+    // Lifecycle: 'analyzing' | 'failed' | 'draft' | 'confirmed' | 'discarded'
+    // 'analyzing' = file stored, AI extraction running in the background;
+    // 'failed' = extraction errored (retryable). Both precede 'draft'.
+    status: varchar('status', { length: 20 }).notNull().default('analyzing'),
 
     // Original file (Supabase Storage)
     fileBucket: varchar('file_bucket', { length: 64 }).notNull(),
@@ -443,11 +447,16 @@ export const receivedInvoices = pgTable(
     // SHA-256 of the stored bytes — used for "exact same file already uploaded" dedup
     fileChecksumSha256: varchar('file_checksum_sha256', { length: 64 }),
 
-    // Immutable record of the AI extraction (audit trail)
-    rawExtraction: jsonb('raw_extraction').notNull(),
+    // Immutable record of the AI extraction (audit trail). Nullable now that
+    // rows are inserted at upload time (status 'analyzing') before the AI runs;
+    // populated when analysis completes.
+    rawExtraction: jsonb('raw_extraction'),
     extractionConfidence: varchar('extraction_confidence', { length: 10 }),
     extractionModelId: varchar('extraction_model_id', { length: 64 }),
-    extractedAt: timestamp('extracted_at').notNull().defaultNow(),
+    extractedAt: timestamp('extracted_at'),
+    // Background-analysis tracking (async scanner)
+    analysisStartedAt: timestamp('analysis_started_at'),
+    analysisError: text('analysis_error'),
 
     // Reviewed/confirmed values — populated/edited during review
     partnerId: integer('partner_id').references(() => partners.id, {
@@ -818,6 +827,7 @@ export enum CompanyRole {
 
 export enum DocType {
   INVOICE = 'invoice',
+  PROFORMA = 'proforma',
   CREDIT_NOTE = 'credit_note',
   DEBIT_NOTE = 'debit_note',
 }
@@ -875,6 +885,8 @@ export enum ActivityType {
   UPDATE_INVOICE = 'UPDATE_INVOICE',
   FINALIZE_INVOICE = 'FINALIZE_INVOICE',
   CANCEL_INVOICE = 'CANCEL_INVOICE',
+  UNCANCEL_INVOICE = 'UNCANCEL_INVOICE',
+  DELETE_INVOICE = 'DELETE_INVOICE',
   CREATE_CREDIT_NOTE = 'CREATE_CREDIT_NOTE',
   CREATE_DEBIT_NOTE = 'CREATE_DEBIT_NOTE',
 
@@ -883,6 +895,7 @@ export enum ActivityType {
   UPDATE_RECEIVED_INVOICE = 'UPDATE_RECEIVED_INVOICE',
   CONFIRM_RECEIVED_INVOICE = 'CONFIRM_RECEIVED_INVOICE',
   DISCARD_RECEIVED_INVOICE = 'DISCARD_RECEIVED_INVOICE',
+  DELETE_RECEIVED_INVOICE = 'DELETE_RECEIVED_INVOICE',
   ARCHIVE_RECEIVED_INVOICE = 'ARCHIVE_RECEIVED_INVOICE',
   UNARCHIVE_RECEIVED_INVOICE = 'UNARCHIVE_RECEIVED_INVOICE',
 }

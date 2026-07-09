@@ -40,7 +40,10 @@ import {
   updateInvoiceDraft,
   finalizeInvoice,
   cancelInvoice,
+  uncancelInvoice,
+  updateInvoiceAccountingStatus,
   createCreditNoteFromInvoice,
+  deleteInvoice,
   getInvoice,
 } from './actions';
 
@@ -201,6 +204,7 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
   let partnerId: number;
   let secondDraftId: number;
   let creditNoteId: number;
+  let creditNoteNumber: number;
 
   it('creates a draft with an allocated number, correct totals, persisted lines, and an auto-created partner', async () => {
     const result = await createInvoiceDraft(baseDraftInput());
@@ -333,10 +337,52 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     expect(unwrapError(result, 'double finalize')).toMatch(/Cannot finalize/);
   });
 
-  it('refuses to update a finalized invoice', async () => {
-    const result = await updateInvoiceDraft(draftId, { internalComment: 'nope' });
-    expect(unwrapError(result, 'update finalized')).toMatch(
-      /Only draft invoices can be updated/
+  it('edits a finalized (not accounted) invoice, then locks it once accounted (EDIT-RULE)', async () => {
+    // Finalized + pending accounting → still editable; status + number preserved.
+    const ok = await updateInvoiceDraft(draftId, {
+      internalComment: 'edited-after-finalize',
+    });
+    const updated = unwrap(ok, 'update finalized');
+    expect(updated.status).toBe('finalized');
+    expect(updated.number).toBe(draftNumber);
+    expect(updated.internalComment).toBe('edited-after-finalize');
+
+    // Mark accounted → the invoice locks.
+    unwrap(
+      await updateInvoiceAccountingStatus(draftId, 'accounted'),
+      'mark accounted'
+    );
+    const locked = await updateInvoiceDraft(draftId, {
+      internalComment: 'should-be-blocked',
+    });
+    expect(unwrapError(locked, 'update accounted')).toMatch(/accounted/i);
+
+    // Reset to pending so later tests see the original lifecycle state.
+    unwrap(
+      await updateInvoiceAccountingStatus(draftId, 'pending'),
+      'reset accounting to pending'
+    );
+  });
+
+  it('reinstates a cancelled invoice (EDIT-RULE: cancel is reversible)', async () => {
+    // Use a throwaway finalized invoice so the shared draftId lifecycle is untouched.
+    const created = unwrap(
+      await createInvoiceDraft(baseDraftInput()),
+      'create for uncancel'
+    );
+    unwrap(await finalizeInvoice(created.id), 'finalize for uncancel');
+    unwrap(await cancelInvoice(created.id), 'cancel for uncancel');
+
+    const restored = unwrap(
+      await uncancelInvoice(created.id),
+      'uncancelInvoice'
+    );
+    expect(restored.status).toBe('finalized');
+
+    // Uncancelling a non-cancelled invoice is rejected.
+    const again = await uncancelInvoice(created.id);
+    expect(unwrapError(again, 'uncancel non-cancelled')).toMatch(
+      /Only cancelled/i
     );
   });
 
@@ -345,12 +391,14 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     const cn = unwrap(result, 'createCreditNoteFromInvoice');
     creditNoteId = cn.id;
 
+    creditNoteNumber = cn.number ?? 0;
+
     expect(cn.docType).toBe('credit_note');
     expect(cn.status).toBe('finalized');
-    // DB contract (trg_enforce_invoice_numbering): notes inherit the parent's
-    // series and number instead of drawing from their own sequence.
-    expect(cn.series).toBe('INV');
-    expect(cn.number).toBe(draftNumber);
+    // NUM-1: the note is its OWN document with its own unique number (above the
+    // parent), its own display series, and keeps the parent link.
+    expect(cn.series).toBe('CN');
+    expect(cn.number).toBeGreaterThan(draftNumber);
     expect(cn.referencedInvoiceId).toBe(draftId);
     expect(cn.partnerId).toBe(partnerId);
     expect(cn.totals).toMatchObject({
@@ -380,14 +428,16 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     expect(logs).toHaveLength(1);
   });
 
-  it('allows multiple credit notes against the same parent, all sharing its number', async () => {
+  it('allows multiple credit notes against the same parent, each with its own unique number', async () => {
     const result = await createCreditNoteFromInvoice(draftId);
     const second = unwrap(result, 'createCreditNoteFromInvoice (second)');
 
     expect(second.id).not.toBe(creditNoteId);
-    expect(second.series).toBe('INV');
-    expect(second.number).toBe(draftNumber);
+    expect(second.series).toBe('CN');
     expect(second.referencedInvoiceId).toBe(draftId);
+    // NUM-1: notes never share a number — the second note gets its own.
+    expect(second.number).toBeGreaterThan(draftNumber);
+    expect(second.number).not.toBe(creditNoteNumber);
 
     const logs = await db
       .select()
@@ -430,7 +480,24 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
     );
     expect(cn.issueDate).toBe(TODAY);
     expect(cn.supplyDate).toBe(TODAY);
-    expect(cn.number).toBe(draft.number);
+    // NUM-1: the note gets its own unique number above the parent's.
+    expect(cn.number).toBeGreaterThan(draft.number ?? 0);
+    expect(cn.referencedInvoiceId).toBe(draft.id);
+  });
+
+  it('creates + finalizes a proforma with its own unified number (PROF-1)', async () => {
+    const draft = unwrap(
+      await createInvoiceDraft({ ...baseDraftInput(), docType: 'proforma' }),
+      'createInvoiceDraft (proforma)'
+    );
+    expect(draft.docType).toBe('proforma');
+    expect(draft.series).toBe('PRF');
+    // Unified numbering: the proforma takes the next per-company number.
+    expect(draft.number).toBeGreaterThan(draftNumber);
+
+    const fin = unwrap(await finalizeInvoice(draft.id), 'finalizeInvoice (proforma)');
+    expect(fin.status).toBe('finalized');
+    expect(fin.number).toBe(draft.number);
   });
 
   it('hides invoices from other companies (scoping on read + mutate)', async () => {
@@ -502,5 +569,104 @@ describe('invoice lifecycle: create draft → finalize → credit note', () => {
       finalizeImmediately: true,
     });
     expect(unwrapError(res, 'immediate note')).toMatch(/original invoice/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Manual document number (owner-entered) — NUM-1 allows jumping the unified
+// sequence forward; the DB trigger keeps it strictly increasing.
+// ---------------------------------------------------------------------------
+
+describe('manual invoice number', () => {
+  it('accepts a manual number above the current max and advances the sequence past it', async () => {
+    // Establish the current max via an auto-allocated draft.
+    const auto = unwrap(await createInvoiceDraft(baseDraftInput()), 'auto draft');
+    const jumped = auto.number + 50;
+
+    const manual = unwrap(
+      await createInvoiceDraft({ ...baseDraftInput(), number: jumped }),
+      'manual-number draft'
+    );
+    expect(manual.number).toBe(jumped);
+
+    // The unified sequence must continue ABOVE the manual jump, not the old max.
+    const next = unwrap(
+      await createInvoiceDraft(baseDraftInput()),
+      'post-jump auto draft'
+    );
+    expect(next.number).toBe(jumped + 1);
+  });
+
+  it('rejects a manual number at or below the current max', async () => {
+    const auto = unwrap(await createInvoiceDraft(baseDraftInput()), 'auto draft');
+    const res = await createInvoiceDraft({
+      ...baseDraftInput(),
+      number: auto.number,
+    });
+    expect(unwrapError(res, 'duplicate manual number')).toMatch(
+      /зает|по-малък/i
+    );
+  });
+
+  it('rejects a fractional or non-positive manual number', async () => {
+    const frac = await createInvoiceDraft({ ...baseDraftInput(), number: 5.5 });
+    expect(unwrapError(frac, 'fractional number')).toMatch(/цяло/i);
+    const zero = await createInvoiceDraft({ ...baseDraftInput(), number: 0 });
+    expect(unwrapError(zero, 'zero number')).toMatch(/цяло/i);
+  });
+
+  it('refuses a manual number on a proforma (invoices only)', async () => {
+    const res = await createInvoiceDraft({
+      ...baseDraftInput(),
+      docType: 'proforma',
+      number: 999_999,
+    });
+    expect(unwrapError(res, 'proforma manual number')).toMatch(/фактури/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deleteInvoice — permanent delete of a non-accounted document; the latest
+// number is reclaimed (no gap), accounted docs and parents-with-notes refuse.
+// ---------------------------------------------------------------------------
+
+describe('deleteInvoice', () => {
+  it('deletes the latest document and reclaims its number (no gap)', async () => {
+    const a = unwrap(await createInvoiceDraft(baseDraftInput()), 'draft a');
+    const del = unwrap(await deleteInvoice(a.id), 'delete');
+    expect(del.id).toBe(a.id);
+
+    // The row is gone.
+    expect(await getInvoice(a.id)).toHaveProperty('error');
+
+    // The next auto number reuses the just-freed number — no gap.
+    const b = unwrap(await createInvoiceDraft(baseDraftInput()), 'draft b');
+    expect(b.number).toBe(a.number);
+  });
+
+  it('refuses to delete an accounted document', async () => {
+    const d = unwrap(await createInvoiceDraft(baseDraftInput()), 'draft');
+    unwrap(await finalizeInvoice(d.id), 'finalize');
+    unwrap(
+      await updateInvoiceAccountingStatus(d.id, 'accounted'),
+      'mark accounted'
+    );
+    expect(unwrapError(await deleteInvoice(d.id), 'delete accounted')).toMatch(
+      /осчетоводена/i
+    );
+    // Un-account so the shared sequence isn't blocked for later assertions.
+    unwrap(
+      await updateInvoiceAccountingStatus(d.id, 'pending'),
+      'un-account'
+    );
+  });
+
+  it('refuses to delete an invoice that has a credit/debit note', async () => {
+    const inv = unwrap(await createInvoiceDraft(baseDraftInput()), 'inv');
+    unwrap(await finalizeInvoice(inv.id), 'finalize');
+    unwrap(await createCreditNoteFromInvoice(inv.id), 'credit note');
+    expect(unwrapError(await deleteInvoice(inv.id), 'delete parent')).toMatch(
+      /известия/i
+    );
   });
 });

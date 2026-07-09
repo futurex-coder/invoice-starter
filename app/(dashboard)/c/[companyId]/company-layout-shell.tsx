@@ -34,17 +34,17 @@ export function CompanyLayoutShell({
   // Members under Company (settings tabs), General/Security under one
   // Account entry (tabs on the page).
   const companyNav = [
-    { href: `${base}/dashboard`, icon: LayoutDashboard, label: 'Dashboard' },
-    { href: `${base}/invoices`, icon: FileText, label: 'Invoices' },
-    { href: `${base}/vat`, icon: Calculator, label: 'ДДС / VAT' },
-    { href: `${base}/partners`, icon: Handshake, label: 'Partners' },
-    { href: `${base}/articles`, icon: Package, label: 'Articles' },
-    { href: `${base}/settings`, icon: Building2, label: 'Company' },
-    { href: `${base}/activity`, icon: Activity, label: 'Activity' },
+    { href: `${base}/dashboard`, icon: LayoutDashboard, label: 'Табло' },
+    { href: `${base}/invoices`, icon: FileText, label: 'Фактури' },
+    { href: `${base}/vat`, icon: Calculator, label: 'ДДС' },
+    { href: `${base}/partners`, icon: Handshake, label: 'Контрагенти' },
+    { href: `${base}/articles`, icon: Package, label: 'Артикули' },
+    { href: `${base}/settings`, icon: Building2, label: 'Фирма' },
+    { href: `${base}/activity`, icon: Activity, label: 'Активност' },
   ];
 
   const userNav = [
-    { href: '/dashboard/general', icon: Settings, label: 'Account' },
+    { href: '/dashboard/general', icon: Settings, label: 'Профил' },
   ];
 
   // Highlight the entry whose path prefix matches (so /invoices/all,
@@ -68,7 +68,7 @@ export function CompanyLayoutShell({
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         >
           <Menu className="h-6 w-6" />
-          <span className="sr-only">Toggle sidebar</span>
+          <span className="sr-only">Превключи менюто</span>
         </Button>
       </div>
 

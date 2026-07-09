@@ -11,16 +11,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DOC_TYPES } from '@/src/features/bulgarian-invoicing/types';
 import { formatDocTypeLabel } from '@/src/features/bulgarian-invoicing/formatter';
 import { LANGUAGES, CURRENCIES } from './types';
 import { Alert } from '@/components/ui/alert';
+
+// NEWINV-1: the new-document form creates only invoices and proformas. Credit
+// and debit notes are raised from a finalized invoice's row menu (they must
+// reference a parent), so they are intentionally not offered here.
+const NEW_DOC_TYPES = ['invoice', 'proforma'] as const;
 
 interface Props {
   docType: string;
   onDocTypeChange: (value: string) => void;
   isEditing: boolean;
   nextInvoiceNumber: number | null;
+  manualNumber: string;
+  onManualNumberChange: (value: string) => void;
   issueDate: string;
   onIssueDateChange: (value: string) => void;
   supplyDate: string;
@@ -29,8 +35,6 @@ interface Props {
   onLanguageChange: (value: string) => void;
   currency: string;
   onCurrencyChange: (value: string) => void;
-  fxRate: number;
-  onFxRateChange: (value: number) => void;
 }
 
 export function DocumentCard({
@@ -38,6 +42,8 @@ export function DocumentCard({
   onDocTypeChange,
   isEditing,
   nextInvoiceNumber,
+  manualNumber,
+  onManualNumberChange,
   issueDate,
   onIssueDateChange,
   supplyDate,
@@ -46,23 +52,21 @@ export function DocumentCard({
   onLanguageChange,
   currency,
   onCurrencyChange,
-  fxRate,
-  onFxRateChange,
 }: Props) {
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Document</CardTitle>
+        <CardTitle>Документ</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label>Document type</Label>
+          <Label>Вид документ</Label>
           <RadioGroup
             value={docType}
             onValueChange={onDocTypeChange}
             className="flex flex-wrap gap-4 pt-2"
           >
-            {DOC_TYPES.map((t) => (
+            {NEW_DOC_TYPES.map((t) => (
               <div key={t} className="flex items-center space-x-2">
                 <RadioGroupItem value={t} id={`doc-${t}`} />
                 <Label htmlFor={`doc-${t}`}>{formatDocTypeLabel(t)}</Label>
@@ -70,17 +74,45 @@ export function DocumentCard({
             ))}
           </RadioGroup>
         </div>
-        {!isEditing && nextInvoiceNumber != null && (
-          <Alert variant="info">
-            <span>
-              Next invoice number: <strong>{String(nextInvoiceNumber).padStart(10, '0')}</strong>
-            </span>
-            <span className="ml-2 text-blue-600 text-xs">(assigned automatically on save)</span>
-          </Alert>
-        )}
+        {!isEditing &&
+          (docType === 'invoice' ? (
+            <div>
+              <Label htmlFor="manualNumber">Номер на документа</Label>
+              <Input
+                id="manualNumber"
+                inputMode="numeric"
+                className="mt-1"
+                placeholder={
+                  nextInvoiceNumber != null
+                    ? `Автоматично: ${String(nextInvoiceNumber).padStart(10, '0')}`
+                    : 'Автоматичен номер'
+                }
+                value={manualNumber}
+                onChange={(e) =>
+                  onManualNumberChange(e.target.value.replace(/[^\d]/g, ''))
+                }
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Оставете празно за автоматичен номер. Ръчният номер трябва да е
+                по-голям от последния използван.
+              </p>
+            </div>
+          ) : (
+            nextInvoiceNumber != null && (
+              <Alert variant="info">
+                <span>
+                  Следващ номер:{' '}
+                  <strong>{String(nextInvoiceNumber).padStart(10, '0')}</strong>
+                </span>
+                <span className="ml-2 text-blue-600 text-xs">
+                  (присвоява се автоматично при запазване)
+                </span>
+              </Alert>
+            )
+          ))}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="issueDate">Issue date *</Label>
+            <Label htmlFor="issueDate">Дата на издаване *</Label>
             <Input
               id="issueDate"
               type="date"
@@ -89,7 +121,7 @@ export function DocumentCard({
             />
           </div>
           <div>
-            <Label htmlFor="supplyDate">Tax event date</Label>
+            <Label htmlFor="supplyDate">Дата на данъчно събитие</Label>
             <Input
               id="supplyDate"
               type="date"
@@ -100,7 +132,7 @@ export function DocumentCard({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label>Language</Label>
+            <Label>Език</Label>
             <Select value={language} onValueChange={onLanguageChange}>
               <SelectTrigger className="mt-1">
                 <SelectValue />
@@ -113,7 +145,7 @@ export function DocumentCard({
             </Select>
           </div>
           <div>
-            <Label>Currency</Label>
+            <Label>Валута</Label>
             <Select value={currency} onValueChange={onCurrencyChange}>
               <SelectTrigger className="mt-1">
                 <SelectValue />
@@ -126,19 +158,6 @@ export function DocumentCard({
             </Select>
           </div>
         </div>
-        {currency === 'EUR' && (
-          <div>
-            <Label htmlFor="fxRate">FX rate (to BGN)</Label>
-            <Input
-              id="fxRate"
-              type="number"
-              step="0.000001"
-              min="0"
-              value={fxRate}
-              onChange={(e) => onFxRateChange(Number(e.target.value) || 1)}
-            />
-          </div>
-        )}
       </CardContent>
     </Card>
   );

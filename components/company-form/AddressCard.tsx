@@ -37,11 +37,11 @@ export function AddressCard({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Address</CardTitle>
-        <CardDescription>Registered business address</CardDescription>
+        <CardTitle>Адрес</CardTitle>
+        <CardDescription>Адрес на управление на фирмата</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <FormField name="street" label="Street" required errors={validationErrors}>
+        <FormField name="street" label="Улица" required errors={validationErrors}>
           <Input
             value={street}
             onChange={(e) => onStreetChange(e.target.value)}
@@ -50,7 +50,7 @@ export function AddressCard({
           />
         </FormField>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <FormField name="city" label="City" required errors={validationErrors}>
+          <FormField name="city" label="Град" required errors={validationErrors}>
             <Input
               value={city}
               onChange={(e) => onCityChange(e.target.value)}
@@ -58,14 +58,14 @@ export function AddressCard({
               required
             />
           </FormField>
-          <FormField name="postCode" label="Post code" errors={validationErrors}>
+          <FormField name="postCode" label="Пощенски код" errors={validationErrors}>
             <Input
               value={postCode}
               onChange={(e) => onPostCodeChange(e.target.value)}
               placeholder="1000"
             />
           </FormField>
-          <FormField name="country" label="Country code" errors={validationErrors}>
+          <FormField name="country" label="Код на държавата" errors={validationErrors}>
             <Input
               value={country}
               onChange={(e) => onCountryChange(e.target.value)}

@@ -108,7 +108,7 @@ export default function CreateCompanyPage() {
     <PageShell maxWidth="2xl" className="mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <Building2 className="h-6 w-6 text-primary" />
-        <h1 className="text-lg lg:text-2xl font-medium">Create Company</h1>
+        <h1 className="text-lg lg:text-2xl font-medium">Създаване на фирма</h1>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -178,12 +178,12 @@ export default function CreateCompanyPage() {
           {saving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating company...
+              Създаване на фирма...
             </>
           ) : (
             <>
               <Building2 className="mr-2 h-4 w-4" />
-              Create company
+              Създай фирма
             </>
           )}
         </Button>

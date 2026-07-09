@@ -20,6 +20,7 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
+  RefreshCw,
   Trash2,
   XCircle,
 } from 'lucide-react';
@@ -41,6 +42,8 @@ interface Props {
   onDiscard: (item: ReceivedInvoiceListItem) => void;
   onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
+  onDelete: (item: ReceivedInvoiceListItem) => void;
+  onRetry: (id: number) => void;
 }
 
 export function ReceivedInvoiceRowActions({
@@ -55,8 +58,12 @@ export function ReceivedInvoiceRowActions({
   onDiscard,
   onRestore,
   onHardDelete,
+  onDelete,
+  onRetry,
 }: Props) {
   const archived = item.archivedAt != null;
+  const isAnalyzing = item.status === 'analyzing';
+  const isFailed = item.status === 'failed';
   const isDraft = item.status === 'draft';
   const isConfirmed = item.status === 'confirmed';
   const isDiscarded = item.status === 'discarded';
@@ -71,20 +78,29 @@ export function ReceivedInvoiceRowActions({
           ) : (
             <MoreHorizontal className="h-4 w-4" />
           )}
-          <span className="sr-only">Actions</span>
+          <span className="sr-only">Действия</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        {isDraft && (
+        {isAnalyzing && (
+          <DropdownMenuItem asChild>
+            <a href={fileHref} target="_blank" rel="noreferrer">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Отвори оригинала
+            </a>
+          </DropdownMenuItem>
+        )}
+
+        {isFailed && (
           <>
-            <DropdownMenuItem onClick={() => onReview(item.id)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Review draft
+            <DropdownMenuItem onClick={() => onRetry(item.id)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Опитай отново
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <a href={fileHref} target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-2 h-4 w-4" />
-                Open original file
+                Отвори оригинала
               </a>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -93,7 +109,44 @@ export function ReceivedInvoiceRowActions({
               className="text-red-700 focus:text-red-700"
             >
               <XCircle className="mr-2 h-4 w-4" />
-              Discard draft
+              Отхвърли
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onDelete(item)}
+              className="text-red-700 focus:text-red-700"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Изтрий окончателно
+            </DropdownMenuItem>
+          </>
+        )}
+
+        {isDraft && (
+          <>
+            <DropdownMenuItem onClick={() => onReview(item.id)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Прегледай черновата
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a href={fileHref} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Отвори оригинала
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onDiscard(item)}
+              className="text-red-700 focus:text-red-700"
+            >
+              <XCircle className="mr-2 h-4 w-4" />
+              Отхвърли черновата
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onDelete(item)}
+              className="text-red-700 focus:text-red-700"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Изтрий окончателно
             </DropdownMenuItem>
           </>
         )}
@@ -102,17 +155,17 @@ export function ReceivedInvoiceRowActions({
           <>
             <DropdownMenuItem onClick={() => onView(item.id)}>
               <Eye className="mr-2 h-4 w-4" />
-              View
+              Преглед
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <a href={fileHref} target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-2 h-4 w-4" />
-                Open original file
+                Отвори оригинала
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onReview(item.id)}>
               <Pencil className="mr-2 h-4 w-4" />
-              Edit
+              Редактирай
             </DropdownMenuItem>
 
             <DropdownMenuSeparator />
@@ -120,19 +173,19 @@ export function ReceivedInvoiceRowActions({
             {item.paymentStatus !== 'paid' && (
               <DropdownMenuItem onClick={() => onMarkPayment(item.id, 'paid')}>
                 <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                Mark paid
+                Отбележи като платена
               </DropdownMenuItem>
             )}
             {item.paymentStatus !== 'partial' && (
               <DropdownMenuItem onClick={() => onMarkPayment(item.id, 'partial')}>
                 <CircleDot className="mr-2 h-4 w-4 text-yellow-600" />
-                Mark partial
+                Отбележи като частично платена
               </DropdownMenuItem>
             )}
             {item.paymentStatus !== 'unpaid' && (
               <DropdownMenuItem onClick={() => onMarkPayment(item.id, 'unpaid')}>
                 <CircleSlash2 className="mr-2 h-4 w-4 text-red-600" />
-                Mark unpaid
+                Отбележи като неплатена
               </DropdownMenuItem>
             )}
 
@@ -143,14 +196,14 @@ export function ReceivedInvoiceRowActions({
                 onClick={() => onMarkAccounting(item.id, 'accounted')}
               >
                 <CheckCircle className="mr-2 h-4 w-4 text-blue-600" />
-                Mark as accounted
+                Отбележи като осчетоводена
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
                 onClick={() => onMarkAccounting(item.id, 'pending')}
               >
                 <CircleDot className="mr-2 h-4 w-4 text-amber-600" />
-                Mark as pending accounting
+                Отбележи като чакаща осчетоводяване
               </DropdownMenuItem>
             )}
 
@@ -160,15 +213,28 @@ export function ReceivedInvoiceRowActions({
               {archived ? (
                 <>
                   <ArchiveRestore className="mr-2 h-4 w-4" />
-                  Unarchive
+                  Разархивирай
                 </>
               ) : (
                 <>
                   <Archive className="mr-2 h-4 w-4" />
-                  Archive
+                  Архивирай
                 </>
               )}
             </DropdownMenuItem>
+
+            {item.accountingStatus !== 'accounted' && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => onDelete(item)}
+                  className="text-red-700 focus:text-red-700"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Изтрий окончателно
+                </DropdownMenuItem>
+              </>
+            )}
           </>
         )}
 
@@ -177,18 +243,18 @@ export function ReceivedInvoiceRowActions({
             <DropdownMenuItem asChild>
               <Link href={`/c/${companyId}/received-invoices/${item.id}`}>
                 <Eye className="mr-2 h-4 w-4" />
-                View
+                Преглед
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <a href={fileHref} target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-2 h-4 w-4" />
-                Open original file
+                Отвори оригинала
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onRestore(item.id)}>
               <ArchiveRestore className="mr-2 h-4 w-4" />
-              Restore to draft
+              Върни в чернови
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -196,7 +262,7 @@ export function ReceivedInvoiceRowActions({
               className="text-red-700 focus:text-red-700"
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Permanently delete
+              Изтрий окончателно
             </DropdownMenuItem>
           </>
         )}

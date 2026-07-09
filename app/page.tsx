@@ -35,14 +35,14 @@ export default function LandingPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/sign-in">Sign In</Link>
+              <Link href="/sign-in">Вход</Link>
             </Button>
             <Button
               size="sm"
               className="bg-primary hover:bg-primary/90 text-white"
               asChild
             >
-              <Link href="/sign-up">Get Started</Link>
+              <Link href="/sign-up">Започнете</Link>
             </Button>
           </div>
         </div>
@@ -55,13 +55,13 @@ export default function LandingPage() {
         <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2 lg:gap-20 lg:px-8 lg:py-32">
           <div className="text-center lg:text-left">
             <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">
-              Invoicing for Bulgarian businesses,{' '}
-              <span className="text-primary">simplified and compliant.</span>
+              Фактуриране за българския бизнес,{' '}
+              <span className="text-primary">опростено и законосъобразно.</span>
             </h1>
             <p className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-gray-600 sm:text-xl lg:mx-0 lg:max-w-xl">
-              NRA-compliant 10-digit numbering, automatic VAT breakdown,
-              credit &amp; debit notes, multi-company support — everything
-              Bulgarian счетоводители need, in one place.
+              10-цифрено номериране съгласно НАП, автоматична разбивка на ДДС,
+              кредитни и дебитни известия, поддръжка на много фирми — всичко,
+              от което българските счетоводители се нуждаят, на едно място.
             </p>
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start justify-center">
               <Button
@@ -70,12 +70,12 @@ export default function LandingPage() {
                 asChild
               >
                 <Link href="/sign-up">
-                  Start Free
+                  Започнете безплатно
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
               <Button variant="outline" size="lg" className="px-8 text-base" asChild>
-                <Link href="/sign-in">Sign In</Link>
+                <Link href="/sign-in">Вход</Link>
               </Button>
             </div>
           </div>
@@ -158,7 +158,7 @@ export default function LandingPage() {
       <section className="border-y border-gray-100 bg-gray-50/60 py-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <p className="mb-6 text-center text-sm font-medium uppercase tracking-wider text-gray-400">
-            Trusted by accountants and businesses across Bulgaria
+            Доверие от счетоводители и фирми в цяла България
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4 text-lg font-semibold text-gray-300">
             {['АБВ Консулт', 'ДЕЖ Технолоджис', 'Зета Финанс', 'ИКЛ Партнърс', 'МНО Груп'].map(
@@ -177,11 +177,11 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-14 text-center">
             <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              Everything you need to invoice professionally
+              Всичко необходимо за професионално фактуриране
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-500">
-              Built from the ground up for Bulgarian tax regulations and
-              multi-company workflows.
+              Създадено от нулата за българското данъчно законодателство и
+              работа с много фирми.
             </p>
           </div>
 
@@ -218,7 +218,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-14 text-center">
             <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-              Up and running in three steps
+              Готови за работа в три стъпки
             </h2>
           </div>
 
@@ -265,9 +265,9 @@ export default function LandingPage() {
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
           <Quote className="mx-auto mb-6 h-10 w-10 text-primary/20" />
           <blockquote className="text-xl font-medium italic leading-relaxed text-gray-700 sm:text-2xl">
-            &ldquo;Finally, an invoicing tool that understands Bulgarian
-            accounting. The multi-company support alone saves me hours every
-            week.&rdquo;
+            &ldquo;Най-накрая инструмент за фактуриране, който разбира
+            българското счетоводство. Само поддръжката на много фирми ми
+            спестява часове всяка седмица.&rdquo;
           </blockquote>
           <p className="mt-6 text-sm font-medium text-gray-400">
             — Счетоводител, София
@@ -279,10 +279,10 @@ export default function LandingPage() {
       <section className="bg-gradient-to-b from-white to-primary/5 py-20 lg:py-28">
         <div className="mx-auto max-w-2xl px-4 text-center sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-            Ready to simplify your invoicing?
+            Готови ли сте да опростите фактурирането си?
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-lg text-gray-500">
-            Free during beta. All features included. No credit card required.
+            Безплатно по време на бета версията. Всички функции са включени. Не се изисква кредитна карта.
           </p>
           <div className="mt-10">
             <Button
@@ -291,15 +291,15 @@ export default function LandingPage() {
               asChild
             >
               <Link href="/sign-up">
-                Create Free Account
+                Създайте безплатен профил
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </div>
           <p className="mt-5 text-sm text-gray-400">
-            Already have an account?{' '}
+            Вече имате профил?{' '}
             <Link href="/sign-in" className="font-medium text-primary hover:text-primary/90">
-              Sign in
+              Вход
             </Link>
           </p>
         </div>
@@ -313,29 +313,29 @@ export default function LandingPage() {
               <CircleIcon className="h-5 w-5 text-primary/40" />
               <span className="font-semibold text-white">Invoicly</span>
               <span className="ml-2 text-sm text-gray-500">
-                Invoicing for Bulgarian businesses
+                Фактуриране за българския бизнес
               </span>
             </div>
 
             <nav className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-gray-400">
               <Link href="/sign-in" className="hover:text-white transition-colors">
-                Sign In
+                Вход
               </Link>
               <Link href="/sign-up" className="hover:text-white transition-colors">
-                Sign Up
+                Регистрация
               </Link>
               <Link href="/create-company" className="hover:text-white transition-colors">
-                Create Company
+                Създаване на фирма
               </Link>
             </nav>
 
             <p className="text-sm text-gray-500">
-              Built with ❤️ for Bulgarian счетоводители
+              Създадено с ❤️ за българските счетоводители
             </p>
           </div>
 
           <div className="mt-8 border-t border-gray-800 pt-6 text-center text-xs text-gray-600">
-            © <CurrentYear /> Invoicly. All rights reserved.
+            © <CurrentYear /> Invoicly. Всички права запазени.
           </div>
         </div>
       </footer>
@@ -348,49 +348,49 @@ export default function LandingPage() {
 const FEATURES = [
   {
     icon: Building2,
-    title: 'Multi-Company',
+    title: 'Много фирми',
     description:
-      'Manage unlimited companies from one account. Each with its own partners, articles, bank details, and invoice sequences. Switch instantly.',
+      'Управлявайте неограничен брой фирми от един профил. Всяка със свои контрагенти, артикули, банкови данни и последователност на фактурите. Превключвайте мигновено.',
     bg: 'bg-primary/10',
     fg: 'text-primary/90',
   },
   {
     icon: FileText,
-    title: 'NRA-Compliant',
+    title: 'Съответствие с НАП',
     description:
-      '10-digit numbering, VAT breakdown by rate, credit & debit notes, amount in words (Словом), supply date tracking — all per Bulgarian tax regulations.',
+      '10-цифрено номериране, разбивка на ДДС по ставки, кредитни и дебитни известия, сума словом, проследяване на датата на данъчното събитие — всичко съгласно българското данъчно законодателство.',
     bg: 'bg-blue-100',
     fg: 'text-blue-600',
   },
   {
     icon: Handshake,
-    title: 'Smart Partners',
+    title: 'Умни контрагенти',
     description:
-      'Enter an EIK and partner details auto-fill from registered companies. Linked partners stay synchronized. Self-registration prevention built in.',
+      'Въведете ЕИК и данните на контрагента се попълват автоматично от регистрираните фирми. Свързаните контрагенти остават синхронизирани. Вградена защита срещу самостоятелна регистрация.',
     bg: 'bg-emerald-100',
     fg: 'text-emerald-600',
   },
   {
     icon: Shield,
-    title: 'Role-Based Access',
+    title: 'Достъп според ролята',
     description:
-      'Invite accountants with scoped permissions. Owners control settings and members. Accountants focus on invoicing.',
+      'Поканете счетоводители с ограничени права. Собствениците управляват настройките и екипа. Счетоводителите се фокусират върху фактурирането.',
     bg: 'bg-violet-100',
     fg: 'text-violet-600',
   },
   {
     icon: Calculator,
-    title: 'Automatic Calculations',
+    title: 'Автоматични изчисления',
     description:
-      'Line items with quantity, unit price, discounts, and multiple VAT rates. Totals, VAT breakdown, and amount in words computed automatically.',
+      'Редове с количество, единична цена, отстъпки и различни ДДС ставки. Общи суми, разбивка на ДДС и сума словом се изчисляват автоматично.',
     bg: 'bg-amber-100',
     fg: 'text-amber-600',
   },
   {
     icon: Printer,
-    title: 'Print-Ready Output',
+    title: 'Готово за печат',
     description:
-      'Bulgarian-standard invoice layout with supplier, recipient, bank details, and NRA-compliant formatting. Print or export directly from the browser.',
+      'Оформление на фактурата по български стандарт с доставчик, получател, банкови данни и форматиране съгласно НАП. Печатайте или експортирайте директно от браузъра.',
     bg: 'bg-rose-100',
     fg: 'text-rose-600',
   },
@@ -400,29 +400,29 @@ const STEPS = [
   {
     num: '01',
     icon: UserPlus,
-    title: 'Register & Create Company',
+    title: 'Регистрирайте се и създайте фирма',
     description:
-      'Sign up, enter your EIK and legal details. Your company profile becomes the supplier on every invoice.',
+      'Регистрирайте се, въведете вашия ЕИК и правни данни. Профилът на вашата фирма става доставчик във всяка фактура.',
   },
   {
     num: '02',
     icon: PackagePlus,
-    title: 'Add Partners & Articles',
+    title: 'Добавете контрагенти и артикули',
     description:
-      'Build your client database and product/service catalog. EIK lookup auto-fills known companies.',
+      'Изградете база от клиенти и каталог със стоки и услуги. Търсенето по ЕИК автоматично попълва познатите фирми.',
   },
   {
     num: '03',
     icon: Zap,
-    title: 'Invoice in Seconds',
+    title: 'Фактурирайте за секунди',
     description:
-      'Create drafts, finalize with one click, print NRA-compliant documents. Credit and debit notes link to parent invoices automatically.',
+      'Създавайте чернови, издавайте с едно кликване, печатайте документи съгласно НАП. Кредитните и дебитните известия се свързват автоматично с изходните фактури.',
   },
 ] as const;
 
 const STATS = [
-  { value: '10-digit', label: 'NRA-compliant numbering' },
-  { value: '3 types', label: 'Invoice, Credit Note, Debit Note' },
-  { value: '2 roles', label: 'Owner & Accountant' },
-  { value: '∞', label: 'Companies per account' },
+  { value: '10 цифри', label: 'Номериране съгласно НАП' },
+  { value: '3 вида', label: 'Фактура, кредитно и дебитно известие' },
+  { value: '2 роли', label: 'Собственик и счетоводител' },
+  { value: '∞', label: 'Фирми на профил' },
 ] as const;

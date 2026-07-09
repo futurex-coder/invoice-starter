@@ -28,10 +28,10 @@ export default function DashboardError({
   return (
     <PageShell>
       <Alert variant="error" className="mb-4">
-        <AlertTitle>This page failed to load.</AlertTitle>
+        <AlertTitle>Страницата не можа да се зареди.</AlertTitle>
         <AlertDescription>
-          Something went wrong while rendering the dashboard. Try again, or
-          contact support if the problem persists.
+          Възникна грешка при зареждането на таблото. Опитайте отново или се
+          свържете с поддръжката, ако проблемът продължава.
           {error.digest && (
             <span className="mt-2 block font-mono text-xs opacity-70">
               ref: {error.digest}
@@ -39,7 +39,7 @@ export default function DashboardError({
           )}
         </AlertDescription>
       </Alert>
-      <Button onClick={reset}>Try again</Button>
+      <Button onClick={reset}>Опитай отново</Button>
     </PageShell>
   );
 }

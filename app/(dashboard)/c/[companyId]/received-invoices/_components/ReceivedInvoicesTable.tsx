@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Loader2 } from 'lucide-react';
 import type { ReceivedInvoiceListItem } from '@/src/features/received-invoices/actions';
 import type {
   AccountingStatus,
@@ -27,15 +27,28 @@ interface RowProps {
   onDiscard: (item: ReceivedInvoiceListItem) => void;
   onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
+  onDelete: (item: ReceivedInvoiceListItem) => void;
+  onRetry: (id: number) => void;
 }
 
 function Row(props: RowProps) {
   const { item } = props;
   const archived = item.archivedAt != null;
+  const isAnalyzing = item.status === 'analyzing';
+  const isFailed = item.status === 'failed';
   const isDraft = item.status === 'draft';
   const isConfirmed = item.status === 'confirmed';
   const isDiscarded = item.status === 'discarded';
   const overdue = isOverdue(item.dueDate, item.paymentStatus, item.status);
+  const statusBadgeClass = isDiscarded
+    ? 'bg-gray-200 text-gray-700'
+    : isFailed
+      ? 'bg-red-100 text-red-800'
+      : isAnalyzing
+        ? 'bg-blue-100 text-blue-800'
+        : isDraft
+          ? 'bg-amber-100 text-amber-800'
+          : 'bg-green-100 text-green-800';
 
   return (
     <tr
@@ -54,16 +67,25 @@ function Row(props: RowProps) {
           target="_blank"
           rel="noreferrer"
           className="inline-flex h-7 w-7 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          title={`Open original (${item.fileMimeType === 'application/pdf' ? 'PDF' : 'image'})`}
-          aria-label="Open original file"
+          title={`Отвори оригинала (${item.fileMimeType === 'application/pdf' ? 'PDF' : 'изображение'})`}
+          aria-label="Отвори оригиналния файл"
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </td>
       <td className="px-4 py-3 text-sm">
-        {item.invoiceNumber ?? <span className="text-gray-400">—</span>}
+        {isAnalyzing ? (
+          <span className="inline-flex items-center gap-1.5 text-gray-500">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Анализира се…
+          </span>
+        ) : (
+          (item.invoiceNumber ?? <span className="text-gray-400">—</span>)
+        )}
       </td>
-      <td className="px-4 py-3 text-sm">{supplierName(item)}</td>
+      <td className="px-4 py-3 text-sm">
+        {isAnalyzing ? <span className="text-gray-400">—</span> : supplierName(item)}
+      </td>
       <td className="px-4 py-3 text-sm">{formatDate(item.issueDate)}</td>
       <td className="px-4 py-3 text-sm font-medium">
         {Number(item.grossAmount).toFixed(2)} {item.currency}
@@ -77,7 +99,7 @@ function Row(props: RowProps) {
         />
         {overdue && (
           <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-            Overdue
+            Просрочена
           </span>
         )}
       </td>
@@ -90,18 +112,27 @@ function Row(props: RowProps) {
         />
       </td>
       <td className="px-4 py-3">
-        <span
-          className={cn(
-            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
-            isDiscarded
-              ? 'bg-gray-200 text-gray-700'
-              : isDraft
-                ? 'bg-amber-100 text-amber-800'
-                : 'bg-green-100 text-green-800'
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+              statusBadgeClass
+            )}
+          >
+            {isAnalyzing && <Loader2 className="h-3 w-3 animate-spin" />}
+            {STATUS_LABELS[item.status] ?? item.status}
+          </span>
+          {isFailed && (
+            <button
+              type="button"
+              onClick={() => props.onRetry(item.id)}
+              disabled={props.pending}
+              className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50"
+            >
+              Опитай отново
+            </button>
           )}
-        >
-          {STATUS_LABELS[item.status] ?? item.status}
-        </span>
+        </div>
       </td>
       <td className="px-4 py-3 text-right">
         <ReceivedInvoiceRowActions {...props} />
@@ -122,6 +153,8 @@ interface TableProps {
   onDiscard: (item: ReceivedInvoiceListItem) => void;
   onRestore: (id: number) => void;
   onHardDelete: (item: ReceivedInvoiceListItem) => void;
+  onDelete: (item: ReceivedInvoiceListItem) => void;
+  onRetry: (id: number) => void;
 }
 
 const HEADER_CELL_CLASS =
@@ -133,14 +166,14 @@ export function ReceivedInvoicesTable(props: TableProps) {
       <thead>
         <tr className="border-b border-gray-200 bg-gray-50/80">
           <th className="w-8 px-2 py-3" />
-          <th className={HEADER_CELL_CLASS}>Number</th>
-          <th className={HEADER_CELL_CLASS}>Supplier</th>
-          <th className={HEADER_CELL_CLASS}>Date</th>
-          <th className={HEADER_CELL_CLASS}>Total</th>
-          <th className={HEADER_CELL_CLASS}>Paid</th>
-          <th className={HEADER_CELL_CLASS}>Accounted</th>
-          <th className={HEADER_CELL_CLASS}>Status</th>
-          <th className={cn(HEADER_CELL_CLASS, 'text-right')}>Actions</th>
+          <th className={HEADER_CELL_CLASS}>Номер</th>
+          <th className={HEADER_CELL_CLASS}>Доставчик</th>
+          <th className={HEADER_CELL_CLASS}>Дата</th>
+          <th className={HEADER_CELL_CLASS}>Общо</th>
+          <th className={HEADER_CELL_CLASS}>Платена</th>
+          <th className={HEADER_CELL_CLASS}>Осчетоводена</th>
+          <th className={HEADER_CELL_CLASS}>Статус</th>
+          <th className={cn(HEADER_CELL_CLASS, 'text-right')}>Действия</th>
         </tr>
       </thead>
       <tbody>
@@ -158,6 +191,8 @@ export function ReceivedInvoicesTable(props: TableProps) {
             onDiscard={props.onDiscard}
             onRestore={props.onRestore}
             onHardDelete={props.onHardDelete}
+            onDelete={props.onDelete}
+            onRetry={props.onRetry}
           />
         ))}
       </tbody>

@@ -14,13 +14,13 @@ export function SettingsTabsNav() {
   const base = `/c/${companyId}/settings`;
 
   const tabs = [
-    { label: 'Company', href: base, icon: Building2 },
-    { label: 'Members', href: `${base}/members`, icon: Users },
+    { label: 'Фирма', href: base, icon: Building2 },
+    { label: 'Екип', href: `${base}/members`, icon: Users },
   ];
 
   return (
     <div className="mb-6 border-b border-gray-200 px-4 pt-4 lg:px-0 lg:pt-0">
-      <nav className="-mb-px flex gap-1" aria-label="Company settings">
+      <nav className="-mb-px flex gap-1" aria-label="Настройки на фирмата">
         {tabs.map((tab) => {
           const active = pathname === tab.href;
           return (

@@ -21,6 +21,8 @@ function fixtureRow(overrides?: Partial<ReceivedInvoice>): ReceivedInvoice {
     extractionConfidence: null,
     extractionModelId: null,
     extractedAt: new Date(),
+    analysisStartedAt: null,
+    analysisError: null,
     partnerId: null,
     supplierSnapshot: null,
     invoiceNumber: null,

@@ -56,8 +56,8 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText = 'Потвърди',
+  cancelText = 'Отказ',
   variant = 'default',
   onConfirm,
 }: ConfirmDialogProps) {

@@ -11,23 +11,23 @@ export function ManageSubscription() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Subscription</CardTitle>
+        <CardTitle>Абонамент</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
           <div className="mb-4 sm:mb-0">
-            <p className="font-medium">Current Plan: {user?.planName || 'Free'}</p>
+            <p className="font-medium">Текущ план: {user?.planName || 'Безплатен'}</p>
             <p className="text-sm text-muted-foreground">
               {user?.subscriptionStatus === 'active'
-                ? 'Billed monthly'
+                ? 'Месечно таксуване'
                 : user?.subscriptionStatus === 'trialing'
-                  ? 'Trial period'
-                  : 'No active subscription'}
+                  ? 'Пробен период'
+                  : 'Няма активен абонамент'}
             </p>
           </div>
           <form action={customerPortalAction}>
             <Button type="submit" variant="outline">
-              Manage Subscription
+              Управление на абонамента
             </Button>
           </form>
         </div>

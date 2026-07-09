@@ -9,7 +9,7 @@ export function NotesCard({ notes }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Notes</CardTitle>
+        <CardTitle className="text-base">Бележки</CardTitle>
       </CardHeader>
       <CardContent className="whitespace-pre-wrap text-sm text-gray-700">
         {notes}

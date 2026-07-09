@@ -118,11 +118,11 @@ export default function ArticlesPage() {
   return (
     <PageShell>
       <ListPageHeader
-        title="Articles"
+        title="Артикули"
         action={
           <Button className="bg-primary hover:bg-primary/90" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
-            Add article
+            Добави артикул
           </Button>
         }
       />
@@ -147,17 +147,17 @@ export default function ArticlesPage() {
             value={list.searchInput}
             onChange={list.setSearchInput}
             onSubmit={list.commitSearch}
-            placeholder="Search by name..."
+            placeholder="Търсене по име..."
           />
         </CardContent>
       </Card>
 
       <ListCard
-        title="Article list"
+        title="Списък с артикули"
         count={total}
         loading={list.loading}
         isEmpty={!items.length}
-        emptyMessage='No articles found. Add one with "Add article".'
+        emptyMessage='Няма намерени артикули. Добавете с „Добави артикул“.'
         page={list.page}
         pageSize={list.pageSize}
         total={total}
@@ -173,13 +173,13 @@ export default function ArticlesPage() {
       <ConfirmDialog
         open={confirmDelete !== null}
         onOpenChange={(open) => !open && setConfirmDelete(null)}
-        title="Delete article?"
+        title="Изтриване на артикул?"
         description={
           confirmDelete
-            ? `${confirmDelete.name} will be permanently removed. This cannot be undone.`
+            ? `${confirmDelete.name} ще бъде премахнат завинаги. Това действие е необратимо.`
             : undefined
         }
-        confirmText="Delete"
+        confirmText="Изтрий"
         variant="destructive"
         onConfirm={handleDeleteConfirmed}
       />

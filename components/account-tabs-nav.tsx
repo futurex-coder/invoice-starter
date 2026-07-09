@@ -10,13 +10,13 @@ export function AccountTabsNav() {
   const pathname = usePathname();
 
   const tabs = [
-    { label: 'General', href: '/dashboard/general', icon: Settings },
-    { label: 'Security', href: '/dashboard/security', icon: Shield },
+    { label: 'Общи', href: '/dashboard/general', icon: Settings },
+    { label: 'Сигурност', href: '/dashboard/security', icon: Shield },
   ];
 
   return (
     <div className="mb-6 border-b border-gray-200">
-      <nav className="-mb-px flex gap-1" aria-label="Account settings">
+      <nav className="-mb-px flex gap-1" aria-label="Настройки на профила">
         {tabs.map((tab) => {
           const active = pathname === tab.href;
           return (

@@ -109,9 +109,19 @@ export default function NewInvoicePage() {
     if (!editingInvoice || !editingLines || !partnersList) return;
 
     if (editId) {
-      if (editingInvoice.status !== 'draft') {
+      // EDIT-RULE: editable until accounted; cancelled must be reinstated first.
+      if (editingInvoice.accountingStatus === 'accounted') {
         // eslint-disable-next-line react-hooks/set-state-in-effect
-        setError('Only drafts can be edited'); // one-shot hydration from SWR
+        setError(
+          'Тази фактура е маркирана като осчетоводена и е заключена. Върнете я към чакащо осчетоводяване, за да я редактирате.'
+        );
+        hydratedRef.current = true;
+        return;
+      }
+      if (editingInvoice.status === 'cancelled') {
+        setError(
+          'Тази фактура е анулирана. Възстановете я от списъка с фактури, преди да я редактирате.'
+        );
         hydratedRef.current = true;
         return;
       }
@@ -191,6 +201,12 @@ export default function NewInvoicePage() {
     };
   };
 
+  /** Manual invoice number override — only for regular invoices, blank = auto. */
+  const manualNumberOverride = (): number | undefined =>
+    state.docType === 'invoice' && state.manualNumber.trim()
+      ? Number(state.manualNumber)
+      : undefined;
+
   const surfaceFailure = (res: {
     error?: string;
     validationErrors?: { field: string; message: string }[];
@@ -203,7 +219,7 @@ export default function NewInvoicePage() {
   /** Persist the current form as a draft. Returns the draft id, or null on failure. */
   const saveDraft = async (): Promise<number | null> => {
     if (!companyProfile) {
-      setError('Company profile (Supplier) is required. Complete it in Settings.');
+      setError('Профилът на фирмата (Доставчик) е задължителен. Попълнете го в Настройки.');
       return null;
     }
     setSaving(true);
@@ -221,7 +237,11 @@ export default function NewInvoicePage() {
       return res.data.id;
     }
     const supplier = buildSupplierSnapshot(companyProfile);
-    const res = await createInvoiceDraft({ ...payload, supplier });
+    const res = await createInvoiceDraft({
+      ...payload,
+      supplier,
+      number: manualNumberOverride(),
+    });
     setSaving(false);
     if (res.error || !res.data) {
       surfaceFailure(res);
@@ -238,7 +258,7 @@ export default function NewInvoicePage() {
 
   const handleFinalize = async () => {
     if (!companyProfile) {
-      setError('Company profile (Supplier) is required. Complete it in Settings.');
+      setError('Профилът на фирмата (Доставчик) е задължителен. Попълнете го в Настройки.');
       return;
     }
     setSaving(true);
@@ -263,6 +283,7 @@ export default function NewInvoicePage() {
     const res = await createInvoiceDraft({
       ...buildPayload(),
       supplier,
+      number: manualNumberOverride(),
       finalizeImmediately: true,
     });
     setSaving(false);
@@ -271,13 +292,6 @@ export default function NewInvoicePage() {
       return;
     }
     router.push(`/c/${companyId}/invoices/${res.data.id}`);
-  };
-
-  const handlePreview = async () => {
-    // NI-1: previewing an unsaved form implicitly saves the draft first, then
-    // opens the print preview — no manual "Save draft" step required.
-    const id = draftId ?? (await saveDraft());
-    if (id) router.push(`/c/${companyId}/invoices/${id}?print=1`);
   };
 
   if (loading) {
@@ -291,13 +305,13 @@ export default function NewInvoicePage() {
   return (
     <PageShell maxWidth="4xl" className="mx-auto">
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="icon" asChild aria-label="Back to invoices">
+        <Button variant="ghost" size="icon" asChild aria-label="Назад към фактурите">
           <Link href={`/c/${companyId}/invoices`}>
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>
         <h1 className="text-lg lg:text-2xl font-medium">
-          {draftId ? 'Edit draft invoice' : 'New invoice'}
+          {draftId ? 'Редактиране на фактура' : 'Нова фактура'}
         </h1>
       </div>
 
@@ -327,6 +341,8 @@ export default function NewInvoicePage() {
         onDocTypeChange={(v) => update({ docType: parseDocType(v) })}
         isEditing={Boolean(editId)}
         nextInvoiceNumber={nextInvoiceNumber ?? null}
+        manualNumber={state.manualNumber}
+        onManualNumberChange={(v) => update({ manualNumber: v })}
         issueDate={state.issueDate}
         onIssueDateChange={(v) => update({ issueDate: v })}
         supplyDate={state.supplyDate}
@@ -335,8 +351,6 @@ export default function NewInvoicePage() {
         onLanguageChange={(v) => update({ language: v })}
         currency={state.currency}
         onCurrencyChange={(v) => update({ currency: v })}
-        fxRate={state.fxRate}
-        onFxRateChange={(v) => update({ fxRate: v })}
       />
 
       <LineItemsCard
@@ -379,7 +393,6 @@ export default function NewInvoicePage() {
       <ActionsBar
         saving={saving}
         onSaveDraft={handleSaveDraft}
-        onPreview={handlePreview}
         onFinalize={handleFinalize}
       />
     </PageShell>

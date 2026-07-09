@@ -70,7 +70,7 @@ export default function ReviewReceivedInvoicePage() {
       return;
     }
     setDuplicates(res.data?.duplicates ?? []);
-    toast.success('Draft saved.');
+    toast.success('Черновата е запазена.');
   };
 
   const handleConfirm = async (patch: ReceivedInvoiceReviewInput) => {
@@ -113,11 +113,11 @@ export default function ReviewReceivedInvoicePage() {
     return (
       <PageShell>
         <ErrorAlert
-          message={fetchError ? fetchError.message : 'Could not load invoice'}
+          message={fetchError ? fetchError.message : 'Фактурата не можа да бъде заредена.'}
           className="mb-4"
         />
         <Button variant="outline" asChild>
-          <Link href={`/c/${companyId}/received-invoices`}>← Back to list</Link>
+          <Link href={`/c/${companyId}/received-invoices`}>← Назад към списъка</Link>
         </Button>
       </PageShell>
     );
@@ -150,7 +150,10 @@ export default function ReviewReceivedInvoicePage() {
       <ErrorAlert message={error} className="mb-4" />
       <DuplicatesWarning duplicates={duplicates} companyId={companyId} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {/* RV-3: the scanned document gets the larger share on desktop (it's the
+          source of truth you're checking against); the form sits in a
+          comfortable narrower column. Stacks on mobile (viewer first). */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]">
           <PreviewPane
             receivedInvoiceId={id}
@@ -176,13 +179,13 @@ export default function ReviewReceivedInvoicePage() {
       <ConfirmDialog
         open={confirmDiscardOpen}
         onOpenChange={setConfirmDiscardOpen}
-        title="Discard draft?"
+        title="Отхвърляне на черновата?"
         description={
           state.row.invoiceNumber
-            ? `Draft № ${state.row.invoiceNumber} will not count in any totals. You can still find it under the Discarded filter.`
-            : 'This draft will not count in any totals. You can still find it under the Discarded filter.'
+            ? `Чернова № ${state.row.invoiceNumber} няма да участва в никакви суми. Ще я намерите чрез филтъра „Отхвърлени“.`
+            : 'Тази чернова няма да участва в никакви суми. Ще я намерите чрез филтъра „Отхвърлени“.'
         }
-        confirmText="Discard"
+        confirmText="Отхвърли"
         variant="destructive"
         onConfirm={handleDiscardConfirmed}
       />

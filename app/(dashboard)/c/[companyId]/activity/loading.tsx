@@ -5,11 +5,11 @@ export default function ActivityPageSkeleton() {
   return (
     <PageShell>
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        Activity Log
+        Дневник на активността
       </h1>
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
+          <CardTitle>Скорошна активност</CardTitle>
         </CardHeader>
         <CardContent className="min-h-[88px]" />
       </Card>

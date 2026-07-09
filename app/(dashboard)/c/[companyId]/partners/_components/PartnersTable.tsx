@@ -16,12 +16,12 @@ export function PartnersTable({ partners, onEdit, onDelete }: Props) {
     <table className="w-full">
       <DataTableHead
         columns={[
-          { label: 'Name' },
-          { label: 'EIK' },
-          { label: 'VAT Number' },
-          { label: 'City' },
-          { label: 'Country' },
-          { label: 'Actions', align: 'right' },
+          { label: 'Наименование' },
+          { label: 'ЕИК' },
+          { label: 'ДДС номер' },
+          { label: 'Град' },
+          { label: 'Държава' },
+          { label: 'Действия', align: 'right' },
         ]}
       />
       <tbody>
@@ -31,16 +31,16 @@ export function PartnersTable({ partners, onEdit, onDelete }: Props) {
               {p.name}
               {p.isIndividual && (
                 <span className="ml-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
-                  Individual
+                  Физическо лице
                 </span>
               )}
               {p.linkedCompanyId && (
                 <span
                   className="ml-2 inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700"
-                  title="Linked to a registered company"
+                  title="Свързан с регистрирана фирма"
                 >
                   <Link2 className="h-3 w-3" />
-                  Linked
+                  Свързан
                 </span>
               )}
             </td>
@@ -51,8 +51,8 @@ export function PartnersTable({ partners, onEdit, onDelete }: Props) {
             <td className="px-4 py-3 text-right">
               <RowActionsMenu
                 actions={[
-                  { icon: Pencil, label: 'Edit', onClick: () => onEdit(p) },
-                  { icon: Trash2, label: 'Delete', onClick: () => onDelete(p), destructive: true },
+                  { icon: Pencil, label: 'Редактирай', onClick: () => onEdit(p) },
+                  { icon: Trash2, label: 'Изтрий', onClick: () => onDelete(p), destructive: true },
                 ]}
               />
             </td>

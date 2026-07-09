@@ -23,14 +23,17 @@ import {
   Copy,
   FileDown,
   FileUp,
+  FileCheck2,
   ChevronRight,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  finalized: 'Finalized',
-  cancelled: 'Cancelled',
+  draft: 'Чернова',
+  finalized: 'Издадена',
+  cancelled: 'Анулирана',
 };
 const DOC_TYPE_BADGES: Record<string, string> = {
   credit_note: 'КИ',
@@ -48,9 +51,11 @@ interface RowProps {
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
   onCancel: (invoice: Invoice) => void;
+  onUncancel: (id: number) => void;
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
+  onDelete: (invoice: Invoice) => void;
   onMarkPayment: (id: number, status: 'paid' | 'unpaid') => void;
   onMarkAccounting: (id: number, status: 'accounted' | 'pending') => void;
 }
@@ -63,18 +68,18 @@ function ExpandedDetail({ invoice }: { invoice: Invoice }) {
     <tr className="border-b border-gray-200 bg-gray-50/60">
       <td colSpan={8} className="px-6 py-3">
         {items.length === 0 ? (
-          <p className="text-sm text-gray-500">No line items.</p>
+          <p className="text-sm text-gray-500">Няма редове.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full max-w-3xl text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-gray-500">
-                  <th className="py-1 pr-4">Article / Description</th>
-                  <th className="py-1 pr-4">Qty</th>
-                  <th className="py-1 pr-4">Unit</th>
-                  <th className="py-1 pr-4 text-right">Unit price</th>
-                  <th className="py-1 pr-4 text-right">Disc.%</th>
-                  <th className="py-1 text-right">Total</th>
+                  <th className="py-1 pr-4">Артикул / Описание</th>
+                  <th className="py-1 pr-4">Кол.</th>
+                  <th className="py-1 pr-4">Мярка</th>
+                  <th className="py-1 pr-4 text-right">Ед. цена</th>
+                  <th className="py-1 pr-4 text-right">Отст. %</th>
+                  <th className="py-1 text-right">Общо</th>
                 </tr>
               </thead>
               <tbody>
@@ -101,8 +106,8 @@ function ExpandedDetail({ invoice }: { invoice: Invoice }) {
               <tfoot>
                 <tr className="border-t border-gray-300 font-medium">
                   <td colSpan={5} className="py-1.5 pr-4 text-right">
-                    Net {formatMoney(totals.netAmount)} · VAT{' '}
-                    {formatMoney(totals.vatAmount)} · Total
+                    Данъчна основа {formatMoney(totals.netAmount)} · ДДС{' '}
+                    {formatMoney(totals.vatAmount)} · Общо
                   </td>
                   <td className="py-1.5 text-right">
                     {formatMoney(totals.grossAmount)} {invoice.currency}
@@ -127,9 +132,11 @@ function InvoiceRow({
   onEdit,
   onPrint,
   onCancel,
+  onUncancel,
   onCopy,
   onCreditNote,
   onDebitNote,
+  onDelete,
   onMarkPayment,
   onMarkAccounting,
 }: RowProps) {
@@ -138,7 +145,12 @@ function InvoiceRow({
   const isDraft = invoice.status === 'draft';
   const isIssued = invoice.status === 'finalized';
   const isCancelled = invoice.status === 'cancelled';
+  const isAccounted = invoice.accountingStatus === 'accounted';
+  // EDIT-RULE: editable until accounted; a cancelled invoice is reinstated first.
+  const canEdit = (isDraft || isIssued) && !isAccounted;
   const isNote = invoice.docType === 'credit_note' || invoice.docType === 'debit_note';
+  const isRealInvoice = invoice.docType === 'invoice';
+  const isProforma = invoice.docType === 'proforma';
   const isOverdue =
     invoice.status === 'finalized' &&
     invoice.paymentStatus === 'unpaid' &&
@@ -146,17 +158,39 @@ function InvoiceRow({
     new Date(invoice.dueDate) < new Date(new Date().toISOString().split('T')[0]);
 
   const actions: RowAction[] = [
-    { icon: Eye, label: 'View', onClick: () => onView(invoice.id) },
-    ...(isDraft
-      ? [{ icon: Pencil, label: 'Edit draft', onClick: () => onEdit(invoice.id) }]
+    { icon: Eye, label: 'Преглед', onClick: () => onView(invoice.id) },
+    ...(canEdit
+      ? [{ icon: Pencil, label: 'Редактирай', onClick: () => onEdit(invoice.id) }]
       : []),
-    { icon: Printer, label: 'Print / Preview', onClick: () => onPrint(invoice.id) },
+    { icon: Printer, label: 'Печат', onClick: () => onPrint(invoice.id) },
     ...(!isCancelled && isIssued
+      ? [{ icon: XCircle, label: 'Анулирай', onClick: () => onCancel(invoice) }]
+      : []),
+    // Credit/debit notes can only be raised against a real invoice.
+    ...(!isCancelled && isIssued && isRealInvoice
       ? [
-          { icon: XCircle, label: 'Cancel', onClick: () => onCancel(invoice) },
-          { icon: Copy, label: 'Copy', onClick: () => onCopy(invoice.id) },
-          { icon: FileDown, label: 'Create credit note', onClick: () => onCreditNote(invoice.id) },
-          { icon: FileUp, label: 'Create debit note', onClick: () => onDebitNote(invoice.id) },
+          { icon: Copy, label: 'Копирай', onClick: () => onCopy(invoice.id) },
+          { icon: FileDown, label: 'Създай кредитно известие', onClick: () => onCreditNote(invoice.id) },
+          { icon: FileUp, label: 'Създай дебитно известие', onClick: () => onDebitNote(invoice.id) },
+        ]
+      : []),
+    // PROF-1: a proforma converts into a real invoice (reuses the copy flow →
+    // a fresh invoice draft; the proforma itself is left as-is).
+    ...(!isCancelled && isIssued && isProforma
+      ? [{ icon: FileCheck2, label: 'Преобразувай във фактура', onClick: () => onCopy(invoice.id) }]
+      : []),
+    ...(isCancelled
+      ? [{ icon: RotateCcw, label: 'Възстанови', onClick: () => onUncancel(invoice.id) }]
+      : []),
+    // Delete: allowed until the document is accounted (mirrors the edit lock).
+    ...(!isAccounted
+      ? [
+          {
+            icon: Trash2,
+            label: 'Изтрий',
+            onClick: () => onDelete(invoice),
+            destructive: true,
+          },
         ]
       : []),
   ];
@@ -168,7 +202,7 @@ function InvoiceRow({
           type="button"
           onClick={() => onToggleExpand(invoice.id)}
           aria-expanded={expanded}
-          aria-label={expanded ? 'Collapse line items' : 'Expand line items'}
+          aria-label={expanded ? 'Свий редовете' : 'Разгъни редовете'}
           className="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700"
         >
           <ChevronRight
@@ -194,7 +228,7 @@ function InvoiceRow({
             href={`/c/${companyId}/invoices/${invoice.referencedInvoiceId}`}
             className="ml-2 text-xs text-blue-600 hover:underline"
           >
-            → parent
+            → основна фактура
           </Link>
         )}
       </td>
@@ -223,7 +257,7 @@ function InvoiceRow({
         />
         {isOverdue && (
           <span className="ml-1.5 inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-            Overdue
+            Просрочена
           </span>
         )}
       </td>
@@ -264,9 +298,11 @@ interface TableProps {
   onEdit: (id: number) => void;
   onPrint: (id: number) => void;
   onCancel: (invoice: Invoice) => void;
+  onUncancel: (id: number) => void;
   onCopy: (id: number) => void;
   onCreditNote: (id: number) => void;
   onDebitNote: (id: number) => void;
+  onDelete: (invoice: Invoice) => void;
   onMarkPayment: (id: number, status: 'paid' | 'unpaid') => void;
   onMarkAccounting: (id: number, status: 'accounted' | 'pending') => void;
 }
@@ -280,14 +316,14 @@ export function InvoicesTable(props: TableProps) {
     <table className="w-full">
       <DataTableHead
         columns={[
-          { label: 'Number' },
-          { label: 'Client' },
-          { label: 'Date' },
-          { label: 'Total' },
-          { label: 'Paid' },
-          { label: 'Accounted' },
-          { label: 'Status' },
-          { label: 'Actions', align: 'right' },
+          { label: 'Номер' },
+          { label: 'Клиент' },
+          { label: 'Дата' },
+          { label: 'Общо' },
+          { label: 'Платена' },
+          { label: 'Осчетоводена' },
+          { label: 'Статус' },
+          { label: 'Действия', align: 'right' },
         ]}
       />
       <tbody>
@@ -305,9 +341,11 @@ export function InvoicesTable(props: TableProps) {
               onEdit={props.onEdit}
               onPrint={props.onPrint}
               onCancel={props.onCancel}
+              onUncancel={props.onUncancel}
               onCopy={props.onCopy}
               onCreditNote={props.onCreditNote}
               onDebitNote={props.onDebitNote}
+              onDelete={props.onDelete}
               onMarkPayment={props.onMarkPayment}
               onMarkAccounting={props.onMarkAccounting}
             />

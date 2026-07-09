@@ -42,9 +42,9 @@ export function ArticlesStep({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Add Your First Articles</CardTitle>
+        <CardTitle>Добавете първите си артикули</CardTitle>
         <CardDescription>
-          Optional — create catalog items you use on invoices.
+          По желание — създайте артикули от каталога, които използвате във фактурите.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -55,17 +55,17 @@ export function ArticlesStep({
           >
             <div>
               <Label htmlFor={`ob-art-name-${i}`}>
-                {i === 0 ? 'Article name *' : ''}
+                {i === 0 ? 'Име на артикул *' : ''}
               </Label>
               <Input
                 id={`ob-art-name-${i}`}
                 value={row.name}
                 onChange={(e) => onUpdateRow(i, 'name', e.target.value)}
-                placeholder="Article name"
+                placeholder="Име на артикул"
               />
             </div>
             <div>
-              <Label htmlFor={`ob-art-unit-${i}`}>{i === 0 ? 'Unit' : ''}</Label>
+              <Label htmlFor={`ob-art-unit-${i}`}>{i === 0 ? 'Мярка' : ''}</Label>
               <Select
                 value={row.unit}
                 onValueChange={(v) => onUpdateRow(i, 'unit', v)}
@@ -83,7 +83,7 @@ export function ArticlesStep({
               </Select>
             </div>
             <div>
-              <Label htmlFor={`ob-art-price-${i}`}>{i === 0 ? 'Price' : ''}</Label>
+              <Label htmlFor={`ob-art-price-${i}`}>{i === 0 ? 'Цена' : ''}</Label>
               <Input
                 id={`ob-art-price-${i}`}
                 type="number"
@@ -101,7 +101,7 @@ export function ArticlesStep({
                   size="icon"
                   className="h-9 w-9 text-gray-400 hover:text-red-500"
                   onClick={() => onRemoveRow(i)}
-                  aria-label="Remove row"
+                  aria-label="Премахни ред"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -112,7 +112,7 @@ export function ArticlesStep({
 
         <Button variant="outline" size="sm" onClick={onAddRow} className="mt-2">
           <Plus className="mr-2 h-4 w-4" />
-          Add another
+          Добави още
         </Button>
 
         <div className="flex items-center justify-between pt-4">
@@ -121,7 +121,7 @@ export function ArticlesStep({
             onClick={onSkip}
             className="text-sm text-gray-500 hover:text-gray-700 underline"
           >
-            Skip
+            Пропусни
           </button>
           <Button
             onClick={onSave}
@@ -133,7 +133,7 @@ export function ArticlesStep({
             ) : (
               <Check className="mr-2 h-4 w-4" />
             )}
-            Save &amp; Finish
+            Запази и завърши
           </Button>
         </div>
       </CardContent>

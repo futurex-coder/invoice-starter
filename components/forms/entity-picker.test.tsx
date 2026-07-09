@@ -62,7 +62,7 @@ describe('EntityPicker', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Pick a partner/i }));
 
-    const input = await screen.findByPlaceholderText('Search…');
+    const input = await screen.findByPlaceholderText('Търсене…');
     await user.type(input, 'beta');
     expect(screen.queryByText('Alpha Corp')).not.toBeInTheDocument();
     expect(screen.getByText('Beta Ltd')).toBeInTheDocument();
@@ -78,9 +78,9 @@ describe('EntityPicker', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /Pick a partner/i }));
 
-    const input = await screen.findByPlaceholderText('Search…');
+    const input = await screen.findByPlaceholderText('Търсене…');
     await user.type(input, 'no-such-partner');
-    expect(screen.getByText('No matches.')).toBeInTheDocument();
+    expect(screen.getByText('Няма съвпадения.')).toBeInTheDocument();
   });
 
   it('emits the picked id and closes', async () => {

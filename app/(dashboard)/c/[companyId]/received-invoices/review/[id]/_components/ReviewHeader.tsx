@@ -24,22 +24,22 @@ export function ReviewHeader({
 }: Props) {
   return (
     <div className="mb-4 flex flex-wrap items-center gap-3">
-      <Button variant="ghost" size="icon" asChild aria-label="Back to received invoices">
+      <Button variant="ghost" size="icon" asChild aria-label="Обратно към получените фактури">
         <Link href={`/c/${companyId}/received-invoices`}>
           <ArrowLeft className="h-4 w-4" />
         </Link>
       </Button>
-      <h1 className="text-lg font-medium lg:text-xl">Review received invoice</h1>
+      <h1 className="text-lg font-medium lg:text-xl">Преглед на получена фактура</h1>
       <StatusBadge variant="lifecycle" value={status} />
       {extractionConfidence && (
         <StatusBadge variant="confidence" value={extractionConfidence} />
       )}
       {pendingPosition && (
         <span className="ml-auto text-sm text-gray-500">
-          {pendingPosition.index} of {pendingPosition.total} pending
+          {pendingPosition.index} от {pendingPosition.total} за преглед
           {nextPendingId && (
             <Button size="sm" variant="ghost" className="ml-2" onClick={onSkip}>
-              Skip
+              Пропусни
               <ChevronRight className="ml-1 h-3 w-3" />
             </Button>
           )}

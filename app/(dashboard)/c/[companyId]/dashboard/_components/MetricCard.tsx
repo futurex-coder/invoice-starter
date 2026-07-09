@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +11,8 @@ interface Props {
   value: string;
   color: Color;
   highlight?: boolean;
+  /** When set, the whole card becomes a shortcut into a filtered list. */
+  href?: string;
 }
 
 const BG_MAP: Record<Color, string> = {
@@ -22,9 +25,14 @@ const BG_MAP: Record<Color, string> = {
   rose: 'bg-rose-50',
 };
 
-export function MetricCard({ icon, label, value, color, highlight }: Props) {
-  return (
-    <Card className={highlight ? 'border-red-300 bg-red-50/30' : ''}>
+export function MetricCard({ icon, label, value, color, highlight, href }: Props) {
+  const card = (
+    <Card
+      className={cn(
+        highlight && 'border-red-300 bg-red-50/30',
+        href && 'transition-colors hover:border-gray-300 hover:bg-gray-50/60'
+      )}
+    >
       <CardContent className="pt-5">
         <div className="flex items-center gap-3 mb-2">
           <div
@@ -39,5 +47,13 @@ export function MetricCard({ icon, label, value, color, highlight }: Props) {
         <p className="text-2xl font-bold">{value}</p>
       </CardContent>
     </Card>
+  );
+
+  return href ? (
+    <Link href={href} className="block">
+      {card}
+    </Link>
+  ) : (
+    card
   );
 }

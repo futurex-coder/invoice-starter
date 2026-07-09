@@ -1,7 +1,17 @@
 'use client';
 
 import { useMemo, useReducer, useState } from 'react';
-import { Trash2, Plus, Info } from 'lucide-react';
+import {
+  Trash2,
+  Plus,
+  Info,
+  Building2,
+  FileText,
+  ListChecks,
+  Calculator,
+  CreditCard,
+  StickyNote,
+} from 'lucide-react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +55,22 @@ const PAYMENT_STATUSES: PaymentStatus[] = ['unpaid', 'partial', 'paid'];
 const ACCOUNTING_STATUSES: AccountingStatus[] = ['pending', 'accounted'];
 const CURRENCIES = ['EUR', 'BGN', 'USD'];
 const VAT_RATES: Array<0 | 9 | 20> = [0, 9, 20];
+
+// Bulgarian labels for the enum values (the underlying values stay untouched).
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  bank: 'Банков път',
+  cash: 'В брой',
+  barter: 'Бартер',
+};
+const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
+  unpaid: 'Неплатена',
+  partial: 'Частично',
+  paid: 'Платена',
+};
+const ACCOUNTING_STATUS_LABELS: Record<AccountingStatus, string> = {
+  pending: 'Чака',
+  accounted: 'Осчетоводена',
+};
 
 function parseVatRate(value: string): 0 | 9 | 20 {
   const n = Number(value);
@@ -147,8 +173,10 @@ function FieldHint({
   const text =
     m.reason ??
     (m.confidence === 'missing'
-      ? 'Not found on the document — please fill in.'
-      : `Low-confidence extraction (${m.confidence}). Please verify.`);
+      ? 'Не е намерено в документа — моля, попълнете.'
+      : `Несигурно разчитане (${
+          m.confidence === 'medium' ? 'средна сигурност' : 'ниска сигурност'
+        }). Моля, проверете.`);
   const tone =
     m.confidence === 'missing' ? 'text-rose-700' : 'text-amber-700';
   return (
@@ -267,10 +295,13 @@ export function ReviewForm({
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Доставчик (Supplier)</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-gray-400" />
+            Доставчик
+          </CardTitle>
           {partnerId && (
             <span className="rounded bg-green-100 px-2 py-0.5 text-[10px] font-medium uppercase text-green-800">
-              Linked partner
+              Свързан контрагент
             </span>
           )}
         </CardHeader>
@@ -278,7 +309,7 @@ export function ReviewForm({
           {partnerSuggestion && !partnerId && (
             <Alert variant="info">
               <p className="text-blue-900">
-                EIK matches existing partner{' '}
+                ЕИК съвпада със съществуващ контрагент{' '}
                 <strong>{partnerSuggestion.matchedPartnerName}</strong>.
               </p>
               <Button
@@ -288,7 +319,7 @@ export function ReviewForm({
                 className="h-auto p-0 text-blue-700"
                 onClick={linkSuggestedPartner}
               >
-                Link this invoice to that partner
+                Свържи тази фактура с този контрагент
               </Button>
             </Alert>
           )}
@@ -296,7 +327,7 @@ export function ReviewForm({
           {partnerId && (
             <div className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-2 text-sm">
               <span>
-                Linked to partner #{partnerId}
+                Свързана с контрагент #{partnerId}
                 {partnerSuggestion?.matchedPartnerId === partnerId && (
                   <> — {partnerSuggestion.matchedPartnerName}</>
                 )}
@@ -307,7 +338,7 @@ export function ReviewForm({
                 size="sm"
                 onClick={unlinkPartner}
               >
-                Edit manually
+                Редактирай ръчно
               </Button>
             </div>
           )}
@@ -316,7 +347,7 @@ export function ReviewForm({
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="supplierName">Legal name *</Label>
+                  <Label htmlFor="supplierName">Наименование *</Label>
                   <Input
                     id="supplierName"
                     className={cn(
@@ -338,7 +369,7 @@ export function ReviewForm({
                   />
                 </div>
                 <div>
-                  <Label htmlFor="supplierEik">EIK</Label>
+                  <Label htmlFor="supplierEik">ЕИК</Label>
                   <Input
                     id="supplierEik"
                     className={cn(
@@ -362,7 +393,7 @@ export function ReviewForm({
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="supplierVat">VAT number</Label>
+                  <Label htmlFor="supplierVat">ДДС номер</Label>
                   <Input
                     id="supplierVat"
                     className={cn(
@@ -384,7 +415,7 @@ export function ReviewForm({
                   />
                 </div>
                 <div>
-                  <Label htmlFor="supplierCity">City</Label>
+                  <Label htmlFor="supplierCity">Град</Label>
                   <Input
                     id="supplierCity"
                     className={cn(
@@ -408,7 +439,7 @@ export function ReviewForm({
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="sm:col-span-2">
-                  <Label htmlFor="supplierStreet">Street</Label>
+                  <Label htmlFor="supplierStreet">Улица</Label>
                   <Input
                     id="supplierStreet"
                     className={cn(
@@ -430,7 +461,7 @@ export function ReviewForm({
                   />
                 </div>
                 <div>
-                  <Label htmlFor="supplierPostCode">Post code</Label>
+                  <Label htmlFor="supplierPostCode">Пощенски код</Label>
                   <Input
                     id="supplierPostCode"
                     className={cn(
@@ -454,7 +485,7 @@ export function ReviewForm({
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <Label htmlFor="supplierCountry">Country</Label>
+                  <Label htmlFor="supplierCountry">Държава</Label>
                   <Input
                     id="supplierCountry"
                     maxLength={2}
@@ -488,7 +519,7 @@ export function ReviewForm({
                     })
                   }
                 />
-                Save as new partner on confirm
+                Запази като нов контрагент при потвърждаване
               </label>
             </div>
           )}
@@ -497,12 +528,15 @@ export function ReviewForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Document</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-gray-400" />
+            Документ
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="invoiceNumber">Invoice number</Label>
+              <Label htmlFor="invoiceNumber">Номер на фактура</Label>
               <Input
                 id="invoiceNumber"
                 className={cn(
@@ -516,7 +550,7 @@ export function ReviewForm({
                     patch: { invoiceNumber: e.target.value },
                   });
                 }}
-                placeholder="Supplier's number"
+                placeholder="Номер от доставчика"
               />
               <FieldHint
                 meta={fieldMeta}
@@ -525,7 +559,7 @@ export function ReviewForm({
               />
             </div>
             <div>
-              <Label htmlFor="currency">Currency</Label>
+              <Label htmlFor="currency">Валута</Label>
               <Select
                 value={currency}
                 onValueChange={(v) => {
@@ -559,7 +593,7 @@ export function ReviewForm({
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="issueDate">Issue date *</Label>
+              <Label htmlFor="issueDate">Дата на издаване *</Label>
               <Input
                 id="issueDate"
                 type="date"
@@ -582,7 +616,7 @@ export function ReviewForm({
               />
             </div>
             <div>
-              <Label htmlFor="supplyDate">Tax event date</Label>
+              <Label htmlFor="supplyDate">Дата на данъчно събитие</Label>
               <Input
                 id="supplyDate"
                 type="date"
@@ -597,44 +631,31 @@ export function ReviewForm({
             </div>
             {/* Due date removed per RV-2 — state still carries `dueDate` so
                 re-saving an old row preserves its stored value. */}
+            {/* FX rate input removed — GEN-1 freezes the rate to the company
+                base currency automatically at confirm. */}
           </div>
-          {currency !== 'EUR' && (
-            <div>
-              <Label htmlFor="fxRate">FX rate to EUR</Label>
-              <Input
-                id="fxRate"
-                type="number"
-                step="0.000001"
-                min="0"
-                value={fxRate}
-                onChange={(e) =>
-                  dispatch({
-                    type: 'SET',
-                    patch: { fxRate: Number(e.target.value) || 1 },
-                  })
-                }
-              />
-            </div>
-          )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Items</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <ListChecks className="h-4 w-4 text-gray-400" />
+            Артикули
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="py-2 text-left">Description</th>
-                  <th className="w-20 py-2 text-left">Qty</th>
-                  <th className="w-20 py-2 text-left">Unit</th>
-                  <th className="w-24 py-2 text-left">Unit price</th>
-                  <th className="w-20 py-2 text-left">VAT %</th>
-                  <th className="w-20 py-2 text-left">Disc. %</th>
-                  <th className="w-24 py-2 text-right">Gross</th>
+                  <th className="py-2 text-left">Описание</th>
+                  <th className="w-20 py-2 text-left">Кол.</th>
+                  <th className="w-20 py-2 text-left">Мярка</th>
+                  <th className="w-24 py-2 text-left">Ед. цена</th>
+                  <th className="w-20 py-2 text-left">ДДС %</th>
+                  <th className="w-20 py-2 text-left">Отст. %</th>
+                  <th className="w-24 py-2 text-right">Стойност</th>
                   <th className="w-10" />
                 </tr>
               </thead>
@@ -649,7 +670,7 @@ export function ReviewForm({
                           onChange={(e) =>
                             updateLine(i, { description: e.target.value })
                           }
-                          placeholder="Description *"
+                          placeholder="Описание *"
                         />
                       </td>
                       <td className="py-1">
@@ -733,7 +754,7 @@ export function ReviewForm({
                           size="sm"
                           onClick={() => removeLine(i)}
                           disabled={lineItems.length <= 1}
-                          aria-label="Remove line"
+                          aria-label="Премахни ред"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -752,31 +773,34 @@ export function ReviewForm({
             className="mt-3"
           >
             <Plus className="mr-1 h-3 w-3" />
-            Add line
+            Добави ред
           </Button>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Totals</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Calculator className="h-4 w-4 text-gray-400" />
+            Суми
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-600">Tax base (net)</span>
-            <span>
+            <span className="text-gray-600">Данъчна основа</span>
+            <span className="tabular-nums">
               {totals.netAmount.toFixed(2)} {currency}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">VAT</span>
-            <span>
+            <span className="text-gray-600">ДДС</span>
+            <span className="tabular-nums">
               {totals.vatAmount.toFixed(2)} {currency}
             </span>
           </div>
-          <div className="flex justify-between border-t pt-1.5 font-medium">
-            <span>Total</span>
-            <span>
+          <div className="mt-1 flex items-baseline justify-between border-t pt-2">
+            <span className="font-medium">Общо</span>
+            <span className="text-lg font-semibold tabular-nums">
               {totals.grossAmount.toFixed(2)} {currency}
             </span>
           </div>
@@ -785,11 +809,14 @@ export function ReviewForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Payment & accounting</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 text-gray-400" />
+            Плащане и осчетоводяване
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label>Method</Label>
+            <Label>Начин на плащане</Label>
             <RadioGroup
               value={paymentMethod}
               onValueChange={(v) =>
@@ -803,14 +830,14 @@ export function ReviewForm({
               {PAYMENT_METHODS.map((m) => (
                 <div key={m} className="flex items-center space-x-2">
                   <RadioGroupItem value={m} id={`pay-${m}`} />
-                  <Label htmlFor={`pay-${m}`}>{m}</Label>
+                  <Label htmlFor={`pay-${m}`}>{PAYMENT_METHOD_LABELS[m]}</Label>
                 </div>
               ))}
             </RadioGroup>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label htmlFor="paymentStatus">Payment status</Label>
+              <Label htmlFor="paymentStatus">Статус на плащане</Label>
               <Select
                 value={paymentStatus}
                 onValueChange={(v) =>
@@ -826,14 +853,14 @@ export function ReviewForm({
                 <SelectContent>
                   {PAYMENT_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {s}
+                      {PAYMENT_STATUS_LABELS[s]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="accountingStatus">Accounting status</Label>
+              <Label htmlFor="accountingStatus">Статус на осчетоводяване</Label>
               <Select
                 value={accountingStatus}
                 onValueChange={(v) =>
@@ -849,7 +876,7 @@ export function ReviewForm({
                 <SelectContent>
                   {ACCOUNTING_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {s}
+                      {ACCOUNTING_STATUS_LABELS[s]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -861,7 +888,10 @@ export function ReviewForm({
 
       <Card>
         <CardHeader>
-          <CardTitle>Notes</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <StickyNote className="h-4 w-4 text-gray-400" />
+            Бележки
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <textarea
@@ -870,7 +900,7 @@ export function ReviewForm({
             onChange={(e) =>
               dispatch({ type: 'SET', patch: { notes: e.target.value } })
             }
-            placeholder="Optional internal notes"
+            placeholder="Незадължителни вътрешни бележки"
           />
         </CardContent>
       </Card>
@@ -881,7 +911,7 @@ export function ReviewForm({
           onClick={() => onSaveDraft(buildPatch())}
           disabled={saving}
         >
-          Save draft
+          Запази чернова
         </Button>
         <Button
           variant="outline"
@@ -889,15 +919,25 @@ export function ReviewForm({
           disabled={saving}
           className="text-red-700 hover:bg-red-50"
         >
-          Discard
+          Отхвърли
         </Button>
-        <Button
-          className="ml-auto bg-green-600 hover:bg-green-700"
-          onClick={() => onConfirm(buildPatch())}
-          disabled={saving}
-        >
-          Confirm
-        </Button>
+        <div className="ml-auto flex items-center gap-3">
+          <div className="text-right leading-tight">
+            <div className="text-[10px] uppercase tracking-wide text-gray-500">
+              Общо
+            </div>
+            <div className="text-sm font-semibold tabular-nums">
+              {totals.grossAmount.toFixed(2)} {currency}
+            </div>
+          </div>
+          <Button
+            className="bg-green-600 hover:bg-green-700"
+            onClick={() => onConfirm(buildPatch())}
+            disabled={saving}
+          >
+            Потвърди
+          </Button>
+        </div>
       </div>
     </div>
   );

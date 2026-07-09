@@ -35,13 +35,13 @@ export function DeleteCompanyModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={!loading}>
         <DialogHeader>
-          <DialogTitle className="text-destructive">Delete company</DialogTitle>
+          <DialogTitle className="text-destructive">Изтриване на фирмата</DialogTitle>
           <DialogDescription>
-            This will remove access for all members. The company can be restored later by contacting support.
+            Това ще премахне достъпа на всички членове. Фирмата може да бъде възстановена по-късно чрез свързване с поддръжката.
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm">
-          Type <span className="font-mono font-medium">{companyName}</span> to confirm:
+          Въведете <span className="font-mono font-medium">{companyName}</span> за потвърждение:
         </p>
         <Input
           value={confirmText}
@@ -54,7 +54,7 @@ export function DeleteCompanyModal({
             onClick={() => onOpenChange(false)}
             disabled={loading}
           >
-            Cancel
+            Отказ
           </Button>
           <Button
             variant="destructive"
@@ -62,7 +62,7 @@ export function DeleteCompanyModal({
             onClick={onConfirm}
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Permanently delete
+            Изтрий окончателно
           </Button>
         </DialogFooter>
       </DialogContent>

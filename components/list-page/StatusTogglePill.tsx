@@ -15,9 +15,9 @@ const PAID_STYLES: Record<string, string> = {
   unpaid: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
 };
 const PAID_LABELS: Record<string, string> = {
-  paid: 'Paid',
-  partial: 'Partial',
-  unpaid: 'Unpaid',
+  paid: 'Платена',
+  partial: 'Частично',
+  unpaid: 'Неплатена',
 };
 
 export function PaidTogglePill({
@@ -39,8 +39,8 @@ export function PaidTogglePill({
       type="button"
       onClick={() => onChange(next)}
       disabled={pending}
-      title={`Mark as ${PAID_LABELS[next] ?? next}`}
-      aria-label={`Payment status: ${PAID_LABELS[value] ?? value}. Click to mark ${next}.`}
+      title={`Отбележи като „${PAID_LABELS[next] ?? next}“`}
+      aria-label={`Статус на плащане: ${PAID_LABELS[value] ?? value}. Натиснете, за да отбележите „${PAID_LABELS[next] ?? next}“.`}
       className={cn(
         'inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
         PAID_STYLES[value] ?? PAID_STYLES.unpaid,
@@ -72,8 +72,8 @@ export function AccountedTogglePill({
       type="button"
       onClick={() => onChange(next)}
       disabled={pending}
-      title={accounted ? 'Mark as pending' : 'Mark as accounted'}
-      aria-label={`Accounting status: ${accounted ? 'accounted' : 'pending'}. Click to mark ${next}.`}
+      title={accounted ? 'Отбележи като чакаща' : 'Отбележи като осчетоводена'}
+      aria-label={`Осчетоводяване: ${accounted ? 'осчетоводена' : 'чака'}. Натиснете, за да отбележите ${accounted ? 'чакаща' : 'осчетоводена'}.`}
       className={cn(
         'inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors',
         accounted
@@ -83,7 +83,7 @@ export function AccountedTogglePill({
       )}
     >
       {pending && <Loader2 className="h-3 w-3 animate-spin" />}
-      {accounted ? 'Accounted' : 'Pending'}
+      {accounted ? 'Осчетоводена' : 'Чака'}
     </button>
   );
 }

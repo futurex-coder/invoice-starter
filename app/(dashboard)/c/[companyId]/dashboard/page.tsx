@@ -61,7 +61,7 @@ export default async function CompanyDashboardPage({
     getPartnersForCompany(companyId),
     getArticlesForCompany(companyId),
     getActivityLogs(companyId, { limit: 5 }),
-    getNextInvoiceNumber(companyId, 'INV'),
+    getNextInvoiceNumber(companyId),
   ]);
 
   const base = `/c/${companyId}`;
@@ -70,46 +70,46 @@ export default async function CompanyDashboardPage({
     {
       href: `${base}/invoices`,
       icon: FileText,
-      label: 'Invoices',
+      label: 'Фактури',
       count: metrics.totalInvoices,
     },
     {
       href: `${base}/invoices/new`,
       icon: FileText,
-      label: 'New Invoice',
-      sub: `Next #${String(nextNumber).padStart(10, '0')}`,
+      label: 'Нова фактура',
+      sub: `Следващ №${String(nextNumber).padStart(10, '0')}`,
     },
     {
       href: `${base}/received-invoices`,
       icon: Inbox,
-      label: 'Received invoices',
+      label: 'Получени фактури',
       count: expenseMetrics.receivedThisMonth + expenseMetrics.accountedCount,
       sub:
         expenseMetrics.pendingReviewCount > 0
-          ? `${expenseMetrics.pendingReviewCount} pending`
+          ? `${expenseMetrics.pendingReviewCount} за преглед`
           : undefined,
     },
     {
       href: `${base}/received-invoices/upload`,
       icon: Inbox,
-      label: 'Upload invoice',
+      label: 'Качи фактура',
     },
     {
       href: `${base}/partners`,
       icon: Handshake,
-      label: 'Partners',
+      label: 'Контрагенти',
       count: partners.length,
     },
     {
       href: `${base}/articles`,
       icon: Package,
-      label: 'Articles',
+      label: 'Артикули',
       count: articlesList.length,
     },
     {
       href: `${base}/settings`,
       icon: Settings,
-      label: 'Company Settings',
+      label: 'Настройки на фирмата',
     },
   ];
 
@@ -128,7 +128,7 @@ export default async function CompanyDashboardPage({
             href={`${base}/received-invoices`}
             className="rounded-md border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50"
           >
-            Review →
+            Прегледай →
           </Link>
         }
       />
@@ -139,6 +139,7 @@ export default async function CompanyDashboardPage({
         metrics={metrics}
         expenseMetrics={expenseMetrics}
         currency={company.defaultCurrency}
+        companyId={String(company.id)}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

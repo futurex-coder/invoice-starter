@@ -1,15 +1,17 @@
 import type { ReceivedInvoiceListItem } from '@/src/features/received-invoices/actions';
 
 export const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  confirmed: 'Confirmed',
-  discarded: 'Discarded',
+  analyzing: 'Анализира се…',
+  failed: 'Неуспешно',
+  draft: 'Чернова',
+  confirmed: 'Потвърдена',
+  discarded: 'Отхвърлена',
 };
 
 export const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  unpaid: 'Unpaid',
-  partial: 'Partial',
-  paid: 'Paid',
+  unpaid: 'Неплатена',
+  partial: 'Частично',
+  paid: 'Платена',
 };
 
 export function supplierName(item: ReceivedInvoiceListItem): string {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { FileText, Inbox, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,8 @@ import {
   discardReceivedInvoice,
   restoreDiscardedReceivedInvoice,
   hardDeleteDiscardedReceivedInvoice,
+  deleteReceivedInvoice,
+  getPaymentsSummary,
   type ListReceivedInvoicesFilters,
 } from '@/src/features/received-invoices/actions';
 import type {
@@ -26,8 +28,11 @@ import type {
   ReceivedInvoiceLifecycleStatus,
 } from '@/src/features/received-invoices/types';
 import { useListPageState } from '@/lib/swr/use-list-page-state';
+import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { useCompany } from '@/lib/context/company-context';
 import { requireStringParam } from '@/lib/route-params';
 import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
+import { PaymentSummaryCards } from './_components/PaymentSummaryCards';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { Pagination } from '@/components/list-page/Pagination';
 import { ReceivedInvoiceFilters } from './_components/ReceivedInvoiceFilters';
@@ -50,8 +55,10 @@ type ReceivedInvoicesFilterState = {
 
 const RECEIVED_INVOICES_DEFAULTS: ReceivedInvoicesFilterState = {
   search: '',
-  // Default: hide drafts. Drafts are surfaced via the pending banner above.
-  status: 'confirmed',
+  // Default: the working set — analyzing / failed / draft / confirmed (only
+  // discarded is hidden). Keeps freshly-uploaded rows visible so the async
+  // scanner can drive their analysis.
+  status: 'all',
   paymentStatus: 'all',
   dateFrom: '',
   dateTo: '',
@@ -59,7 +66,21 @@ const RECEIVED_INVOICES_DEFAULTS: ReceivedInvoicesFilterState = {
 };
 
 function isLifecycleStatus(value: string): value is ReceivedInvoiceLifecycleStatus {
-  return value === 'draft' || value === 'confirmed' || value === 'discarded';
+  return (
+    value === 'analyzing' ||
+    value === 'failed' ||
+    value === 'draft' ||
+    value === 'confirmed' ||
+    value === 'discarded'
+  );
+}
+
+// ASYNC-SCAN: max analyze requests in flight at once (respects the AI API).
+const MAX_CONCURRENT_ANALYSIS = 5;
+const ANALYZE_POLL_MS = 3500;
+
+async function analyzeReceivedInvoice(id: number): Promise<void> {
+  await fetch(`/api/received-invoices/${id}/analyze`, { method: 'POST' });
 }
 function isPaymentStatus(value: string): value is PaymentStatus {
   return value === 'unpaid' || value === 'partial' || value === 'paid';
@@ -133,9 +154,91 @@ export default function ReceivedInvoicesPage() {
 
   const data = list.result;
 
+  const { company } = useCompany();
+  // Money KPIs (owed / paid this month / overdue) for confirmed received
+  // invoices — the summary the standalone Payments page used to show.
+  const { data: paySummary, isLoading: summaryLoading, mutate: refetchSummary } =
+    useActionSWR('received-payments-summary', getPaymentsSummary);
+
   const [pendingId, setPendingId] = useState<number | null>(null);
 
-  type ConfirmTarget = { item: ReceivedInvoiceListItem; mode: 'discard' | 'hardDelete' };
+  // ------------------------------------------------------------------
+  // ASYNC-SCAN: drive parallel background analysis for 'analyzing' rows.
+  // The list owns orchestration so a fresh page load (or a tab that was
+  // closed mid-batch) automatically resumes anything still analyzing.
+  // ------------------------------------------------------------------
+  const analyzingIds = useMemo(
+    () =>
+      (data?.items ?? [])
+        .filter((i) => i.status === 'analyzing')
+        .map((i) => i.id),
+    [data]
+  );
+
+  const startedRef = useRef<Set<number>>(new Set());
+  const inFlightRef = useRef(0);
+  const refetchRef = useRef(list.refetch);
+  useEffect(() => {
+    refetchRef.current = list.refetch;
+  }, [list.refetch]);
+
+  useEffect(() => {
+    if (analyzingIds.length === 0) return;
+    let cancelled = false;
+
+    const startNext = () => {
+      for (const id of analyzingIds) {
+        if (cancelled) return;
+        if (inFlightRef.current >= MAX_CONCURRENT_ANALYSIS) return;
+        if (startedRef.current.has(id)) continue;
+        startedRef.current.add(id);
+        inFlightRef.current += 1;
+        void analyzeReceivedInvoice(id)
+          .catch(() => {
+            // Failure is persisted server-side as status 'failed'; the
+            // refetch below surfaces it with a Retry affordance.
+          })
+          .finally(() => {
+            inFlightRef.current -= 1;
+            if (!cancelled) {
+              void refetchRef.current();
+              startNext();
+            }
+          });
+      }
+    };
+    startNext();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [analyzingIds]);
+
+  // Safety-net poll: keep the list fresh while anything is analyzing (also
+  // catches rows another tab/device is processing).
+  useEffect(() => {
+    if (analyzingIds.length === 0) return;
+    const t = setInterval(() => {
+      void refetchRef.current();
+    }, ANALYZE_POLL_MS);
+    return () => clearInterval(t);
+  }, [analyzingIds.length]);
+
+  const handleRetry = useCallback(async (id: number) => {
+    startedRef.current.delete(id);
+    setPendingId(id);
+    try {
+      await analyzeReceivedInvoice(id);
+    } finally {
+      setPendingId(null);
+      await refetchRef.current();
+    }
+  }, []);
+
+  type ConfirmTarget = {
+    item: ReceivedInvoiceListItem;
+    mode: 'discard' | 'hardDelete' | 'delete';
+  };
   const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
 
   // Adapter: the existing ReceivedInvoiceFilters component sends a
@@ -187,6 +290,8 @@ export default function ReceivedInvoicesPage() {
       // runMutation set actionError already.
     } finally {
       setPendingId(null);
+      // Payment/archive changes move money between the KPI buckets.
+      void refetchSummary();
     }
   };
 
@@ -205,8 +310,12 @@ export default function ReceivedInvoicesPage() {
       await list.runMutation(() =>
         mode === 'discard'
           ? discardReceivedInvoice(item.id)
-          : hardDeleteDiscardedReceivedInvoice(item.id)
+          : mode === 'delete'
+            ? deleteReceivedInvoice(item.id)
+            : hardDeleteDiscardedReceivedInvoice(item.id)
       );
+      // A permanent delete can remove a confirmed row → refresh the money KPIs.
+      if (mode === 'delete') void refetchSummary();
     } finally {
       setPendingId(null);
     }
@@ -219,9 +328,9 @@ export default function ReceivedInvoicesPage() {
       : `#${target.item.id}`;
     const supplier = supplierName(target.item);
     if (target.mode === 'discard') {
-      return `Draft ${numberPart} from ${supplier} will not count in any totals. You can still find it under the Discarded filter.`;
+      return `Чернова ${numberPart} от ${supplier} няма да участва в никакви суми. Ще я намерите чрез филтъра „Отхвърлени“.`;
     }
-    return `${numberPart} from ${supplier} and the original file will be permanently removed. This cannot be undone.`;
+    return `${numberPart} от ${supplier} и оригиналният файл ще бъдат изтрити окончателно. Това действие е необратимо.`;
   };
 
   return (
@@ -230,15 +339,15 @@ export default function ReceivedInvoicesPage() {
         <div>
           <h1 className="flex items-center gap-2 text-lg font-medium lg:text-2xl">
             <Inbox className="h-5 w-5" />
-            Received invoices
+            Получени фактури
           </h1>
           <p className="text-sm text-gray-500">
-            Invoices your partners sent — what you have paid and what you owe.
+            Фактури, изпратени от вашите контрагенти — какво сте платили и какво дължите.
           </p>
         </div>
         <Button onClick={goUpload} className="bg-primary hover:bg-primary/90">
           <Plus className="mr-2 h-4 w-4" />
-          Upload invoices
+          Качи фактури
         </Button>
       </div>
 
@@ -248,14 +357,22 @@ export default function ReceivedInvoicesPage() {
         pendingReceivedCount={data?.pendingCount}
       />
 
+      <div className="mt-4">
+        <PaymentSummaryCards
+          summary={paySummary}
+          loading={summaryLoading}
+          baseCurrency={company.defaultCurrency}
+        />
+      </div>
+
       {data && (
         <PendingReviewBanner
           count={data.pendingCount}
-          description=" — drafts aren't shown in the list below."
+          description=" — анализирани и запазени като чернови по-долу."
           className="mb-4 items-center"
           action={
             <Button size="sm" variant="outline" onClick={reviewNextPending}>
-              Review next
+              Прегледай следващата
             </Button>
           }
         />
@@ -273,7 +390,7 @@ export default function ReceivedInvoicesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Received invoice list</CardTitle>
+          <CardTitle>Списък с получени фактури</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto p-0">
           {list.loading ? (
@@ -283,9 +400,9 @@ export default function ReceivedInvoicesPage() {
           ) : !data?.items.length ? (
             <div className="flex flex-col items-center gap-3 px-6 py-12 text-center text-sm text-gray-500">
               <FileText className="h-8 w-8 text-gray-300" />
-              <p>No received invoices match these filters.</p>
+              <p>Няма получени фактури, отговарящи на филтрите.</p>
               <Button onClick={goUpload} variant="outline">
-                Upload an invoice
+                Качи фактура
               </Button>
             </div>
           ) : (
@@ -303,6 +420,8 @@ export default function ReceivedInvoicesPage() {
                 void list.runMutation(() => restoreDiscardedReceivedInvoice(id))
               }
               onHardDelete={(item) => setConfirmTarget({ item, mode: 'hardDelete' })}
+              onDelete={(item) => setConfirmTarget({ item, mode: 'delete' })}
+              onRetry={handleRetry}
             />
           )}
           {data && (
@@ -320,13 +439,13 @@ export default function ReceivedInvoicesPage() {
         open={confirmTarget !== null}
         onOpenChange={(open) => !open && setConfirmTarget(null)}
         title={
-          confirmTarget?.mode === 'hardDelete'
-            ? 'Permanently delete invoice?'
-            : 'Discard draft?'
+          confirmTarget?.mode === 'discard'
+            ? 'Отхвърляне на черновата?'
+            : 'Окончателно изтриване на фактурата?'
         }
         description={buildDescription(confirmTarget)}
         confirmText={
-          confirmTarget?.mode === 'hardDelete' ? 'Permanently delete' : 'Discard'
+          confirmTarget?.mode === 'discard' ? 'Отхвърли' : 'Изтрий окончателно'
         }
         variant="destructive"
         onConfirm={handleConfirmAction}

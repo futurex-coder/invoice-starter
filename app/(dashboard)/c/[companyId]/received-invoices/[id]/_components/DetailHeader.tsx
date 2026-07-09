@@ -25,13 +25,13 @@ export function DetailHeader({
 }: Props) {
   return (
     <div className="mb-4 flex flex-wrap items-center gap-3">
-      <Button variant="ghost" size="icon" asChild aria-label="Back to received invoices">
+      <Button variant="ghost" size="icon" asChild aria-label="Назад към получените фактури">
         <Link href={`/c/${companyId}/received-invoices`}>
           <ArrowLeft className="h-4 w-4" />
         </Link>
       </Button>
       <h1 className="text-lg font-medium lg:text-xl">
-        {supplierName ?? 'Received invoice'}
+        {supplierName ?? 'Получена фактура'}
         {row.invoiceNumber && (
           <span className="ml-2 text-gray-500">№ {row.invoiceNumber}</span>
         )}
@@ -39,7 +39,7 @@ export function DetailHeader({
       <StatusBadge variant="lifecycle" value={row.status} />
       {archived && (
         <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium uppercase text-gray-700">
-          Archived
+          Архивирана
         </span>
       )}
       <div className="ml-auto flex gap-2">
@@ -49,23 +49,23 @@ export function DetailHeader({
               variant="outline"
               size="sm"
               onClick={onArchive}
-              title={archived ? 'Unarchive' : 'Archive'}
+              title={archived ? 'Разархивирай' : 'Архивирай'}
             >
               {archived ? (
                 <>
                   <ArchiveRestore className="mr-1 h-4 w-4" />
-                  Unarchive
+                  Разархивирай
                 </>
               ) : (
                 <>
                   <Archive className="mr-1 h-4 w-4" />
-                  Archive
+                  Архивирай
                 </>
               )}
             </Button>
             <Button variant="outline" size="sm" onClick={onEdit}>
               <Pencil className="mr-1 h-4 w-4" />
-              Edit
+              Редактирай
             </Button>
           </>
         )}

@@ -20,10 +20,12 @@ export function DeletedCompaniesCard({ rows, restoringId, onRestore, className }
       <CardHeader>
         <div className="flex items-center gap-2">
           <Trash2 className="h-4 w-4 text-amber-600" />
-          <CardTitle className="text-amber-800">Deleted companies</CardTitle>
+          <CardTitle className="text-amber-800">Изтрити фирми</CardTitle>
         </div>
         <CardDescription>
-          You have {rows.length} deleted {rows.length === 1 ? 'company' : 'companies'} that can be restored.
+          {rows.length === 1
+            ? 'Имате 1 изтрита фирма, която може да бъде възстановена.'
+            : `Имате ${rows.length} изтрити фирми, които могат да бъдат възстановени.`}
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
@@ -31,16 +33,16 @@ export function DeletedCompaniesCard({ rows, restoringId, onRestore, className }
           <thead>
             <tr className="border-b border-gray-200 bg-gray-50/80">
               <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                Company
+                Фирма
               </th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                EIK
+                ЕИК
               </th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                Deleted
+                Изтрита на
               </th>
               <th className="px-4 py-2.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
-                Action
+                Действие
               </th>
             </tr>
           </thead>
@@ -69,7 +71,7 @@ export function DeletedCompaniesCard({ rows, restoringId, onRestore, className }
                     ) : (
                       <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                     )}
-                    Restore
+                    Възстанови
                   </Button>
                 </td>
               </tr>

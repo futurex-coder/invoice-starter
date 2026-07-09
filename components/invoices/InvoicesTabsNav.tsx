@@ -14,19 +14,19 @@ export function InvoicesTabsNav({ companyId, active, pendingReceivedCount }: Pro
   const tabs: { id: Tab; label: string; href: string; icon: typeof FileText; badge?: number }[] = [
     {
       id: 'all',
-      label: 'All',
+      label: 'Всички',
       href: `/c/${companyId}/invoices/all`,
       icon: Layers,
     },
     {
       id: 'outgoing',
-      label: 'Outgoing',
+      label: 'Издадени',
       href: `/c/${companyId}/invoices`,
       icon: FileText,
     },
     {
       id: 'received',
-      label: 'Received',
+      label: 'Получени',
       href: `/c/${companyId}/received-invoices`,
       icon: Inbox,
       badge: pendingReceivedCount && pendingReceivedCount > 0 ? pendingReceivedCount : undefined,
@@ -35,7 +35,7 @@ export function InvoicesTabsNav({ companyId, active, pendingReceivedCount }: Pro
 
   return (
     <div className="mb-6 border-b border-gray-200">
-      <nav className="flex gap-1 -mb-px" aria-label="Invoice views">
+      <nav className="flex gap-1 -mb-px" aria-label="Изгледи на фактури">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = tab.id === active;

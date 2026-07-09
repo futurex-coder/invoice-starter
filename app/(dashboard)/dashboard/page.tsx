@@ -56,6 +56,11 @@ export default function DashboardPage() {
   const companies = metrics?.companies ?? [];
   const totals = metrics?.totals ?? EMPTY_TOTALS;
 
+  // GEN-1: cross-company totals sum raw amounts, so a single currency label is
+  // only honest when every company shares one base currency.
+  const currencies = Array.from(new Set(companies.map((c) => c.currency)));
+  const totalsCurrency = currencies.length === 1 ? currencies[0] ?? null : null;
+
   const toggleActivity = useCallback(() => {
     setOnlyOwn((v) => !v);
   }, []);
@@ -85,7 +90,7 @@ export default function DashboardPage() {
   if (companies.length === 0) {
     return (
       <PageShell>
-        <h1 className="text-lg lg:text-2xl font-medium mb-6">Dashboard</h1>
+        <h1 className="text-lg lg:text-2xl font-medium mb-6">Табло</h1>
         <EmptyDashboard />
         <DeletedCompaniesCard
           rows={deletedCompanies ?? []}
@@ -103,7 +108,7 @@ export default function DashboardPage() {
   return (
     <PageShell>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h1 className="text-lg lg:text-2xl font-medium">Dashboard</h1>
+        <h1 className="text-lg lg:text-2xl font-medium">Табло</h1>
         <Button
           asChild
           size="sm"
@@ -111,7 +116,7 @@ export default function DashboardPage() {
         >
           <Link href="/create-company">
             <Plus className="mr-1.5 h-3.5 w-3.5" />
-            New company
+            Нова фирма
           </Link>
         </Button>
       </div>
@@ -120,14 +125,16 @@ export default function DashboardPage() {
         <Alert variant="warning" icon={Inbox} className="mb-6 items-center">
           <div className="flex items-center justify-between gap-3">
             <span>
-              <strong>{totals.pendingReviewCount}</strong> received{' '}
-              {totals.pendingReviewCount === 1 ? 'invoice' : 'invoices'}{' '}
-              awaiting review across your companies
+              <strong>{totals.pendingReviewCount}</strong>{' '}
+              {totals.pendingReviewCount === 1
+                ? 'получена фактура очаква'
+                : 'получени фактури очакват'}{' '}
+              преглед във вашите фирми
             </span>
             {pendingReviewTarget && (
               <Button asChild size="sm" variant="outline">
                 <Link href={`/c/${pendingReviewTarget.companyId}/received-invoices`}>
-                  Review
+                  Прегледай
                 </Link>
               </Button>
             )}
@@ -135,7 +142,7 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      <SummaryGrid totals={totals} />
+      <SummaryGrid totals={totals} currency={totalsCurrency} />
 
       <CompaniesGrid companies={companies} />
 

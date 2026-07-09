@@ -45,7 +45,7 @@ async function createTestDraft(companyId: number, userId: number) {
   'use server';
   assertDevOnly();
 
-  const nextNum = await getNextInvoiceNumber(companyId, 'INV');
+  const nextNum = await getNextInvoiceNumber(companyId);
   const company = await db
     .select()
     .from(companies)
@@ -145,7 +145,7 @@ export default async function DebugPage() {
       articleCount = arts.length;
 
       invoiceCounts = await getInvoiceCountsByStatus(activeCompanyId);
-      nextNumber = await getNextInvoiceNumber(activeCompanyId, 'INV');
+      nextNumber = await getNextInvoiceNumber(activeCompanyId);
       recentActivity = await getActivityLogs(activeCompanyId, { limit: 5 });
 
       const finalized = await getInvoicesForCompany(activeCompanyId, {

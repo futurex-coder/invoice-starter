@@ -38,18 +38,18 @@ export default function SecurityPage() {
   return (
     <PageShell>
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        Account
+        Профил
       </h1>
       <AccountTabsNav />
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Password</CardTitle>
+          <CardTitle>Парола</CardTitle>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" action={passwordAction}>
             <div>
               <Label htmlFor="current-password" className="mb-2">
-                Current Password
+                Текуща парола
               </Label>
               <Input
                 id="current-password"
@@ -64,7 +64,7 @@ export default function SecurityPage() {
             </div>
             <div>
               <Label htmlFor="new-password" className="mb-2">
-                New Password
+                Нова парола
               </Label>
               <Input
                 id="new-password"
@@ -79,7 +79,7 @@ export default function SecurityPage() {
             </div>
             <div>
               <Label htmlFor="confirm-password" className="mb-2">
-                Confirm New Password
+                Потвърдете новата парола
               </Label>
               <Input
                 id="confirm-password"
@@ -105,12 +105,12 @@ export default function SecurityPage() {
               {isPasswordPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
+                  Обновяване...
                 </>
               ) : (
                 <>
                   <Lock className="mr-2 h-4 w-4" />
-                  Update Password
+                  Обнови паролата
                 </>
               )}
             </Button>
@@ -120,16 +120,16 @@ export default function SecurityPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Delete Account</CardTitle>
+          <CardTitle>Изтриване на профила</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-500 mb-4">
-            Account deletion is non-reversable. Please proceed with caution.
+            Изтриването на профила е необратимо. Моля, продължете внимателно.
           </p>
           <form action={deleteAction} className="space-y-4">
             <div>
               <Label htmlFor="delete-password" className="mb-2">
-                Confirm Password
+                Потвърдете паролата
               </Label>
               <Input
                 id="delete-password"
@@ -153,12 +153,12 @@ export default function SecurityPage() {
               {isDeletePending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  Изтриване...
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Account
+                  Изтрий профила
                 </>
               )}
             </Button>

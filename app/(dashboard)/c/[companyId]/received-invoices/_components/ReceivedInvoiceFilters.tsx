@@ -46,11 +46,11 @@ export function ReceivedInvoiceFilters({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Filters</CardTitle>
+        <CardTitle>Филтри</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-wrap items-end gap-4">
         <div className="w-full sm:w-44">
-          <Label htmlFor="status">Status</Label>
+          <Label htmlFor="status">Статус</Label>
           <Select
             value={filters.status ?? 'all'}
             onValueChange={(v) => {
@@ -64,15 +64,15 @@ export function ReceivedInvoiceFilters({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="confirmed">Confirmed</SelectItem>
-              <SelectItem value="discarded">Discarded</SelectItem>
+              <SelectItem value="all">Всички</SelectItem>
+              <SelectItem value="draft">Чернова</SelectItem>
+              <SelectItem value="confirmed">Потвърдена</SelectItem>
+              <SelectItem value="discarded">Отхвърлена</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="w-full sm:w-44">
-          <Label htmlFor="paymentStatus">Payment</Label>
+          <Label htmlFor="paymentStatus">Плащане</Label>
           <Select
             value={filters.paymentStatus ?? 'all'}
             onValueChange={(v) => {
@@ -91,15 +91,15 @@ export function ReceivedInvoiceFilters({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="unpaid">Unpaid</SelectItem>
-              <SelectItem value="partial">Partial</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="all">Всички</SelectItem>
+              <SelectItem value="unpaid">Неплатена</SelectItem>
+              <SelectItem value="partial">Частично</SelectItem>
+              <SelectItem value="paid">Платена</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="w-full sm:w-40">
-          <Label htmlFor="dateFrom">From date</Label>
+          <Label htmlFor="dateFrom">От дата</Label>
           <Input
             id="dateFrom"
             type="date"
@@ -111,7 +111,7 @@ export function ReceivedInvoiceFilters({
           />
         </div>
         <div className="w-full sm:w-40">
-          <Label htmlFor="dateTo">To date</Label>
+          <Label htmlFor="dateTo">До дата</Label>
           <Input
             id="dateTo"
             type="date"
@@ -123,11 +123,11 @@ export function ReceivedInvoiceFilters({
           />
         </div>
         <div className="w-full sm:w-56">
-          <Label htmlFor="search">Number / Supplier</Label>
+          <Label htmlFor="search">Номер / Доставчик</Label>
           <div className="mt-1 flex gap-2">
             <Input
               id="search"
-              placeholder="Search..."
+              placeholder="Търсене..."
               value={searchInput}
               onChange={(e) => onSearchInputChange(e.target.value)}
               onKeyDown={(e) => {
@@ -135,7 +135,7 @@ export function ReceivedInvoiceFilters({
               }}
             />
             <Button variant="outline" onClick={onSearchSubmit}>
-              Search
+              Търсене
             </Button>
           </div>
         </div>
@@ -147,7 +147,7 @@ export function ReceivedInvoiceFilters({
               onFiltersChange({ includeArchived: e.target.checked, page: 1 })
             }
           />
-          Include archived
+          Включи архивираните
         </label>
       </CardContent>
     </Card>

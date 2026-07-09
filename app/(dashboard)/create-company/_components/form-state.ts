@@ -1,9 +1,9 @@
 export const CURRENCIES = ['EUR', 'BGN', 'USD'] as const;
 
 export const PAYMENT_METHODS = [
-  { value: 'bank', label: 'Bank transfer' },
-  { value: 'cash', label: 'Cash' },
-  { value: 'card', label: 'Card' },
+  { value: 'bank', label: 'Банков път' },
+  { value: 'cash', label: 'В брой' },
+  { value: 'card', label: 'Карта' },
 ] as const;
 
 export type EikStatus = 'idle' | 'checking' | 'available' | 'taken';

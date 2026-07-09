@@ -5,7 +5,14 @@
  */
 
 import type { InvoiceDocument, LineItem, PartySnapshot } from './types';
-import { MONEY_PRECISION, QUANTITY_PRECISION } from './rules';
+import { QUANTITY_PRECISION } from './rules';
+import { EUR_BGN_FIXED, roundTo } from '@/lib/fx/convert';
+// Money formatting is defined once in the dependency-light @/lib/format so the
+// app chrome and the printed documents share one deterministic implementation.
+// Imported for use below and re-exported so existing `./formatter` consumers
+// keep working.
+import { formatMoney } from '@/lib/format';
+export { formatMoney };
 import {
   parsePartySnapshotStrict,
   parseInvoiceTotalsStrict,
@@ -23,22 +30,6 @@ import {
 export function formatInvoiceNumber(n: number | null | undefined): string {
   if (n === null || n === undefined) return '';
   return String(n).padStart(10, '0');
-}
-
-/**
- * Format a monetary amount with 2 decimals and optional thousands separator.
- */
-export function formatMoney(
-  amount: number,
-  options?: { thousandsSeparator?: string; decimalSeparator?: string }
-): string {
-  const sep = options?.thousandsSeparator ?? ' ';
-  const dec = options?.decimalSeparator ?? '.';
-  const fixed = Math.abs(amount).toFixed(MONEY_PRECISION);
-  const [intPart = '', decPart = ''] = fixed.split('.');
-  const withSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
-  const sign = amount < 0 ? '-' : '';
-  return `${sign}${withSep}${dec}${decPart}`;
 }
 
 /**
@@ -246,7 +237,6 @@ export function buildPrintModel(
   const recipient = partyToPrintParty(recipientSnap);
   const items = parseStoredLineItems(invoice.items);
   const totals = parseInvoiceTotalsStrict(invoice.totals);
-  const fxRate = Number(invoice.fxRate ?? 1);
   const currency = (invoice.currency ?? 'EUR').toUpperCase();
   const isEur = currency === 'EUR';
 
@@ -301,11 +291,15 @@ export function buildPrintModel(
     amountInWords: invoice.amountInWords?.trim() || null,
     paymentMethodLabel: PAYMENT_METHOD_LABELS[invoice.paymentMethod ?? ''] ?? (invoice.paymentMethod ?? 'Банков път'),
     createdBy,
-    currencyConversion: isEur && fxRate !== 1
+    // Transition-year courtesy: EUR invoices show the BGN equivalent at the
+    // FIXED euro-adoption rate (not the stored fxRate, which now means
+    // doc→base). Dual display is NOT legally required on invoices
+    // (ЗВЕРБ чл.15 ал.3 т.5) — this is informational only.
+    currencyConversion: isEur
       ? {
           amountEur: formatMoney(totals.grossAmount),
-          rate: fxRate,
-          amountBgn: formatMoney(totals.grossAmount * fxRate),
+          rate: EUR_BGN_FIXED,
+          amountBgn: formatMoney(roundTo(totals.grossAmount * EUR_BGN_FIXED, 2)),
         }
       : null,
     bankDetails,

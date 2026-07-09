@@ -33,13 +33,13 @@ export function BankDetailsCard({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Bank details</CardTitle>
+        <CardTitle>Банкови данни</CardTitle>
         <CardDescription>
-          Optional — used when payment method is &quot;bank&quot;
+          По желание — използва се, когато начинът на плащане е „Банков път“
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <FormField name="bankName" label="Bank name" errors={validationErrors}>
+        <FormField name="bankName" label="Банка" errors={validationErrors}>
           <Input
             value={bankName}
             onChange={(e) => onBankNameChange(e.target.value)}

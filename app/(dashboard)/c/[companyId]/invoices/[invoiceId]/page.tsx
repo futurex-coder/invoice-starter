@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getInvoice, finalizeInvoice, cancelInvoice, updateInvoicePaymentInfo } from '@/src/features/bulgarian-invoicing/actions';
+import { getInvoice, finalizeInvoice, cancelInvoice, deleteInvoice, updateInvoicePaymentInfo } from '@/src/features/bulgarian-invoicing/actions';
 import { formatDocTypeLabel, formatInvoiceNumber, formatDateBg, formatMoney } from '@/src/features/bulgarian-invoicing/formatter';
 import {
   parseInvoiceTotalsStrict,
@@ -25,7 +25,7 @@ import {
 } from '@/src/features/bulgarian-invoicing/parsers';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
 import { requireStringParam } from '@/lib/route-params';
-import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Trash2, Loader2 } from 'lucide-react';
 import { PageShell } from '@/components/page-shell';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert } from '@/components/ui/alert';
@@ -34,9 +34,19 @@ import { useActionSWR } from '@/lib/swr/use-action-swr';
 import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  issued: 'Issued',
-  cancelled: 'Cancelled',
+  draft: 'Чернова',
+  finalized: 'Издадена',
+  cancelled: 'Анулирана',
+};
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  bank: 'Банков път',
+  cash: 'В брой',
+  barter: 'Бартер',
+};
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  unpaid: 'Неплатена',
+  partial: 'Частично',
+  paid: 'Платена',
 };
 
 export default function InvoiceDetailPage() {
@@ -57,6 +67,7 @@ export default function InvoiceDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const { data: currentUser } = useCurrentUser();
 
   const error = actionError ?? (fetchError ? fetchError.message : null);
@@ -85,6 +96,19 @@ export default function InvoiceDetailPage() {
     if (res.data) mutate(res.data, { revalidate: false });
   };
 
+  const handleDeleteConfirmed = async () => {
+    setActionLoading(true);
+    setActionError(null);
+    const res = await deleteInvoice(id);
+    setActionLoading(false);
+    if (res.error) {
+      setActionError(res.error);
+      throw new Error(res.error);
+    }
+    // The document no longer exists — return to the list.
+    router.push(`/c/${companyId}/invoices`);
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -100,9 +124,9 @@ export default function InvoiceDetailPage() {
   if (error || !invoice) {
     return (
       <PageShell>
-        <p className="text-red-600">{error ?? 'Invoice not found'}</p>
+        <p className="text-red-600">{error ?? 'Фактурата не е намерена'}</p>
         <Button variant="outline" className="mt-4" asChild>
-          <Link href={`/c/${companyId}/invoices`}>Back to list</Link>
+          <Link href={`/c/${companyId}/invoices`}>Назад към списъка</Link>
         </Button>
       </PageShell>
     );
@@ -112,6 +136,8 @@ export default function InvoiceDetailPage() {
   const recipient = parsePartySnapshotStrict(invoice.recipientSnapshot);
   const isDraft = invoice.status === 'draft';
   const isCancelled = invoice.status === 'cancelled';
+  // EDIT-RULE: deletable until accounted (same lock as editing).
+  const isAccounted = invoice.accountingStatus === 'accounted';
 
   if (printMode) {
     return (
@@ -120,10 +146,10 @@ export default function InvoiceDetailPage() {
           <InvoicePrintPreview invoice={invoice} createdByName={currentUser?.name ?? currentUser?.email} />
         </div>
         <div className="mt-4 flex gap-2 no-print">
-          <Button variant="outline" onClick={() => router.back()}>Back</Button>
+          <Button variant="outline" onClick={() => router.back()}>Назад</Button>
           <Button onClick={handlePrint}>
             <Printer className="mr-2 h-4 w-4" />
-            Print
+            Печат
           </Button>
         </div>
       </div>
@@ -134,7 +160,7 @@ export default function InvoiceDetailPage() {
     <PageShell maxWidth="4xl" className="mx-auto">
       <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild aria-label="Back to invoices">
+          <Button variant="ghost" size="icon" asChild aria-label="Назад към фактурите">
             <Link href={`/c/${companyId}/invoices`}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
@@ -142,7 +168,7 @@ export default function InvoiceDetailPage() {
           <div>
             <h1 className="text-lg lg:text-2xl font-medium">
               {formatDocTypeLabel(invoice.docType)}
-              {invoice.number != null ? ` № ${formatInvoiceNumber(invoice.number)}` : ` (Draft #${invoice.id})`}
+              {invoice.number != null ? ` № ${formatInvoiceNumber(invoice.number)}` : ` (Чернова #${invoice.id})`}
             </h1>
             <p className="text-sm text-gray-500">
               {formatDateBg(invoice.issueDate)}
@@ -164,7 +190,7 @@ export default function InvoiceDetailPage() {
               <Button variant="outline" size="sm" asChild>
                 <Link href={`/c/${companyId}/invoices/new?edit=${invoice.id}`}>
                   <Pencil className="mr-2 h-4 w-4" />
-                  Edit draft
+                  Редактирай чернова
                 </Link>
               </Button>
               <Button
@@ -174,7 +200,7 @@ export default function InvoiceDetailPage() {
                 disabled={actionLoading}
               >
                 {actionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                Finalize
+                Издай
               </Button>
             </>
           )}
@@ -182,14 +208,26 @@ export default function InvoiceDetailPage() {
             <Button variant="outline" size="sm" asChild>
               <Link href={`/c/${companyId}/invoices/${invoice.id}?print=1`}>
                 <Printer className="mr-2 h-4 w-4" />
-                Print / Preview
+                Печат
               </Link>
             </Button>
           )}
           {!isDraft && !isCancelled && (
             <Button variant="outline" size="sm" onClick={() => setConfirmCancelOpen(true)} disabled={actionLoading}>
               <XCircle className="mr-2 h-4 w-4" />
-              Cancel invoice
+              Анулирай фактурата
+            </Button>
+          )}
+          {!isAccounted && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-red-600 hover:text-red-700"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={actionLoading}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Изтрий
             </Button>
           )}
         </div>
@@ -203,19 +241,19 @@ export default function InvoiceDetailPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Summary</CardTitle>
+          <CardTitle>Обобщение</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-600">Client</span>
+            <span className="text-gray-600">Клиент</span>
             <span>{recipient.legalName ?? '—'}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-600">Payment method</span>
-            <span>{invoice.paymentMethod}</span>
+            <span className="text-gray-600">Начин на плащане</span>
+            <span>{PAYMENT_METHOD_LABELS[invoice.paymentMethod ?? ''] ?? invoice.paymentMethod}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-600">Payment status</span>
+            <span className="text-gray-600">Статус на плащане</span>
             {!isCancelled ? (
               <Select
                 value={invoice.paymentStatus ?? 'unpaid'}
@@ -233,17 +271,17 @@ export default function InvoiceDetailPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unpaid">Unpaid</SelectItem>
-                  <SelectItem value="partial">Partial</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="unpaid">Неплатена</SelectItem>
+                  <SelectItem value="partial">Частично</SelectItem>
+                  <SelectItem value="paid">Платена</SelectItem>
                 </SelectContent>
               </Select>
             ) : (
-              <span>{invoice.paymentStatus}</span>
+              <span>{PAYMENT_STATUS_LABELS[invoice.paymentStatus ?? ''] ?? invoice.paymentStatus}</span>
             )}
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-600">Due date</span>
+            <span className="text-gray-600">Падеж</span>
             {!isCancelled ? (
               <input
                 type="date"
@@ -264,7 +302,7 @@ export default function InvoiceDetailPage() {
             )}
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-600">Total</span>
+            <span className="text-gray-600">Общо</span>
             <span className="font-medium">{formatMoney(totals.grossAmount)} {invoice.currency}</span>
           </div>
         </CardContent>
@@ -272,7 +310,7 @@ export default function InvoiceDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Print preview</CardTitle>
+          <CardTitle>Преглед за печат</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
@@ -281,7 +319,7 @@ export default function InvoiceDetailPage() {
           <div className="p-4 border-t flex justify-end">
             <Button variant="outline" onClick={handlePrint}>
               <Printer className="mr-2 h-4 w-4" />
-              Print
+              Печат
             </Button>
           </div>
         </CardContent>
@@ -290,16 +328,31 @@ export default function InvoiceDetailPage() {
       <ConfirmDialog
         open={confirmCancelOpen}
         onOpenChange={setConfirmCancelOpen}
-        title="Cancel invoice?"
+        title="Анулиране на фактура?"
         description={
           invoice.number != null
-            ? `Invoice № ${formatInvoiceNumber(invoice.number)} will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.`
-            : 'This invoice will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.'
+            ? `Фактура № ${formatInvoiceNumber(invoice.number)} ще бъде маркирана като анулирана. Това действие е необратимо — вместо това издайте кредитно известие, ако трябва да я сторнирате.`
+            : 'Тази фактура ще бъде маркирана като анулирана. Това действие е необратимо — вместо това издайте кредитно известие, ако трябва да я сторнирате.'
         }
-        confirmText="Cancel invoice"
-        cancelText="Keep invoice"
+        confirmText="Анулирай фактурата"
+        cancelText="Запази фактурата"
         variant="destructive"
         onConfirm={handleCancelConfirmed}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        title="Изтриване на документа?"
+        description={
+          invoice.number != null
+            ? `Документ № ${formatInvoiceNumber(invoice.number)} ще бъде изтрит за постоянно, заедно с редовете му. Това действие е необратимо. За издадена фактура обикновено е по-правилно да я анулирате.`
+            : 'Тази чернова ще бъде изтрита за постоянно. Това действие е необратимо.'
+        }
+        confirmText="Изтрий за постоянно"
+        cancelText="Отказ"
+        variant="destructive"
+        onConfirm={handleDeleteConfirmed}
       />
     </PageShell>
   );

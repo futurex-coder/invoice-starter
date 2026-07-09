@@ -15,7 +15,7 @@ export function CompanyHeader({ legalName, eik, role }: Props) {
         <h1 className="text-lg lg:text-2xl font-medium">{legalName}</h1>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs text-muted-foreground font-mono">
-            EIK: {eik}
+            ЕИК: {eik}
           </span>
           <span
             className={cn(
@@ -26,7 +26,7 @@ export function CompanyHeader({ legalName, eik, role }: Props) {
             )}
           >
             {role === 'owner' && <Crown className="h-3 w-3" />}
-            {role === 'owner' ? 'Owner' : 'Accountant'}
+            {role === 'owner' ? 'Собственик' : 'Счетоводител'}
           </span>
         </div>
       </div>

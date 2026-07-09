@@ -86,7 +86,7 @@ export function InvoiceDropzone({
       const parsed = ExtractApiResponseSchema.safeParse(json);
 
       if (!parsed.success) {
-        setError('Unexpected response from server');
+        setError('Неочакван отговор от сървъра');
         return;
       }
       if ('error' in parsed.data) {
@@ -96,7 +96,7 @@ export function InvoiceDropzone({
       setConfidence(parsed.data.data.overall_confidence);
       onExtracted(parsed.data.data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Network error');
+      setError(e instanceof Error ? e.message : 'Мрежова грешка');
     } finally {
       setAnalyzing(false);
     }
@@ -156,11 +156,11 @@ export function InvoiceDropzone({
         >
           <Upload className="h-6 w-6 text-gray-400" />
           <div className="text-sm">
-            <span className="font-medium text-gray-900">Click to upload</span>
-            <span className="text-gray-500"> or drag and drop</span>
+            <span className="font-medium text-gray-900">Натиснете за качване</span>
+            <span className="text-gray-500"> или пуснете файл тук</span>
           </div>
           <p className="text-xs text-gray-500">
-            PDF, JPG, PNG, WebP — invoice scan or photo
+            PDF, JPG, PNG, WebP — скан или снимка на фактура
           </p>
         </button>
       ) : (

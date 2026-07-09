@@ -74,8 +74,8 @@ export function EntityPicker<TItem, TKey extends string | number>({
   getLabel,
   getSecondary,
   getSearchText,
-  placeholder = 'Select…',
-  emptyMessage = 'No matches.',
+  placeholder = 'Изберете…',
+  emptyMessage = 'Няма съвпадения.',
   clearLabel = null,
   disabled = false,
   className,
@@ -143,7 +143,7 @@ export function EntityPicker<TItem, TKey extends string | number>({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search…"
+              placeholder="Търсене…"
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>

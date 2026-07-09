@@ -37,8 +37,8 @@ export default function VatPage() {
     getVatSummary({ months: 12 })
   );
 
-  const rows = data ?? [];
-  const hasMixedCurrencies = new Set(rows.map((r) => r.currency)).size > 1;
+  const rows = data?.rows ?? [];
+  const baseCurrency = data?.baseCurrency ?? 'EUR';
 
   return (
     <PageShell>
@@ -55,14 +55,6 @@ export default function VatPage() {
       </div>
 
       <ErrorAlert message={error ? error.message : null} className="mb-4" />
-
-      {hasMixedCurrencies && (
-        <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Документите са в повече от една валута — редовете са по валута;
-          сумите не се преизчисляват към базова валута (предстои с
-          валутната конверсия).
-        </p>
-      )}
 
       <Card>
         <CardHeader>
@@ -83,10 +75,9 @@ export default function VatPage() {
                 <DataTableHead
                   columns={[
                     { label: 'Месец' },
-                    { label: 'Валута' },
-                    { label: 'ДДС продажби', align: 'right' },
-                    { label: 'ДДС покупки', align: 'right' },
-                    { label: 'Нето за НАП', align: 'right' },
+                    { label: `ДДС продажби (${baseCurrency})`, align: 'right' },
+                    { label: `ДДС покупки (${baseCurrency})`, align: 'right' },
+                    { label: `Нето за НАП (${baseCurrency})`, align: 'right' },
                   ]}
                 />
                 <tbody>
@@ -94,7 +85,7 @@ export default function VatPage() {
                     const isCurrent = r.month === CURRENT_MONTH;
                     return (
                       <tr
-                        key={`${r.month}|${r.currency}`}
+                        key={r.month}
                         className={cn(
                           DATA_ROW_CLASS,
                           isCurrent && 'bg-amber-50/60'
@@ -108,7 +99,6 @@ export default function VatPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-sm">{r.currency}</td>
                         <td className="px-4 py-3 text-right text-sm">
                           {formatMoney(r.vatIssued)}
                         </td>

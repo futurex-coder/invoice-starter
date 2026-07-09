@@ -19,7 +19,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: Props) {
   return (
     <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200">
       <p className="text-sm text-gray-600">
-        Showing {from}–{to} of {total}
+        Показани {from}–{to} от {total}
       </p>
       <div className="flex gap-2">
         <Button
@@ -28,7 +28,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: Props) {
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
-          Previous
+          Назад
         </Button>
         <Button
           variant="outline"
@@ -36,7 +36,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: Props) {
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
         >
-          Next
+          Напред
         </Button>
       </div>
     </div>

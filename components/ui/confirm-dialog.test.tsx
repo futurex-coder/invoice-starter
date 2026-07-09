@@ -34,7 +34,7 @@ describe('ConfirmDialog', () => {
     expect(screen.getByText('Delete item?')).toBeInTheDocument();
     expect(screen.getByText('This cannot be undone.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Отказ' })).toBeInTheDocument();
   });
 
   it('calls onConfirm and closes on Delete', async () => {
@@ -54,7 +54,7 @@ describe('ConfirmDialog', () => {
     render(<Harness onConfirm={onConfirm} />);
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Отказ' }));
 
     expect(onConfirm).not.toHaveBeenCalled();
     expect(screen.queryByText('Delete item?')).not.toBeInTheDocument();

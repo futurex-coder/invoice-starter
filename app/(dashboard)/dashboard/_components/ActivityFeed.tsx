@@ -20,8 +20,8 @@ export function ActivityFeed({ activity, onlyOwn, loading, showToggle, onToggle 
     <Card className="mb-8">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Recent activity</CardTitle>
-          <CardDescription>{onlyOwn ? 'Your actions' : 'All member activity'}</CardDescription>
+          <CardTitle>Скорошна активност</CardTitle>
+          <CardDescription>{onlyOwn ? 'Вашите действия' : 'Активност на всички'}</CardDescription>
         </div>
         {showToggle && (
           <Button
@@ -38,7 +38,7 @@ export function ActivityFeed({ activity, onlyOwn, loading, showToggle, onToggle 
             ) : (
               <EyeOff className="h-3.5 w-3.5" />
             )}
-            {onlyOwn ? 'Show all activity' : 'Only my actions'}
+            {onlyOwn ? 'Покажи всички' : 'Само моите'}
           </Button>
         )}
       </CardHeader>
@@ -46,7 +46,7 @@ export function ActivityFeed({ activity, onlyOwn, loading, showToggle, onToggle 
         {activity.length === 0 ? (
           <div className="flex flex-col items-center py-8 text-center text-muted-foreground">
             <Activity className="h-8 w-8 mb-2 text-gray-300" />
-            <p className="text-sm">No recent activity</p>
+            <p className="text-sm">Няма скорошна активност</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -57,7 +57,7 @@ export function ActivityFeed({ activity, onlyOwn, loading, showToggle, onToggle 
                 </div>
                 <div className="flex-1 min-w-0">
                   <p>
-                    <span className="font-medium">{a.userName || 'Unknown'}</span>{' '}
+                    <span className="font-medium">{a.userName || 'Неизвестен'}</span>{' '}
                     <span className="text-muted-foreground">
                       {formatActivityAction(a.action)}
                     </span>

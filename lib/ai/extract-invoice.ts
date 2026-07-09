@@ -17,7 +17,10 @@ export const ALLOWED_EXTRACT_MIME_TYPES = [
 
 export type AllowedExtractMimeType = (typeof ALLOWED_EXTRACT_MIME_TYPES)[number];
 
-export const EXTRACTION_MODEL_ID = 'claude-sonnet-4-20250514';
+// claude-sonnet-4-20250514 was retired (404 not_found on the API). Use the
+// current Sonnet 4.x — vision-capable and cost-appropriate for high-volume
+// invoice extraction.
+export const EXTRACTION_MODEL_ID = 'claude-sonnet-4-6';
 
 export function isAllowedExtractMimeType(
   t: string

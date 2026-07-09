@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import {
   listInvoices,
   cancelInvoice,
+  uncancelInvoice,
+  deleteInvoice,
   createCreditNoteFromInvoice,
   createDebitNoteFromInvoice,
   updateInvoicePaymentInfo,
@@ -95,6 +97,7 @@ export default function InvoicesPage() {
   const result = list.result;
 
   const [confirmCancel, setConfirmCancel] = useState<{ id: number; label: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; label: string } | null>(null);
 
   const handleFiltersChange = (patch: Partial<ListInvoicesFilters>) => {
     if ('status' in patch) list.setFilter('status', patch.status ?? 'all');
@@ -118,6 +121,24 @@ export default function InvoicesPage() {
   const handleCancelConfirmed = async () => {
     if (!confirmCancel) return;
     await list.runMutation(() => cancelInvoice(confirmCancel.id));
+  };
+
+  // EDIT-RULE: cancel is reversible.
+  const handleUncancel = (id: number) => {
+    void list.runMutation(() => uncancelInvoice(id));
+  };
+
+  const handleDeleteClick = (invoice: Invoice) => {
+    const label =
+      invoice.number != null
+        ? `№ ${formatInvoiceNumber(invoice.number)}`
+        : `#${invoice.id}`;
+    setConfirmDelete({ id: invoice.id, label });
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDelete) return;
+    await list.runMutation(() => deleteInvoice(confirmDelete.id));
   };
 
   const [pendingId, setPendingId] = useState<number | null>(null);
@@ -161,12 +182,12 @@ export default function InvoicesPage() {
   return (
     <PageShell>
       <ListPageHeader
-        title="Invoices"
+        title="Фактури"
         action={
           <Button asChild className="bg-primary hover:bg-primary/90">
             <Link href={`/c/${companyId}/invoices/new`}>
               <Plus className="mr-2 h-4 w-4" />
-              New invoice
+              Нова фактура
             </Link>
           </Button>
         }
@@ -185,10 +206,10 @@ export default function InvoicesPage() {
       <ErrorAlert message={list.error} className="mb-4" />
 
       <ListCard
-        title="Invoice list"
+        title="Списък с фактури"
         loading={list.loading}
         isEmpty={!result?.invoices.length}
-        emptyMessage='No invoices found. Create one with "New invoice".'
+        emptyMessage='Няма намерени фактури. Създайте с „Нова фактура“.'
         page={list.page}
         pageSize={list.pageSize}
         total={result?.total}
@@ -202,9 +223,11 @@ export default function InvoicesPage() {
           onEdit={(id) => router.push(`/c/${companyId}/invoices/new?edit=${id}`)}
           onPrint={(id) => router.push(`/c/${companyId}/invoices/${id}?print=1`)}
           onCancel={handleCancelClick}
+          onUncancel={handleUncancel}
           onCopy={(id) => router.push(`/c/${companyId}/invoices/new?copy=${id}`)}
           onCreditNote={handleCreditNote}
           onDebitNote={handleDebitNote}
+          onDelete={handleDeleteClick}
           onMarkPayment={handleMarkPayment}
           onMarkAccounting={handleMarkAccounting}
         />
@@ -213,16 +236,31 @@ export default function InvoicesPage() {
       <ConfirmDialog
         open={confirmCancel !== null}
         onOpenChange={(open) => !open && setConfirmCancel(null)}
-        title="Cancel invoice?"
+        title="Анулиране на фактура?"
         description={
           confirmCancel
-            ? `Invoice ${confirmCancel.label} will be marked as cancelled. This cannot be undone — issue a credit note instead if you need to reverse it.`
+            ? `Фактура ${confirmCancel.label} ще бъде маркирана като анулирана. Това действие е необратимо — вместо това издайте кредитно известие, ако трябва да я сторнирате.`
             : undefined
         }
-        confirmText="Cancel invoice"
-        cancelText="Keep invoice"
+        confirmText="Анулирай фактурата"
+        cancelText="Запази фактурата"
         variant="destructive"
         onConfirm={handleCancelConfirmed}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        title="Изтриване на документа?"
+        description={
+          confirmDelete
+            ? `Документ ${confirmDelete.label} ще бъде изтрит за постоянно, заедно с редовете му. Това действие е необратимо. За издадена фактура обикновено е по-правилно да я анулирате.`
+            : undefined
+        }
+        confirmText="Изтрий за постоянно"
+        cancelText="Отказ"
+        variant="destructive"
+        onConfirm={handleDeleteConfirmed}
       />
     </PageShell>
   );

@@ -33,25 +33,25 @@ function AccountForm({
     <>
       <div>
         <Label htmlFor="name" className="mb-2">
-          Name
+          Име
         </Label>
         <Input
           id="name"
           name="name"
-          placeholder="Enter your name"
+          placeholder="Въведете вашето име"
           defaultValue={state.name || nameValue}
           required
         />
       </div>
       <div>
         <Label htmlFor="email" className="mb-2">
-          Email
+          Имейл
         </Label>
         <Input
           id="email"
           name="email"
           type="email"
-          placeholder="Enter your email"
+          placeholder="Въведете вашия имейл"
           defaultValue={emailValue}
           required
         />
@@ -80,13 +80,13 @@ export default function GeneralPage() {
   return (
     <PageShell>
       <h1 className="text-lg lg:text-2xl font-medium text-gray-900 mb-6">
-        Account
+        Профил
       </h1>
       <AccountTabsNav />
 
       <Card>
         <CardHeader>
-          <CardTitle>Account Information</CardTitle>
+          <CardTitle>Информация за профила</CardTitle>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" action={formAction}>
@@ -107,10 +107,10 @@ export default function GeneralPage() {
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
+                  Записване...
                 </>
               ) : (
-                'Save Changes'
+                'Запази промените'
               )}
             </Button>
           </form>

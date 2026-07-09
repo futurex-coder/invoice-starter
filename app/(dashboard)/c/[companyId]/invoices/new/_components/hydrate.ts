@@ -92,6 +92,8 @@ export function invoiceToFormState(
     recipient,
     selectedPartnerId,
     docType: inv.docType,
+    // Manual number applies only at creation; the number is fixed once assigned.
+    manualNumber: '',
     issueDate: inv.issueDate,
     supplyDate: inv.supplyDate ?? inv.issueDate,
     language: inv.language ?? 'bg',

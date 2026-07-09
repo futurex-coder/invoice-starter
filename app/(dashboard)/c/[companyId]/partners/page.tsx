@@ -191,11 +191,11 @@ export default function PartnersPage() {
   return (
     <PageShell>
       <ListPageHeader
-        title="Partners"
+        title="Контрагенти"
         action={
           <Button className="bg-primary hover:bg-primary/90" onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" />
-            Add partner
+            Добави контрагент
           </Button>
         }
       />
@@ -224,17 +224,17 @@ export default function PartnersPage() {
             value={list.searchInput}
             onChange={list.setSearchInput}
             onSubmit={list.commitSearch}
-            placeholder="Search by name or EIK..."
+            placeholder="Търсене по име или ЕИК..."
           />
         </CardContent>
       </Card>
 
       <ListCard
-        title="Partner list"
+        title="Списък с контрагенти"
         count={total}
         loading={list.loading}
         isEmpty={!items.length}
-        emptyMessage='No partners found. Add one with "Add partner".'
+        emptyMessage='Няма намерени контрагенти. Добавете с „Добави контрагент“.'
         page={list.page}
         pageSize={list.pageSize}
         total={total}
@@ -250,13 +250,13 @@ export default function PartnersPage() {
       <ConfirmDialog
         open={confirmDelete !== null}
         onOpenChange={(open) => !open && setConfirmDelete(null)}
-        title="Delete partner?"
+        title="Изтриване на контрагент?"
         description={
           confirmDelete
-            ? `${confirmDelete.name} will be permanently removed. This cannot be undone.`
+            ? `${confirmDelete.name} ще бъде премахнат завинаги. Това действие е необратимо.`
             : undefined
         }
-        confirmText="Delete"
+        confirmText="Изтрий"
         variant="destructive"
         onConfirm={handleDeleteConfirmed}
       />

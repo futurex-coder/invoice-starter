@@ -13,6 +13,7 @@
  *   F  debit note  finalized  unpaid     50   (against A)
  *   G  invoice     draft               9999   (must never count)
  *   H  invoice     cancelled           7777   (must never count)
+ *   I  proforma    finalized  paid     5000   (must never count — not a tax doc)
  *
  * Expected:  collected = 1000 − 200                = 800
  *            outstanding = 600 + 300 − 150 + 50    = 800
@@ -102,8 +103,9 @@ beforeAll(async () => {
     items: [],
   };
 
-  // Numbering trigger: invoices strictly increasing per (company, series);
-  // notes inherit the parent's series + number.
+  // NUM-1 numbering trigger: every document takes a unique, strictly-increasing
+  // number in one per-company sequence (notes no longer share the parent's).
+  // Insert order below is 1..8 so each insert satisfies the trigger.
   const [a] = await db
     .insert(invoices)
     .values({
@@ -143,7 +145,7 @@ beforeAll(async () => {
     docType: 'credit_note',
     status: 'finalized',
     paymentStatus: 'paid',
-    number: a.number,
+    number: 4,
     referencedInvoiceId: a.id,
     totals: gross(200),
   });
@@ -152,7 +154,7 @@ beforeAll(async () => {
     docType: 'credit_note',
     status: 'finalized',
     paymentStatus: 'unpaid',
-    number: b.number,
+    number: 5,
     referencedInvoiceId: b.id,
     totals: gross(150),
   });
@@ -161,7 +163,7 @@ beforeAll(async () => {
     docType: 'debit_note',
     status: 'finalized',
     paymentStatus: 'unpaid',
-    number: a.number,
+    number: 6,
     referencedInvoiceId: a.id,
     totals: gross(50),
   });
@@ -171,7 +173,7 @@ beforeAll(async () => {
     docType: 'invoice',
     status: 'draft',
     paymentStatus: 'unpaid',
-    number: 4,
+    number: 7,
     totals: gross(9999),
   });
   await db.insert(invoices).values({
@@ -179,8 +181,30 @@ beforeAll(async () => {
     docType: 'invoice',
     status: 'cancelled',
     paymentStatus: 'unpaid',
-    number: 5,
+    number: 8,
     totals: gross(7777),
+  });
+  // PROF-1: a finalized, paid proforma must NOT count anywhere (not a tax doc).
+  await db.insert(invoices).values({
+    ...base,
+    docType: 'proforma',
+    series: 'PRF',
+    status: 'finalized',
+    paymentStatus: 'paid',
+    number: 9,
+    totals: gross(5000),
+  });
+  // GEN-1: a paid BGN invoice must be CONVERTED to the EUR base via its frozen
+  // fxRate (1955.83 BGN × 0.511292 ≈ 1000 EUR), not summed raw.
+  await db.insert(invoices).values({
+    ...base,
+    docType: 'invoice',
+    currency: 'BGN',
+    fxRate: '0.511292',
+    status: 'finalized',
+    paymentStatus: 'paid',
+    number: 10,
+    totals: gross(1955.83),
   });
 }, 60_000);
 
@@ -196,14 +220,15 @@ describe('AGG-1 money-aggregation rules (real DB)', () => {
     expect(co).toBeDefined();
     if (!co) return;
 
-    // collected: 1000 (paid invoice) − 200 (paid CN)
-    expect(co.revenue).toBe(800);
+    // collected: 1000 (paid EUR invoice) − 200 (paid CN) + ~1000 (paid BGN
+    // invoice converted to EUR base) = ~1800
+    expect(co.revenue).toBeCloseTo(1800, 1);
     // outstanding: 600 (unpaid) + 300 (partial) − 150 (unpaid CN) + 50 (DN)
     expect(co.outstanding).toBe(800);
     // overdue: unpaid B + partial C — partial no longer vanishes
     expect(co.overdueCount).toBe(2);
 
-    // drafts + cancelled never count anywhere
-    expect(co.revenue + co.outstanding).toBe(1600);
+    // drafts + cancelled + proforma never count; BGN converted, not raw
+    expect(co.revenue + co.outstanding).toBeCloseTo(2600, 1);
   });
 });

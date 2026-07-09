@@ -48,14 +48,14 @@ async function compressImage(file: File): Promise<File> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onerror = () => reject(new Error('Файлът не можа да бъде прочетен.'));
     reader.readAsDataURL(file);
   });
 
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error('Failed to decode image'));
+    el.onerror = () => reject(new Error('Изображението не можа да бъде разчетено.'));
     el.src = dataUrl;
   });
 
@@ -68,13 +68,13 @@ async function compressImage(file: File): Promise<File> {
   canvas.width = targetW;
   canvas.height = targetH;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D context unavailable');
+  if (!ctx) throw new Error('Обработката на изображението е неуспешна.');
   ctx.drawImage(img, 0, 0, targetW, targetH);
 
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob((b) => resolve(b), 'image/webp', COMPRESS_QUALITY);
   });
-  if (!blob) throw new Error('Compression failed');
+  if (!blob) throw new Error('Компресията е неуспешна.');
 
   // If compression somehow makes it bigger, keep the original.
   if (blob.size >= file.size) return file;
@@ -129,7 +129,7 @@ export function ReceivedInvoiceUploader({ className, onAllUploaded }: Props) {
           updateItem(queued.id, {
             state: {
               phase: 'error',
-              message: 'File still exceeds 10 MB after compression',
+              message: 'Файлът все още надвишава 10 MB след компресия.',
             },
           });
           return null;
@@ -150,7 +150,7 @@ export function ReceivedInvoiceUploader({ className, onAllUploaded }: Props) {
           const err =
             isUploadResponse(json) && typeof json.error === 'string'
               ? json.error
-              : `Upload failed (${res.status})`;
+              : `Качването е неуспешно (${res.status})`;
           updateItem(queued.id, { state: { phase: 'error', message: err } });
           return null;
         }
@@ -161,7 +161,7 @@ export function ReceivedInvoiceUploader({ className, onAllUploaded }: Props) {
           typeof json.data.id !== 'number'
         ) {
           updateItem(queued.id, {
-            state: { phase: 'error', message: 'Unexpected server response' },
+            state: { phase: 'error', message: 'Неочакван отговор от сървъра.' },
           });
           return null;
         }
@@ -177,7 +177,7 @@ export function ReceivedInvoiceUploader({ className, onAllUploaded }: Props) {
         updateItem(queued.id, {
           state: {
             phase: 'error',
-            message: e instanceof Error ? e.message : 'Network error',
+            message: e instanceof Error ? e.message : 'Мрежова грешка.',
           },
         });
         return null;
@@ -204,12 +204,10 @@ export function ReceivedInvoiceUploader({ className, onAllUploaded }: Props) {
       setItems((prev) => [...prev, ...queued]);
       setBusy(true);
 
-      // Process serially — keeps server load predictable for the AI extract call.
-      const uploaded: UploadedItem[] = [];
-      for (const q of queued) {
-        const result = await processOne(q);
-        if (result) uploaded.push(result);
-      }
+      // ASYNC-SCAN: uploads are store-only + fast now (no AI call here), so run
+      // them in parallel. Analysis is kicked off later, from the list page.
+      const results = await Promise.all(queued.map((q) => processOne(q)));
+      const uploaded = results.filter((r): r is UploadedItem => r !== null);
 
       setBusy(false);
       if (uploaded.length > 0) onAllUploaded?.(uploaded);
@@ -268,11 +266,11 @@ export function ReceivedInvoiceUploader({ className, onAllUploaded }: Props) {
         >
           <Upload className="h-7 w-7 text-gray-400" />
           <div className="text-sm">
-            <span className="font-medium text-gray-900">Click to upload</span>
-            <span className="text-gray-500"> or drag and drop</span>
+            <span className="font-medium text-gray-900">Кликни за качване</span>
+            <span className="text-gray-500"> или плъзни и пусни</span>
           </div>
           <p className="text-xs text-gray-500">
-            PDF, JPG, PNG, WebP — up to 10 MB each. Multiple files supported.
+            PDF, JPG, PNG, WebP — до 10 MB всеки. Поддържат се няколко файла.
           </p>
         </button>
       </div>
@@ -310,23 +308,23 @@ function UploaderRow({
         <p className="text-xs text-gray-500">{formatBytes(item.file.size)}</p>
       </div>
       <div className="text-xs">
-        {phase === 'queued' && <span className="text-gray-500">Queued</span>}
+        {phase === 'queued' && <span className="text-gray-500">На опашка</span>}
         {phase === 'compressing' && (
           <span className="inline-flex items-center gap-1 text-gray-600">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Compressing
+            Компресиране
           </span>
         )}
         {phase === 'uploading' && (
           <span className="inline-flex items-center gap-1 text-gray-600">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Analyzing
+            Качване
           </span>
         )}
         {phase === 'done' && (
           <span className="inline-flex items-center gap-1 text-green-700">
             <CheckCircle2 className="h-3 w-3" />
-            Ready to review
+            Качено
           </span>
         )}
         {phase === 'error' && (
@@ -340,7 +338,7 @@ function UploaderRow({
           type="button"
           onClick={onRemove}
           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-          aria-label="Remove"
+          aria-label="Премахни"
         >
           <X className="h-3.5 w-3.5" />
         </button>

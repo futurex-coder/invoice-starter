@@ -39,24 +39,24 @@ export default function CompanyScopeError({
   return (
     <PageShell>
       <Alert variant="error" className="mb-4">
-        <AlertTitle>Couldn&apos;t load this page.</AlertTitle>
+        <AlertTitle>Страницата не можа да се зареди.</AlertTitle>
         <AlertDescription>
           {error.message ||
-            'An unexpected error occurred while loading data for this company.'}
+            'Възникна неочаквана грешка при зареждането на данните за тази фирма.'}
           {error.digest && (
             <span className="mt-2 block font-mono text-xs opacity-70">
-              ref: {error.digest}
+              реф: {error.digest}
             </span>
           )}
         </AlertDescription>
       </Alert>
       <div className="flex flex-wrap gap-2">
-        <Button onClick={reset}>Try again</Button>
+        <Button onClick={reset}>Опитай отново</Button>
         <Button variant="outline" asChild>
-          <Link href={`/c/${companyId}/dashboard`}>Company dashboard</Link>
+          <Link href={`/c/${companyId}/dashboard`}>Табло на фирмата</Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link href="/dashboard">Switch company</Link>
+          <Link href="/dashboard">Смени фирмата</Link>
         </Button>
       </div>
     </PageShell>

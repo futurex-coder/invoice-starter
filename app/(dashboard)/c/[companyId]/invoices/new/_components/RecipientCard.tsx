@@ -26,11 +26,11 @@ export function RecipientCard({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Получател (Recipient)</CardTitle>
+        <CardTitle>Получател</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <Label htmlFor="partner-picker">Select partner (optional)</Label>
+          <Label htmlFor="partner-picker">Изберете контрагент (по желание)</Label>
           <EntityPicker
             id="partner-picker"
             className="mt-1"
@@ -39,67 +39,67 @@ export function RecipientCard({
             onChange={(v) => onPartnerSelect(v ?? '')}
             getKey={(p) => p.id}
             getLabel={(p) => p.name}
-            getSecondary={(p) => `EIK ${p.eik}`}
+            getSecondary={(p) => `ЕИК ${p.eik}`}
             getSearchText={(p) => `${p.name} ${p.eik}`}
-            placeholder="— Manual entry —"
-            clearLabel="— Manual entry —"
-            emptyMessage="No partners match"
+            placeholder="— Ръчно въвеждане —"
+            clearLabel="— Ръчно въвеждане —"
+            emptyMessage="Няма съвпадащи контрагенти"
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="recipientName">Name *</Label>
+            <Label htmlFor="recipientName">Наименование *</Label>
             <Input
               id="recipientName"
               value={recipient.name}
               onChange={(e) => onRecipientChange({ name: e.target.value })}
-              placeholder="Legal name"
+              placeholder="Наименование"
             />
           </div>
           <div>
-            <Label htmlFor="recipientEik">EIK / EGN *</Label>
+            <Label htmlFor="recipientEik">ЕИК / ЕГН *</Label>
             <div className="flex gap-2">
               <Input
                 id="recipientEik"
                 value={recipient.eik}
                 onChange={(e) => onRecipientChange({ eik: e.target.value })}
-                placeholder="9 or 10 digits"
+                placeholder="9 или 10 цифри"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 disabled
-                title="Fetch by EIK (coming soon)"
+                title="Извличане по ЕИК (очаквайте скоро)"
               >
-                Fetch by EIK
+                Извлечи по ЕИК
               </Button>
             </div>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="recipientCity">City *</Label>
+            <Label htmlFor="recipientCity">Град *</Label>
             <Input
               id="recipientCity"
               value={recipient.city}
               onChange={(e) => onRecipientChange({ city: e.target.value })}
-              placeholder="City"
+              placeholder="Град"
             />
           </div>
           <div>
-            <Label htmlFor="recipientStreet">Street *</Label>
+            <Label htmlFor="recipientStreet">Улица *</Label>
             <Input
               id="recipientStreet"
               value={recipient.street}
               onChange={(e) => onRecipientChange({ street: e.target.value })}
-              placeholder="Street address"
+              placeholder="Адрес"
             />
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <Label htmlFor="recipientPostCode">Post code</Label>
+            <Label htmlFor="recipientPostCode">Пощенски код</Label>
             <Input
               id="recipientPostCode"
               value={recipient.postCode}
@@ -108,7 +108,7 @@ export function RecipientCard({
             />
           </div>
           <div>
-            <Label htmlFor="recipientCountry">Country</Label>
+            <Label htmlFor="recipientCountry">Държава</Label>
             <Input
               id="recipientCountry"
               value={recipient.country}
@@ -118,17 +118,17 @@ export function RecipientCard({
             />
           </div>
           <div>
-            <Label htmlFor="recipientMol">MOL</Label>
+            <Label htmlFor="recipientMol">МОЛ</Label>
             <Input
               id="recipientMol"
               value={recipient.mol}
               onChange={(e) => onRecipientChange({ mol: e.target.value })}
-              placeholder="Representative"
+              placeholder="Представител"
             />
           </div>
         </div>
         <div>
-          <Label htmlFor="recipientVat">VAT number (optional)</Label>
+          <Label htmlFor="recipientVat">ДДС номер (по желание)</Label>
           <Input
             id="recipientVat"
             value={recipient.vatNumber}

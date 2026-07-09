@@ -12,7 +12,7 @@ interface Props {
 export function CompaniesGrid({ companies }: Props) {
   return (
     <>
-      <h2 className="text-base font-medium mb-3">Your companies</h2>
+      <h2 className="text-base font-medium mb-3">Вашите фирми</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {companies.map((c) => (
           <Link key={c.companyId} href={`/c/${c.companyId}/invoices`} className="group">
@@ -31,7 +31,7 @@ export function CompaniesGrid({ companies }: Props) {
                     )}
                   >
                     {c.role === 'owner' && <Crown className="h-3 w-3" />}
-                    {c.role === 'owner' ? 'Owner' : 'Accountant'}
+                    {c.role === 'owner' ? 'Собственик' : 'Счетоводител'}
                   </span>
                 </div>
                 <p className="text-[11px] text-muted-foreground">{c.currency}</p>
@@ -39,19 +39,19 @@ export function CompaniesGrid({ companies }: Props) {
               <CardContent>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <p className="text-xs text-muted-foreground">Revenue</p>
+                    <p className="text-xs text-muted-foreground">Приходи</p>
                     <p className="text-sm font-semibold text-green-700">
                       {formatMoney(c.revenue)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Outstanding</p>
+                    <p className="text-xs text-muted-foreground">Вземания</p>
                     <p className="text-sm font-semibold text-amber-700">
                       {formatMoney(c.outstanding)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Overdue</p>
+                    <p className="text-xs text-muted-foreground">Просрочени</p>
                     <p
                       className={cn(
                         'text-sm font-semibold',
@@ -64,19 +64,19 @@ export function CompaniesGrid({ companies }: Props) {
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2 border-t pt-2 text-center">
                   <div>
-                    <p className="text-xs text-muted-foreground">Expenses</p>
+                    <p className="text-xs text-muted-foreground">Разходи</p>
                     <p className="text-sm font-semibold text-purple-700">
                       {formatMoney(c.expensesPaid + c.expensesOutstanding)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Unpaid</p>
+                    <p className="text-xs text-muted-foreground">Неплатени</p>
                     <p className="text-sm font-semibold text-rose-700">
                       {formatMoney(c.expensesOutstanding)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">To review</p>
+                    <p className="text-xs text-muted-foreground">За преглед</p>
                     <p
                       className={cn(
                         'text-sm font-semibold',
@@ -90,7 +90,7 @@ export function CompaniesGrid({ companies }: Props) {
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-end text-xs text-muted-foreground group-hover:text-primary transition-colors">
-                  View invoices
+                  Виж фактурите
                   <ArrowRight className="ml-1 h-3 w-3" />
                 </div>
               </CardContent>

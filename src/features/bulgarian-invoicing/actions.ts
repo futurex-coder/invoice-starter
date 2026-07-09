@@ -74,6 +74,14 @@ export interface LineItemWithArticle extends LineItemInput {
 interface CreateInvoiceDraftInput {
   docType: DocType;
   series?: string;
+  /**
+   * Optional manual document number (regular invoices only). When omitted the
+   * next number in the company sequence is auto-allocated. When set it must be
+   * greater than the company's current highest number — the DB trigger enforces
+   * this (strictly increasing, no duplicates), so manual entry can only jump the
+   * sequence forward, e.g. to continue an external series.
+   */
+  number?: number;
   issueDate: string;
   supplyDate?: string | null;
   currency?: string;
@@ -192,14 +200,19 @@ async function runWithDomainValidation<T>(
 // Sequence allocator (atomic, row-locked)
 // ---------------------------------------------------------------------------
 
+// NUM-1: unified per-company numbering. Every document (invoice, proforma,
+// credit/debit note) draws from ONE per-company counter, tracked under the '*'
+// sentinel series (decoupled from the document's display series). The DB
+// trigger enforces the same rule and keeps this row in sync.
+const UNIFIED_SEQUENCE_KEY = '*';
+
 async function allocateNumber(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  companyId: number,
-  series: string
+  companyId: number
 ): Promise<number> {
   const [row] = await tx.execute<{ allocated: number }>(sql`
     INSERT INTO invoice_sequences (company_id, series, next_number, updated_at)
-    VALUES (${companyId}, ${series}, 2, NOW())
+    VALUES (${companyId}, ${UNIFIED_SEQUENCE_KEY}, 2, NOW())
     ON CONFLICT (company_id, series)
     DO UPDATE SET
       next_number = invoice_sequences.next_number + 1,
@@ -207,6 +220,36 @@ async function allocateNumber(
     RETURNING next_number - 1 AS allocated
   `);
   return Number(row?.['allocated']);
+}
+
+// ---------------------------------------------------------------------------
+// GEN-1 — freeze the doc→base FX rate at issue time
+// ---------------------------------------------------------------------------
+
+/**
+ * The frozen `fxRate` to stamp on a document being finalized: the multiplier
+ * such that `amount_base = amount_doc × fxRate`, where base = the company's
+ * currency. Returns '1' when the doc is already in the base currency. BGN↔EUR
+ * uses the fixed euro-adoption rate; real foreign currencies use ECB (cached,
+ * with a safe fallback) — see `lib/fx`.
+ */
+async function frozenFxRate(
+  companyId: number,
+  docCurrency: string
+): Promise<string> {
+  const [c] = await db
+    .select({ base: companies.defaultCurrency })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  const base = c?.base ?? 'EUR';
+  if (docCurrency === base) return '1';
+  // Lazy import: `lib/fx/rates` is server-only (ECB fetch); loading it only on
+  // the non-base path keeps it out of the module graph for unit tests that
+  // import these actions (which only ever exercise same-currency finalizes).
+  const { getRateToBase } = await import('@/lib/fx/rates');
+  const rate = await getRateToBase(docCurrency, base);
+  return String(rate);
 }
 
 // ---------------------------------------------------------------------------
@@ -418,6 +461,25 @@ export async function createInvoiceDraft(
     const recipientSnapshot = recipientInputToSnapshot(input.recipient);
 
     const series = input.series ?? DEFAULT_SERIES[input.docType];
+
+    // Manual document number (regular invoices only). Basic shape is checked
+    // here; the "> current max" rule is enforced in the transaction + the DB
+    // trigger so it stays race-safe.
+    let manualNumber: number | null = null;
+    if (input.number !== undefined && input.number !== null) {
+      if (input.docType !== 'invoice') {
+        throw new Error(
+          'Ръчен номер може да се задава само на фактури, не на известия или проформи.'
+        );
+      }
+      if (!Number.isInteger(input.number) || input.number <= 0) {
+        throw new Error(
+          'Номерът на фактурата трябва да е цяло положително число.'
+        );
+      }
+      manualNumber = input.number;
+    }
+
     const calc = calculateInvoice(input.lineItems);
     const currency = input.currency ?? 'EUR';
     const words =
@@ -480,8 +542,31 @@ export async function createInvoiceDraft(
       input.lineItems.map((l) => resolveArticle(companyId, l, currency))
     );
 
+    // GEN-1: freeze the doc→base rate only when issuing now; a plain draft
+    // gets '1' and is stamped at its own finalize.
+    const fxRate = input.finalizeImmediately
+      ? await frozenFxRate(companyId, currency)
+      : '1';
+
     const created = await db.transaction(async (tx) => {
-      const allocatedNumber = await allocateNumber(tx, companyId, series);
+      let allocatedNumber: number;
+      if (manualNumber !== null) {
+        // Must be above the company's current highest number (the DB trigger is
+        // the final guard; this gives a clean message before hitting it).
+        const maxRows = await tx.execute<{ max: number }>(sql`
+          SELECT COALESCE(MAX(number), 0) AS max
+          FROM invoices WHERE company_id = ${companyId}
+        `);
+        const currentMax = Number(maxRows[0]?.['max'] ?? 0);
+        if (manualNumber <= currentMax) {
+          throw new Error(
+            `Номер ${manualNumber} е зает или по-малък от последния (${currentMax}). Изберете по-голям номер.`
+          );
+        }
+        allocatedNumber = manualNumber;
+      } else {
+        allocatedNumber = await allocateNumber(tx, companyId);
+      }
 
       const [row] = await tx
         .insert(invoices)
@@ -496,7 +581,7 @@ export async function createInvoiceDraft(
           issueDate: input.issueDate,
           supplyDate: input.supplyDate ?? null,
           currency,
-          fxRate: String(input.fxRate ?? 1),
+          fxRate,
           supplierSnapshot: supplier,
           recipientSnapshot: recipientSnapshot,
           items: calc.items,
@@ -555,8 +640,17 @@ export async function updateInvoiceDraft(
     if (!existing) {
       throw new Error('Invoice not found');
     }
-    if (existing.status !== 'draft') {
-      throw new Error('Only draft invoices can be updated');
+    // EDIT-RULE (D-EDIT): an invoice is freely editable until it is marked
+    // `accounted`; then it locks. Cancelled invoices must be uncancelled first
+    // (there's nothing meaningful to edit while void). Draft + finalized (not
+    // accounted) are both editable; the number and status are preserved.
+    if (existing.accountingStatus === 'accounted') {
+      throw new Error(
+        'This invoice is marked accounted and is locked. Set it back to pending accounting to edit it.'
+      );
+    }
+    if (existing.status === 'cancelled') {
+      throw new Error('Uncancel this invoice before editing it.');
     }
 
     const supplier = input.supplier ?? parsePartySnapshotStrict(existing.supplierSnapshot);
@@ -578,9 +672,11 @@ export async function updateInvoiceDraft(
 
     const doc: InvoiceDocument = {
       docType: isDocType(existing.docType) ? existing.docType : 'invoice',
-      status: 'draft',
+      // Validate against the invoice's ACTUAL status (a finalized edit must
+      // still satisfy the finalized rules), preserving its allocated number.
+      status: isDomainStatus(existing.status) ? existing.status : 'draft',
       series: existing.series,
-      number: null,
+      number: existing.number,
       issueDate,
       supplyDate: supplyDate ?? null,
       currency,
@@ -715,11 +811,16 @@ export async function finalizeInvoice(
       existing.amountInWords?.trim() ||
       amountInWordsBg(totals.grossAmount, currency);
 
+    // GEN-1: freeze the doc→base FX rate at issue time so historical totals
+    // never drift when tomorrow's rate moves.
+    const fxRate = await frozenFxRate(companyId, currency);
+
     const [finalized] = await db
       .update(invoices)
       .set({
         status: InvoiceStatus.FINALIZED,
         amountInWords: amountInWords || undefined,
+        fxRate,
         updatedAt: new Date(),
       })
       .where(
@@ -783,6 +884,133 @@ export async function cancelInvoice(
     await logActivity(companyId, user.id, ActivityType.CANCEL_INVOICE);
 
     return parseInvoiceRow(cancelled);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// uncancelInvoice — EDIT-RULE (D-CANCEL): cancel is reversible.
+// ---------------------------------------------------------------------------
+
+export async function uncancelInvoice(
+  invoiceId: number
+): Promise<ActionResult<ParsedInvoice>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    const [existing] = await db
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error('Invoice not found');
+    }
+    if (existing.status !== 'cancelled') {
+      throw new Error('Only cancelled invoices can be reinstated');
+    }
+
+    // Cancel is only offered on issued (finalized) invoices, so the pre-cancel
+    // state is always 'finalized'. Guard the status in the WHERE for concurrency.
+    const [restored] = await db
+      .update(invoices)
+      .set({ status: 'finalized', updatedAt: new Date() })
+      .where(
+        and(
+          eq(invoices.id, invoiceId),
+          eq(invoices.companyId, companyId),
+          eq(invoices.status, 'cancelled')
+        )
+      )
+      .returning();
+
+    if (!restored) {
+      throw new Error(
+        'Failed to reinstate — invoice may have been modified concurrently'
+      );
+    }
+
+    await logActivity(companyId, user.id, ActivityType.UNCANCEL_INVOICE);
+
+    return parseInvoiceRow(restored);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// deleteInvoice — permanently remove a document that isn't accounted yet.
+// Mirrors the EDIT-RULE lock: once `accounted`, a document is immutable AND
+// undeletable until set back to pending. Blocks deletion when credit/debit notes
+// still reference the invoice (the self-FK is ON DELETE SET NULL, so deleting the
+// parent would orphan them). Afterwards the unified sequence tracker is healed to
+// MAX(number)+1, so deleting the LATEST document reclaims its number (no gap);
+// deleting an older one leaves the inherent gap.
+// ---------------------------------------------------------------------------
+
+export async function deleteInvoice(
+  invoiceId: number
+): Promise<ActionResult<{ id: number }>> {
+  return action(async () => {
+    const { user, companyId } = await requireCompanyAccess();
+
+    const [existing] = await db
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId)))
+      .limit(1);
+
+    if (!existing) {
+      throw new Error('Фактурата не е намерена');
+    }
+    if (existing.accountingStatus === 'accounted') {
+      throw new Error(
+        'Осчетоводена фактура не може да се изтрие. Първо я върнете в „изчаква осчетоводяване“.'
+      );
+    }
+
+    // A parent invoice with notes cannot be deleted — the notes' parent link
+    // (referenced_invoice_id) is ON DELETE SET NULL and would be orphaned.
+    const [note] = await db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.companyId, companyId),
+          eq(invoices.referencedInvoiceId, invoiceId)
+        )
+      )
+      .limit(1);
+    if (note) {
+      throw new Error(
+        'Фактурата има кредитни/дебитни известия и не може да се изтрие. Първо изтрийте известията.'
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(invoices)
+        .where(
+          and(eq(invoices.id, invoiceId), eq(invoices.companyId, companyId))
+        );
+
+      // Heal the unified sequence: next = MAX(number)+1 over what remains, so
+      // deleting the latest document reclaims its number instead of gapping.
+      await tx.execute(sql`
+        INSERT INTO invoice_sequences (company_id, series, next_number, updated_at)
+        VALUES (
+          ${companyId}, '*',
+          (SELECT COALESCE(MAX(number), 0) + 1 FROM invoices WHERE company_id = ${companyId}),
+          NOW()
+        )
+        ON CONFLICT (company_id, series)
+        DO UPDATE SET
+          next_number = (SELECT COALESCE(MAX(number), 0) + 1 FROM invoices WHERE company_id = ${companyId}),
+          updated_at = NOW()
+      `);
+    });
+
+    await logActivity(companyId, user.id, ActivityType.DELETE_INVOICE);
+
+    return { id: invoiceId };
   });
 }
 
@@ -935,11 +1163,11 @@ async function createNoteFromInvoice(
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    // DB contract (trg_enforce_invoice_numbering): credit/debit notes inherit
-    // the parent invoice's series AND number — they are not numbered from
-    // their own sequence. Multiple notes per parent share the same number.
-    const series = original.series;
-    const number = original.number;
+    // NUM-1: a note is its own document with its own unique number — it no
+    // longer inherits the parent's number. It keeps its own display series
+    // (CN/DN) and the parent LINK via referenced_invoice_id; the number is
+    // allocated from the unified per-company sequence inside the transaction.
+    const series = DEFAULT_SERIES[noteType];
 
     const supplier = overrides?.supplier
       ?? parsePartySnapshotStrict(original.supplierSnapshot);
@@ -958,7 +1186,8 @@ async function createNoteFromInvoice(
       ? overrides.supplyDate
       : issueDate;
     const currency = overrides?.currency ?? original.currency;
-    const fxRate = overrides?.fxRate ?? Number(original.fxRate);
+    // GEN-1: a note is finalized on creation → freeze its doc→base rate now.
+    const fxRate = Number(await frozenFxRate(companyId, currency));
 
     // Load original invoice_lines to get article IDs
     const originalLines = await db
@@ -988,7 +1217,9 @@ async function createNoteFromInvoice(
       docType: noteType,
       status: 'finalized',
       series,
-      number,
+      // Placeholder for validation; the real unified number is allocated in the
+      // transaction below (same pattern as createInvoiceDraft).
+      number: 1,
       issueDate,
       supplyDate: supplyDate ?? null,
       currency,
@@ -1018,6 +1249,8 @@ async function createNoteFromInvoice(
     const articleIds = lineItemInputs.map((l) => l.articleId ?? null);
 
     const result = await db.transaction(async (tx) => {
+      const allocatedNumber = await allocateNumber(tx, companyId);
+
       const [created] = await tx
         .insert(invoices)
         .values({
@@ -1028,7 +1261,7 @@ async function createNoteFromInvoice(
           docType: noteType,
           status: InvoiceStatus.FINALIZED,
           series,
-          number,
+          number: allocatedNumber,
           issueDate,
           supplyDate: supplyDate ?? null,
           currency,
@@ -1186,12 +1419,10 @@ export async function listInvoices(
 // getNextNumber — exposes getNextInvoiceNumber to client components
 // ---------------------------------------------------------------------------
 
-export async function getNextNumber(
-  series?: string
-): Promise<ActionResult<number>> {
+export async function getNextNumber(): Promise<ActionResult<number>> {
   return action(async () => {
     const { companyId } = await requireCompanyAccess();
-    const nextNumber = await getNextInvoiceNumber(companyId, series ?? 'INV');
+    const nextNumber = await getNextInvoiceNumber(companyId);
     return nextNumber;
   });
 }
@@ -1203,8 +1434,6 @@ export async function getNextNumber(
 export interface VatMonthRow {
   /** ISO month, e.g. "2026-07" */
   month: string;
-  /** Document currency — rows are per currency until GEN-1 lands FX. */
-  currency: string;
   /** VAT charged on issued documents (accrual: all finalized; CN subtract). */
   vatIssued: number;
   /** VAT paid on received documents (confirmed, non-archived). */
@@ -1213,17 +1442,31 @@ export interface VatMonthRow {
   vatNet: number;
 }
 
+export interface VatSummary {
+  /** The company base currency all figures are expressed in (GEN-1). */
+  baseCurrency: string;
+  rows: VatMonthRow[];
+}
+
 export async function getVatSummary(input?: {
   months?: number;
-}): Promise<ActionResult<VatMonthRow[]>> {
+}): Promise<ActionResult<VatSummary>> {
   return action(async () => {
     const { companyId } = await requireCompanyAccess();
     const months = Math.min(Math.max(input?.months ?? 12, 1), 36);
 
+    // GEN-1: all figures convert to the company base currency (× frozen
+    // fxRate), so the summary is per month — no per-currency split.
+    const [companyRow] = await db
+      .select({ base: companies.defaultCurrency })
+      .from(companies)
+      .where(eq(companies.id, companyId))
+      .limit(1);
+    const baseCurrency = companyRow?.base ?? 'EUR';
+
     const issued = await db
       .select({
         month: sql<string>`to_char(${invoices.issueDate}::date, 'YYYY-MM')`,
-        currency: invoices.currency,
         vat: issuedVatSumSql,
       })
       .from(invoices)
@@ -1233,19 +1476,15 @@ export async function getVatSummary(input?: {
           sql`${invoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
         )
       )
-      .groupBy(
-        sql`to_char(${invoices.issueDate}::date, 'YYYY-MM')`,
-        invoices.currency
-      );
+      .groupBy(sql`to_char(${invoices.issueDate}::date, 'YYYY-MM')`);
 
     const paid = await db
       .select({
         month: sql<string>`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`,
-        currency: receivedInvoices.currency,
         vat: sql<string>`COALESCE(SUM(
           CASE WHEN ${receivedInvoices.status} = 'confirmed'
                AND ${receivedInvoices.archivedAt} IS NULL
-          THEN ${receivedInvoices.vatAmount}::numeric
+          THEN ${receivedInvoices.vatAmount}::numeric * ${receivedInvoices.fxRate}::numeric
           ELSE 0 END
         ), 0)`,
       })
@@ -1256,37 +1495,33 @@ export async function getVatSummary(input?: {
           sql`${receivedInvoices.issueDate}::date >= date_trunc('month', CURRENT_DATE) - make_interval(months => ${months - 1})`
         )
       )
-      .groupBy(
-        sql`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`,
-        receivedInvoices.currency
-      );
+      .groupBy(sql`to_char(${receivedInvoices.issueDate}::date, 'YYYY-MM')`);
 
-    const byKey = new Map<string, VatMonthRow>();
-    const upsert = (month: string | null, currency: string | null) => {
+    const byMonth = new Map<string, VatMonthRow>();
+    const upsert = (month: string | null) => {
       const m = month ?? 'unknown';
-      const c = currency ?? 'EUR';
-      const key = `${m}|${c}`;
-      let row = byKey.get(key);
+      let row = byMonth.get(m);
       if (!row) {
-        row = { month: m, currency: c, vatIssued: 0, vatPaid: 0, vatNet: 0 };
-        byKey.set(key, row);
+        row = { month: m, vatIssued: 0, vatPaid: 0, vatNet: 0 };
+        byMonth.set(m, row);
       }
       return row;
     };
     for (const r of issued) {
-      const row = upsert(r.month, r.currency);
-      row.vatIssued = Math.round(parseFloat(r.vat) * 100) / 100;
+      upsert(r.month).vatIssued = Math.round(parseFloat(r.vat) * 100) / 100;
     }
     for (const r of paid) {
-      const row = upsert(r.month, r.currency);
-      row.vatPaid = Math.round(parseFloat(r.vat) * 100) / 100;
+      upsert(r.month).vatPaid = Math.round(parseFloat(r.vat) * 100) / 100;
     }
-    for (const row of byKey.values()) {
+    for (const row of byMonth.values()) {
       row.vatNet = Math.round((row.vatIssued - row.vatPaid) * 100) / 100;
     }
 
-    return [...byKey.values()].sort(
-      (a, b) => b.month.localeCompare(a.month) || a.currency.localeCompare(b.currency)
-    );
+    return {
+      baseCurrency,
+      rows: [...byMonth.values()].sort((a, b) =>
+        b.month.localeCompare(a.month)
+      ),
+    };
   });
 }

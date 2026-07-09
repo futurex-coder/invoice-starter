@@ -25,6 +25,22 @@ import { cn } from '@/lib/utils';
 type AllFilterState = { search: string; month: string };
 const ALL_DEFAULTS: AllFilterState = { search: '', month: '' };
 
+const STATUS_LABELS: Record<string, string> = {
+  draft: 'Чернова',
+  finalized: 'Издадена',
+  cancelled: 'Анулирана',
+  confirmed: 'Потвърдена',
+};
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  unpaid: 'Неплатена',
+  partial: 'Частично',
+  paid: 'Платена',
+};
+const ACCOUNTING_STATUS_LABELS: Record<string, string> = {
+  pending: 'Чака',
+  accounted: 'Осчетоводена',
+};
+
 function DirectionBadge({ direction }: { direction: AllDocumentRow['direction'] }) {
   const outgoing = direction === 'outgoing';
   return (
@@ -69,16 +85,16 @@ export default function AllDocumentsPage() {
 
   return (
     <PageShell>
-      <ListPageHeader title="Invoices" />
+      <ListPageHeader title="Фактури" />
       <InvoicesTabsNav companyId={companyId} active="all" />
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Филтри</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-4">
           <div className="w-full sm:w-44">
-            <Label htmlFor="all-month">Month</Label>
+            <Label htmlFor="all-month">Месец</Label>
             <Input
               id="all-month"
               type="month"
@@ -88,17 +104,17 @@ export default function AllDocumentsPage() {
             />
           </div>
           <div className="w-full sm:w-64">
-            <Label htmlFor="all-search">Number / Counterparty</Label>
+            <Label htmlFor="all-search">Номер / Контрагент</Label>
             <div className="mt-1 flex gap-2">
               <Input
                 id="all-search"
-                placeholder="Search..."
+                placeholder="Търсене..."
                 value={list.searchInput}
                 onChange={(e) => list.setSearchInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && list.commitSearch()}
               />
               <Button variant="outline" onClick={list.commitSearch}>
-                Search
+                Търсене
               </Button>
             </div>
           </div>
@@ -108,10 +124,10 @@ export default function AllDocumentsPage() {
       <ErrorAlert message={list.error} className="mb-4" />
 
       <ListCard
-        title="All documents"
+        title="Всички документи"
         loading={list.loading}
         isEmpty={!result?.items.length}
-        emptyMessage="No documents match."
+        emptyMessage="Няма съвпадащи документи."
         page={list.page}
         pageSize={list.pageSize}
         total={result?.total}
@@ -120,14 +136,14 @@ export default function AllDocumentsPage() {
         <table className="w-full">
           <DataTableHead
             columns={[
-              { label: 'Direction' },
-              { label: 'Number' },
-              { label: 'Counterparty' },
-              { label: 'Date' },
-              { label: 'Total' },
-              { label: 'Paid' },
-              { label: 'Accounted' },
-              { label: 'Status' },
+              { label: 'Посока' },
+              { label: 'Номер' },
+              { label: 'Контрагент' },
+              { label: 'Дата' },
+              { label: 'Общо' },
+              { label: 'Платена' },
+              { label: 'Осчетоводена' },
+              { label: 'Статус' },
             ]}
           />
           <tbody>
@@ -151,11 +167,15 @@ export default function AllDocumentsPage() {
                 <td className="px-4 py-3 text-sm font-medium">
                   {formatMoney(r.grossAmount)} {r.currency}
                 </td>
-                <td className="px-4 py-3 text-sm capitalize">{r.paymentStatus}</td>
                 <td className="px-4 py-3 text-sm capitalize">
-                  {r.accountingStatus}
+                  {PAYMENT_STATUS_LABELS[r.paymentStatus] ?? r.paymentStatus}
                 </td>
-                <td className="px-4 py-3 text-sm capitalize">{r.status}</td>
+                <td className="px-4 py-3 text-sm capitalize">
+                  {ACCOUNTING_STATUS_LABELS[r.accountingStatus] ?? r.accountingStatus}
+                </td>
+                <td className="px-4 py-3 text-sm capitalize">
+                  {STATUS_LABELS[r.status] ?? r.status}
+                </td>
               </tr>
             ))}
           </tbody>

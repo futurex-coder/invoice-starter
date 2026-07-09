@@ -52,9 +52,9 @@ export function InviteMemberForm({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Invite a new member</CardTitle>
+        <CardTitle>Покани нов член</CardTitle>
         <CardDescription>
-          They will receive an email with a sign-up link.
+          Те ще получат имейл с връзка за регистрация.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -62,7 +62,7 @@ export function InviteMemberForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField
               name="email"
-              label="Email address"
+              label="Имейл адрес"
               required
               errors={validationErrors}
             >
@@ -70,11 +70,11 @@ export function InviteMemberForm({
                 type="email"
                 value={email}
                 onChange={(e) => onEmailChange(e.target.value)}
-                placeholder="colleague@example.com"
+                placeholder="kolega@example.com"
                 required
               />
             </FormField>
-            <FormField name="role" label="Role" errors={validationErrors}>
+            <FormField name="role" label="Роля" errors={validationErrors}>
               <Select
                 value={role}
                 onValueChange={(v) => {
@@ -85,8 +85,8 @@ export function InviteMemberForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="accountant">Accountant</SelectItem>
-                  {showOwnerOption && <SelectItem value="owner">Owner</SelectItem>}
+                  <SelectItem value="accountant">Счетоводител</SelectItem>
+                  {showOwnerOption && <SelectItem value="owner">Собственик</SelectItem>}
                 </SelectContent>
               </Select>
             </FormField>
@@ -94,10 +94,10 @@ export function InviteMemberForm({
           <div className="flex gap-2">
             <Button type="submit" disabled={inviting}>
               {inviting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Send invitation
+              Изпрати покана
             </Button>
             <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
+              Отказ
             </Button>
           </div>
         </form>

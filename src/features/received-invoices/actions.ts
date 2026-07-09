@@ -1,6 +1,6 @@
 'use server';
 
-import { and, eq, desc, sql, isNull, ne, gte, lte, inArray } from 'drizzle-orm';
+import { and, eq, desc, sql, isNull, ne, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import {
   receivedInvoices,
@@ -1173,40 +1173,22 @@ export async function hardDeleteDiscardedReceivedInvoice(
 }
 
 // ---------------------------------------------------------------------------
-// Payments overview — what's paid, what's owed, what's overdue
-// (drafts and discarded never count here)
+// Payments summary — company-base-currency money KPIs (owed / paid this month /
+// overdue) shown on the received-invoices page. The per-document detail lives in
+// that list itself (payment-status filter + row actions), so this is totals only.
+// Drafts and discarded never count here.
 // ---------------------------------------------------------------------------
 
-export interface PaymentRow {
-  id: number;
-  partnerId: number | null;
-  partnerName: string | null;
-  supplierLegalName: string | null;
-  invoiceNumber: string | null;
-  issueDate: string | null;
-  dueDate: string | null;
-  paymentStatus: string;
-  accountingStatus: string;
-  currency: string;
-  grossAmount: string;
-  fileMimeType: string;
+export interface PaymentsSummary {
+  toPayAmount: number;
+  paidThisMonthAmount: number;
+  overdueCount: number;
+  overdueAmount: number;
 }
 
-export interface PaymentsOverview {
-  toPay: PaymentRow[];
-  paid: PaymentRow[];
-  totals: {
-    toPayAmount: number;
-    paidThisMonthAmount: number;
-    overdueCount: number;
-    overdueAmount: number;
-  };
-}
-
-export async function getPaymentsOverview(filters?: {
-  paidFromDate?: string;
-  paidToDate?: string;
-}): Promise<ActionResult<PaymentsOverview>> {
+export async function getPaymentsSummary(): Promise<
+  ActionResult<PaymentsSummary>
+> {
   return action(async () => {
     const { companyId } = await requireCompanyAccess();
 
@@ -1218,85 +1200,18 @@ export async function getPaymentsOverview(filters?: {
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const selectShape = {
-      id: receivedInvoices.id,
-      partnerId: receivedInvoices.partnerId,
-      partnerName: partners.name,
-      supplierSnapshot: receivedInvoices.supplierSnapshot,
-      invoiceNumber: receivedInvoices.invoiceNumber,
-      issueDate: receivedInvoices.issueDate,
-      dueDate: receivedInvoices.dueDate,
-      paymentStatus: receivedInvoices.paymentStatus,
-      accountingStatus: receivedInvoices.accountingStatus,
-      currency: receivedInvoices.currency,
-      grossAmount: receivedInvoices.grossAmount,
-      fileMimeType: receivedInvoices.fileMimeType,
-    };
+    // GEN-1: gross × frozen fxRate → company base currency.
+    const [totalsRow] = await db
+      .select({
+        toPayAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} <> 'paid' then ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric else 0 end), 0)`,
+        paidThisMonthAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} = 'paid' and date_trunc('month', ${receivedInvoices.issueDate}::timestamp) = date_trunc('month', now()) then ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric else 0 end), 0)`,
+        overdueCount: sql<number>`count(*) filter (where ${receivedInvoices.paymentStatus} <> 'paid' and ${receivedInvoices.dueDate} is not null and ${receivedInvoices.dueDate}::date < ${today}::date)`,
+        overdueAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} <> 'paid' and ${receivedInvoices.dueDate} is not null and ${receivedInvoices.dueDate}::date < ${today}::date then ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric else 0 end), 0)`,
+      })
+      .from(receivedInvoices)
+      .where(and(...baseConditions));
 
-    const paidFrom = filters?.paidFromDate ?? null;
-    const paidTo = filters?.paidToDate ?? null;
-
-    const paidConditions = [
-      ...baseConditions,
-      eq(receivedInvoices.paymentStatus, 'paid'),
-    ];
-    if (paidFrom) paidConditions.push(gte(receivedInvoices.issueDate, paidFrom));
-    if (paidTo) paidConditions.push(lte(receivedInvoices.issueDate, paidTo));
-
-    const [toPayRows, paidRows, totalsRow] = await Promise.all([
-      db
-        .select(selectShape)
-        .from(receivedInvoices)
-        .leftJoin(partners, eq(receivedInvoices.partnerId, partners.id))
-        .where(
-          and(
-            ...baseConditions,
-            inArray(receivedInvoices.paymentStatus, ['unpaid', 'partial'])
-          )
-        )
-        .orderBy(
-          // Overdue first (oldest due date), then by due date asc, then issue date desc
-          sql`COALESCE(${receivedInvoices.dueDate}, '9999-12-31') ASC`,
-          desc(receivedInvoices.issueDate)
-        )
-        .limit(200),
-      db
-        .select(selectShape)
-        .from(receivedInvoices)
-        .leftJoin(partners, eq(receivedInvoices.partnerId, partners.id))
-        .where(and(...paidConditions))
-        .orderBy(desc(receivedInvoices.issueDate))
-        .limit(200),
-      db
-        .select({
-          toPayAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} <> 'paid' then ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric else 0 end), 0)`,
-          paidThisMonthAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} = 'paid' and date_trunc('month', ${receivedInvoices.issueDate}::timestamp) = date_trunc('month', now()) then ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric else 0 end), 0)`,
-          overdueCount: sql<number>`count(*) filter (where ${receivedInvoices.paymentStatus} <> 'paid' and ${receivedInvoices.dueDate} is not null and ${receivedInvoices.dueDate}::date < ${today}::date)`,
-          overdueAmount: sql<string>`coalesce(sum(case when ${receivedInvoices.paymentStatus} <> 'paid' and ${receivedInvoices.dueDate} is not null and ${receivedInvoices.dueDate}::date < ${today}::date then ${receivedInvoices.grossAmount}::numeric * ${receivedInvoices.fxRate}::numeric else 0 end), 0)`,
-        })
-        .from(receivedInvoices)
-        .where(and(...baseConditions)),
-    ]);
-
-    const mapRow = (r: typeof toPayRows[number]): PaymentRow => {
-      const snap = parseSupplierSnapshot(r.supplierSnapshot);
-      return {
-        id: r.id,
-        partnerId: r.partnerId,
-        partnerName: r.partnerName,
-        supplierLegalName: snap.legalName ?? null,
-        invoiceNumber: r.invoiceNumber,
-        issueDate: r.issueDate,
-        dueDate: r.dueDate,
-        paymentStatus: r.paymentStatus,
-        accountingStatus: r.accountingStatus,
-        currency: r.currency,
-        grossAmount: r.grossAmount,
-        fileMimeType: r.fileMimeType,
-      };
-    };
-
-    const totals = totalsRow[0] ?? {
+    const totals = totalsRow ?? {
       toPayAmount: '0',
       paidThisMonthAmount: '0',
       overdueCount: 0,
@@ -1304,14 +1219,10 @@ export async function getPaymentsOverview(filters?: {
     };
 
     return {
-      toPay: toPayRows.map(mapRow),
-      paid: paidRows.map(mapRow),
-      totals: {
-        toPayAmount: parseFloat(totals.toPayAmount),
-        paidThisMonthAmount: parseFloat(totals.paidThisMonthAmount),
-        overdueCount: Number(totals.overdueCount),
-        overdueAmount: parseFloat(totals.overdueAmount),
-      },
+      toPayAmount: parseFloat(totals.toPayAmount),
+      paidThisMonthAmount: parseFloat(totals.paidThisMonthAmount),
+      overdueCount: Number(totals.overdueCount),
+      overdueAmount: parseFloat(totals.overdueAmount),
     };
   });
 }

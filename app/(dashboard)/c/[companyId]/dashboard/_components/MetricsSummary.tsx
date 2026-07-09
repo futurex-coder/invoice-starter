@@ -65,14 +65,14 @@ export function MetricsSummary({
           label="Платени разходи"
           value={`${formatMoney(expenseMetrics.expensesPaid)} ${currency}`}
           color="purple"
-          href={`${base}/payments`}
+          href={`${base}/received-invoices?paymentStatus=paid`}
         />
         <MetricCard
           icon={<TrendingDown className="h-5 w-5 text-rose-600" />}
           label="Задължения"
           value={`${formatMoney(expenseMetrics.expensesOutstanding)} ${currency}`}
           color="rose"
-          href={`${base}/payments`}
+          href={`${base}/received-invoices?paymentStatus=unpaid`}
         />
         <MetricCard
           icon={<Inbox className="h-5 w-5 text-blue-600" />}

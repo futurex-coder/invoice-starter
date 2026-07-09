@@ -18,6 +18,7 @@ import {
   discardReceivedInvoice,
   restoreDiscardedReceivedInvoice,
   hardDeleteDiscardedReceivedInvoice,
+  getPaymentsSummary,
   type ListReceivedInvoicesFilters,
 } from '@/src/features/received-invoices/actions';
 import type {
@@ -26,8 +27,11 @@ import type {
   ReceivedInvoiceLifecycleStatus,
 } from '@/src/features/received-invoices/types';
 import { useListPageState } from '@/lib/swr/use-list-page-state';
+import { useActionSWR } from '@/lib/swr/use-action-swr';
+import { useCompany } from '@/lib/context/company-context';
 import { requireStringParam } from '@/lib/route-params';
 import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
+import { PaymentSummaryCards } from './_components/PaymentSummaryCards';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { Pagination } from '@/components/list-page/Pagination';
 import { ReceivedInvoiceFilters } from './_components/ReceivedInvoiceFilters';
@@ -148,6 +152,12 @@ export default function ReceivedInvoicesPage() {
   });
 
   const data = list.result;
+
+  const { company } = useCompany();
+  // Money KPIs (owed / paid this month / overdue) for confirmed received
+  // invoices — the summary the standalone Payments page used to show.
+  const { data: paySummary, isLoading: summaryLoading, mutate: refetchSummary } =
+    useActionSWR('received-payments-summary', getPaymentsSummary);
 
   const [pendingId, setPendingId] = useState<number | null>(null);
 
@@ -276,6 +286,8 @@ export default function ReceivedInvoicesPage() {
       // runMutation set actionError already.
     } finally {
       setPendingId(null);
+      // Payment/archive changes move money between the KPI buckets.
+      void refetchSummary();
     }
   };
 
@@ -336,6 +348,14 @@ export default function ReceivedInvoicesPage() {
         active="received"
         pendingReceivedCount={data?.pendingCount}
       />
+
+      <div className="mt-4">
+        <PaymentSummaryCards
+          summary={paySummary}
+          loading={summaryLoading}
+          baseCurrency={company.defaultCurrency}
+        />
+      </div>
 
       {data && (
         <PendingReviewBanner

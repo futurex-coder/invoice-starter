@@ -18,8 +18,11 @@ raw-enum bugs** (see §1). Verify: build + grep for leftover English + tests.
 - [x] **"All documents" list renders raw enums** (`unpaid`/`pending`/`finalized` via capitalize,
       `invoices/all/page.tsx`) — now uses the same pills as the outgoing list. **LOW** → ee5fb7c
 - [x] **ReviewForm shows raw enum values** for method/payment/accounting status. **LOW** → ee5fb7c
-- [x] **Payments page not in the sidebar nav** — a core AP view reachable only via dashboard
-      tiles. Added "Плащания" to `company-layout-shell`. **LOW** → ad52da1
+- [x] **Payments page consolidated into received-invoices** — first added it to the nav
+      (ad52da1), then (owner call) removed the standalone page entirely: it only duplicated the
+      received-invoices list (which already has payment-status filter + row mark-paid). Its one
+      unique widget — the owed/paid/overdue money KPIs — now sits atop received-invoices; the
+      dashboard tiles point to `received-invoices?paymentStatus=…`. **LOW** → this commit
 - [x] **Hardcoded " EUR"** in `SummaryGrid` + `PaymentKpiGrid` (GEN-1-LABELS in REVIEW_QUEUE) —
       now reads the base currency; cross-company grid flags mixed currencies. **LOW** → this commit
 - [x] **Proforma DB enum tidy** — added `PROFORMA` to the `schema.ts` `DocType` enum + column

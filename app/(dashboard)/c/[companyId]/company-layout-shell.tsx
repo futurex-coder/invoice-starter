@@ -16,7 +16,6 @@ import {
   LayoutDashboard,
   Settings,
   Calculator,
-  CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,7 +36,6 @@ export function CompanyLayoutShell({
   const companyNav = [
     { href: `${base}/dashboard`, icon: LayoutDashboard, label: 'Табло' },
     { href: `${base}/invoices`, icon: FileText, label: 'Фактури' },
-    { href: `${base}/payments`, icon: CreditCard, label: 'Плащания' },
     { href: `${base}/vat`, icon: Calculator, label: 'ДДС' },
     { href: `${base}/partners`, icon: Handshake, label: 'Контрагенти' },
     { href: `${base}/articles`, icon: Package, label: 'Артикули' },

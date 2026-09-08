@@ -796,6 +796,16 @@ export async function updateReceivedInvoiceDraft(
     if (existing.status === 'discarded') {
       throw new Error('Cannot edit a discarded invoice');
     }
+    // KONT-1 (stress #4): a live контировка freezes the document — the ledger
+    // row was filed off these amounts/dates, so editing them behind it would
+    // silently desync дневник покупки from the source. Correct via сторниране,
+    // then re-post.
+    // Keyed on posting existence, not the user-togglable accountingStatus.
+    if (await receivedInvoiceHasActivePosting(id)) {
+      throw new Error(
+        'Документът е осчетоводен — първо сторнирайте контировката, преди да го редактирате.'
+      );
+    }
 
     const { partnerId } = await applyReviewPatch(id, companyId, patch);
 

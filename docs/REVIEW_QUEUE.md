@@ -267,3 +267,22 @@ _(The agent appends below. Seeded with the known-open product decisions from
   the `(dashboard)` layout / `getNotifications`). If it's only the embedded preview on the HDD,
   it's just an env limitation. Either way the Меню Контиране UI itself is unverified *in-browser*
   — worth a manual click-through of post → Осчетоводена badge → Сторнирай when you next run it.
+
+### KONT-EDIT-CONFIRM — second edit path into a posted received invoice — OPEN
+- **When:** closing stress #4 (edit-lock guard on `updateReceivedInvoiceDraft`, 2026-09-08).
+- **Context:** the requested guard landed on `updateReceivedInvoiceDraft`
+  (`src/features/received-invoices/actions.ts:799`). But `confirmReceivedInvoice`
+  (same file, line 834) calls the **same** `applyReviewPatch` and carries no
+  posting guard — it explicitly handles `wasAlreadyConfirmed`, so a document that
+  is already confirmed **and posted** can still have its net/VAT/partner/dates
+  rewritten through that action, which is exactly the дневник-desync stress #4
+  describes. The UI likely only offers Потвърди on drafts, but the server action
+  is the trust boundary, not the UI.
+- **Options:** (a) mirror the same `receivedInvoiceHasActivePosting` guard in
+  `confirmReceivedInvoice`; (b) hoist the guard into `applyReviewPatch` so every
+  present and future caller inherits it.
+- **What I did:** nothing — the task scoped me to the edit action at :795 only,
+  and widening a lock onto a second user-facing action is a product call, not a
+  reversible default. Logged instead of silently fixed.
+- **Needs from you:** confirm (b) is wanted (it is the leak-proof version), or say
+  (a) if `applyReviewPatch` should stay guard-free for a future unguarded caller.

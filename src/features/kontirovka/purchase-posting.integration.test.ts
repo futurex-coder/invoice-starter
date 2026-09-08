@@ -33,7 +33,9 @@ import {
 import {
   setReceivedInvoiceAccountingStatus,
   deleteReceivedInvoice,
+  updateReceivedInvoiceDraft,
 } from '@/src/features/received-invoices/actions';
+import type { ReceivedInvoiceReviewInput } from '@/src/features/received-invoices/types';
 
 vi.setConfig({ testTimeout: 20_000, hookTimeout: 60_000 });
 
@@ -107,6 +109,43 @@ async function seedConfirmedReceived(opts: {
     .returning({ id: receivedInvoices.id });
   if (!ri) throw new Error('seed received invoice');
   return ri.id;
+}
+
+/** A minimal, schema-valid reviewer patch for the seeded received invoice. */
+function reviewPatch(opts: {
+  number: string;
+  qty: number;
+  unitPrice: number;
+}): ReceivedInvoiceReviewInput {
+  return {
+    partnerId: null,
+    supplier: {
+      legalName: 'Доставчик ООД',
+      eik: SUPPLIER_EIK,
+      vatNumber: `BG${SUPPLIER_EIK}`,
+    },
+    createPartnerOnConfirm: false,
+    invoiceNumber: opts.number,
+    issueDate: TODAY,
+    supplyDate: TODAY,
+    dueDate: null,
+    currency: 'EUR',
+    fxRate: 1,
+    paymentMethod: 'bank',
+    paymentStatus: 'unpaid',
+    accountingStatus: 'pending',
+    lineItems: [
+      {
+        description: 'Услуга',
+        quantity: opts.qty,
+        unit: 'бр.',
+        unitPrice: opts.unitPrice,
+        vatRate: 20,
+        discountPercent: 0,
+      },
+    ],
+    notes: null,
+  };
 }
 
 async function purge(): Promise<void> {
@@ -303,5 +342,69 @@ describe('postReceivedInvoiceContra — basis picker', () => {
       amount: 400,
     });
     expect(preview.lines.find((l) => l.code === '602')).toBeUndefined();
+  });
+});
+
+describe('updateReceivedInvoiceDraft — posting-existence edit lock', () => {
+  it('refuses edits behind a live контировка, and allows them again after сторниране', async () => {
+    const riId = await seedConfirmedReceived({
+      net: 700,
+      vat: 140,
+      gross: 840,
+      number: 'F-500',
+    });
+
+    // unposted: the document is still freely editable
+    unwrap(
+      await updateReceivedInvoiceDraft(
+        riId,
+        reviewPatch({ number: 'F-500', qty: 7, unitPrice: 100 })
+      ),
+      'edit-before-post'
+    );
+
+    unwrap(await postReceivedInvoiceContra(riId), 'post');
+
+    // posted: the ledger row was filed off these amounts — the edit is refused
+    expect(
+      unwrapError(
+        await updateReceivedInvoiceDraft(
+          riId,
+          reviewPatch({ number: 'F-500-hacked', qty: 99, unitPrice: 100 })
+        ),
+        'edit-while-posted'
+      )
+    ).toMatch(/сторнирайте контировката/i);
+
+    // and nothing leaked through the guard
+    const [untouched] = await db
+      .select({
+        number: receivedInvoices.invoiceNumber,
+        net: receivedInvoices.netAmount,
+      })
+      .from(receivedInvoices)
+      .where(eq(receivedInvoices.id, riId));
+    expect(untouched?.number).toBe('F-500');
+    expect(Number(untouched?.net)).toBe(700);
+
+    // сторниране releases the lock (the guard is keyed on a LIVE posting)
+    unwrap(await reverseReceivedInvoiceContra(riId), 'reverse');
+    unwrap(
+      await updateReceivedInvoiceDraft(
+        riId,
+        reviewPatch({ number: 'F-500-fixed', qty: 8, unitPrice: 100 })
+      ),
+      'edit-after-reverse'
+    );
+
+    const [edited] = await db
+      .select({
+        number: receivedInvoices.invoiceNumber,
+        net: receivedInvoices.netAmount,
+      })
+      .from(receivedInvoices)
+      .where(eq(receivedInvoices.id, riId));
+    expect(edited?.number).toBe('F-500-fixed');
+    expect(Number(edited?.net)).toBe(800);
   });
 });

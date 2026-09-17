@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useEffect } from 'react';
+import { mutate } from 'swr';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,6 +77,13 @@ export default function GeneralPage() {
     updateAccount,
     {}
   );
+
+  // PERF (R2/T1a): we disabled focus-revalidation globally, so refresh the
+  // cached `/api/user` explicitly when the profile changes — keeps the header
+  // avatar/name in sync without any idle polling.
+  useEffect(() => {
+    if (state.success) void mutate('/api/user');
+  }, [state.success]);
 
   return (
     <PageShell>

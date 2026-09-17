@@ -1,6 +1,6 @@
 'use server';
 
-import { and, eq, desc, sql, ilike, or } from 'drizzle-orm';
+import { and, eq, desc, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/drizzle';
 import {
   companies,
@@ -60,6 +60,7 @@ import {
   type UpdateArticleInput,
   type ListQuery,
 } from './schemas';
+import { queryPartnersList, queryArticlesList } from './queries';
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -283,31 +284,8 @@ export async function listPartners(
     const page = parsed.success ? parsed.data.page : 1;
     const pageSize = parsed.success ? parsed.data.pageSize : 20;
     const search = parsed.success ? parsed.data.search : undefined;
-    const offset = (page - 1) * pageSize;
-
-    const conditions = [eq(partners.companyId, companyId)];
-    if (search && search.trim()) {
-      const term = `%${search.trim()}%`;
-      const trimmed = search.trim();
-      conditions.push(
-        or(ilike(partners.name, term), eq(partners.eik, trimmed))!
-      );
-    }
-    const where = and(...conditions);
-
-    const [rows, countResult] = await Promise.all([
-      db
-        .select()
-        .from(partners)
-        .where(where)
-        .orderBy(desc(partners.createdAt))
-        .limit(pageSize)
-        .offset(offset),
-      db.select({ count: sql<number>`count(*)::int` }).from(partners).where(where),
-    ]);
-
-    const total = countResult[0]?.count ?? 0;
-    return { items: rows, total, page, pageSize };
+    // Shared with the SSR seed in partners/page.tsx — see queries.ts.
+    return queryPartnersList(companyId, { page, pageSize, search });
   });
 }
 
@@ -423,27 +401,8 @@ export async function listArticles(
     const page = parsed.success ? parsed.data.page : 1;
     const pageSize = parsed.success ? parsed.data.pageSize : 20;
     const search = parsed.success ? parsed.data.search : undefined;
-    const offset = (page - 1) * pageSize;
-
-    const conditions = [eq(articles.companyId, companyId)];
-    if (search && search.trim()) {
-      conditions.push(ilike(articles.name, `%${search.trim()}%`));
-    }
-    const where = and(...conditions);
-
-    const [rows, countResult] = await Promise.all([
-      db
-        .select()
-        .from(articles)
-        .where(where)
-        .orderBy(desc(articles.createdAt))
-        .limit(pageSize)
-        .offset(offset),
-      db.select({ count: sql<number>`count(*)::int` }).from(articles).where(where),
-    ]);
-
-    const total = countResult[0]?.count ?? 0;
-    return { items: rows, total, page, pageSize };
+    // Shared with the SSR seed in articles/page.tsx — see queries.ts.
+    return queryArticlesList(companyId, { page, pageSize, search });
   });
 }
 

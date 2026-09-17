@@ -66,7 +66,11 @@
       "Skill(update-config)",
       "Skill(update-config:*)",
       "Skill(claude-api)",
-      "Skill(claude-api:*)"
+      "Skill(claude-api:*)",
+      "mcp__52ebeff6-3fe4-4c40-be60-3ea989cbaa24__context_get",
+      "mcp__52ebeff6-3fe4-4c40-be60-3ea989cbaa24__user_who_am_i",
+      "mcp__52ebeff6-3fe4-4c40-be60-3ea989cbaa24__image_get_data",
+      "mcp__52ebeff6-3fe4-4c40-be60-3ea989cbaa24__board_list_items"
     ]
   }
 }

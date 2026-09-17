@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { desc, and, eq, isNull, sql } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import { db } from '../drizzle';
@@ -17,18 +18,23 @@ import {
  * Read the active company ID from the cookie.
  * Returns null if not set — callers should redirect to company picker.
  */
-export async function getActiveCompanyId(): Promise<number | null> {
-  const cookie = (await cookies()).get('activeCompanyId');
-  if (!cookie?.value) return null;
-  const id = parseInt(cookie.value, 10);
-  return isNaN(id) ? null : id;
-}
+export const getActiveCompanyId = cache(
+  async (): Promise<number | null> => {
+    const cookie = (await cookies()).get('activeCompanyId');
+    if (!cookie?.value) return null;
+    const id = parseInt(cookie.value, 10);
+    return isNaN(id) ? null : id;
+  }
+);
 
 /**
  * Verify that the current user has access to a specific company.
  * Returns the membership row (with role) or null if no access.
  */
-export async function verifyCompanyAccess(
+// PERF (P3): memoised per-request. The company layout and the page both call
+// this with the same (userId, companyId); cache() keys on the args so the
+// second call is free instead of another ~31 ms round-trip.
+export const verifyCompanyAccess = cache(async function verifyCompanyAccess(
   userId: number,
   companyId: number
 ) {
@@ -51,7 +57,7 @@ export async function verifyCompanyAccess(
     .limit(1);
 
   return membership[0] ?? null;
-}
+});
 
 /**
  * Verify access and check for a specific role (e.g. 'owner').

@@ -1,0 +1,273 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useParams } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import {
+  listInvoices,
+  cancelInvoice,
+  uncancelInvoice,
+  deleteInvoice,
+  createCreditNoteFromInvoice,
+  createDebitNoteFromInvoice,
+  updateInvoicePaymentInfo,
+  updateInvoiceAccountingStatus,
+  type ListInvoicesFilters,
+  type ListInvoicesResult,
+} from '@/src/features/bulgarian-invoicing/actions';
+import { formatInvoiceNumber } from '@/src/features/bulgarian-invoicing/formatter';
+import type { Invoice, InvoiceStatus } from '@/lib/db/schema';
+import { useListPageState } from '@/lib/swr/use-list-page-state';
+import { requireStringParam } from '@/lib/route-params';
+import { Plus } from 'lucide-react';
+import { ListPageHeader } from '@/components/list-page/ListPageHeader';
+import { ListCard } from '@/components/list-page/ListCard';
+import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { InvoicesTabsNav } from '@/components/invoices/InvoicesTabsNav';
+import { InvoiceFilters } from './InvoiceFilters';
+import { InvoicesTable } from './InvoicesTable';
+import { PageShell } from '@/components/page-shell';
+
+// String-typed filters owned by useListPageState (URL-safe).
+type InvoicesFilterState = {
+  search: string;
+  status: string;
+  paymentStatus: string;
+  accountingStatus: string;
+  month: string;
+};
+
+const INVOICES_DEFAULTS: InvoicesFilterState = {
+  search: '',
+  status: 'all',
+  paymentStatus: 'all',
+  accountingStatus: 'all',
+  month: '',
+};
+
+function isInvoiceStatusEnum(value: string): value is InvoiceStatus {
+  return value === 'draft' || value === 'finalized' || value === 'cancelled';
+}
+
+function buildActionFilters(
+  f: InvoicesFilterState,
+  page: number,
+  pageSize: number
+): ListInvoicesFilters {
+  return {
+    page,
+    pageSize,
+    status: f.status === 'all' || !isInvoiceStatusEnum(f.status) ? undefined : f.status,
+    paymentStatus: f.paymentStatus === 'all' ? undefined : f.paymentStatus,
+    accountingStatus:
+      f.accountingStatus === 'all' ? undefined : f.accountingStatus,
+    month: f.month || undefined,
+    search: f.search || undefined,
+  };
+}
+
+function buildFilterProps(f: InvoicesFilterState): ListInvoicesFilters {
+  return {
+    status:
+      f.status === 'all'
+        ? undefined
+        : isInvoiceStatusEnum(f.status)
+          ? f.status
+          : undefined,
+    paymentStatus: f.paymentStatus === 'all' ? undefined : f.paymentStatus,
+    accountingStatus:
+      f.accountingStatus === 'all' ? undefined : f.accountingStatus,
+    month: f.month || undefined,
+  };
+}
+
+export function InvoicesPageClient({
+  fallbackData,
+}: {
+  fallbackData?: ListInvoicesResult;
+}) {
+  const router = useRouter();
+  const params = useParams();
+  const companyId = requireStringParam(params, 'companyId');
+
+  const list = useListPageState({
+    swrKey: 'invoices',
+    defaults: INVOICES_DEFAULTS,
+    fallbackData,
+    action: ({ page, pageSize, ...f }) =>
+      listInvoices(buildActionFilters(f, page, pageSize)),
+  });
+
+  const result = list.result;
+
+  const [confirmCancel, setConfirmCancel] = useState<{ id: number; label: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: number; label: string } | null>(null);
+
+  const handleFiltersChange = (patch: Partial<ListInvoicesFilters>) => {
+    if ('status' in patch) list.setFilter('status', patch.status ?? 'all');
+    if ('paymentStatus' in patch) {
+      list.setFilter('paymentStatus', patch.paymentStatus ?? 'all');
+    }
+    if ('accountingStatus' in patch) {
+      list.setFilter('accountingStatus', patch.accountingStatus ?? 'all');
+    }
+    if ('month' in patch) list.setFilter('month', patch.month ?? '');
+  };
+
+  const handleCancelClick = (invoice: Invoice) => {
+    const label =
+      invoice.number != null
+        ? `№ ${formatInvoiceNumber(invoice.number)}`
+        : `#${invoice.id}`;
+    setConfirmCancel({ id: invoice.id, label });
+  };
+
+  const handleCancelConfirmed = async () => {
+    if (!confirmCancel) return;
+    await list.runMutation(() => cancelInvoice(confirmCancel.id));
+  };
+
+  // EDIT-RULE: cancel is reversible.
+  const handleUncancel = (id: number) => {
+    void list.runMutation(() => uncancelInvoice(id));
+  };
+
+  const handleDeleteClick = (invoice: Invoice) => {
+    const label =
+      invoice.number != null
+        ? `№ ${formatInvoiceNumber(invoice.number)}`
+        : `#${invoice.id}`;
+    setConfirmDelete({ id: invoice.id, label });
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDelete) return;
+    await list.runMutation(() => deleteInvoice(confirmDelete.id));
+  };
+
+  const [pendingId, setPendingId] = useState<number | null>(null);
+
+  // OI-9: inline paid / accounted toggles with the N11 optimistic pattern.
+  const handleMarkPayment = async (id: number, status: 'paid' | 'unpaid') => {
+    setPendingId(id);
+    try {
+      await list.runMutation(() =>
+        updateInvoicePaymentInfo(id, { paymentStatus: status })
+      );
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const handleMarkAccounting = async (
+    id: number,
+    status: 'accounted' | 'pending'
+  ) => {
+    setPendingId(id);
+    try {
+      await list.runMutation(() => updateInvoiceAccountingStatus(id, status));
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const handleCreditNote = async (id: number) => {
+    const res = await createCreditNoteFromInvoice(id);
+    if (res.error) list.setActionError(res.error);
+    else if (res.data) router.push(`/c/${companyId}/invoices/${res.data.id}`);
+  };
+
+  const handleDebitNote = async (id: number) => {
+    const res = await createDebitNoteFromInvoice(id);
+    if (res.error) list.setActionError(res.error);
+    else if (res.data) router.push(`/c/${companyId}/invoices/${res.data.id}`);
+  };
+
+  return (
+    <PageShell>
+      <ListPageHeader
+        title="Фактури"
+        action={
+          <Button asChild className="bg-primary hover:bg-primary/90">
+            <Link href={`/c/${companyId}/invoices/new`}>
+              <Plus className="mr-2 h-4 w-4" />
+              Нова фактура
+            </Link>
+          </Button>
+        }
+      />
+
+      <InvoicesTabsNav companyId={companyId} active="outgoing" />
+
+      <InvoiceFilters
+        filters={buildFilterProps(list.filters)}
+        onFiltersChange={handleFiltersChange}
+        searchInput={list.searchInput}
+        onSearchInputChange={list.setSearchInput}
+        onSearchSubmit={list.commitSearch}
+      />
+
+      <ErrorAlert message={list.error} className="mb-4" />
+
+      <ListCard
+        title="Списък с фактури"
+        loading={list.loading}
+        isEmpty={!result?.invoices.length}
+        emptyMessage='Няма намерени фактури. Създайте с „Нова фактура“.'
+        page={list.page}
+        pageSize={list.pageSize}
+        total={result?.total}
+        onPageChange={list.setPage}
+      >
+        <InvoicesTable
+          invoices={result?.invoices ?? []}
+          companyId={companyId}
+          pendingId={pendingId}
+          onView={(id) => router.push(`/c/${companyId}/invoices/${id}`)}
+          onEdit={(id) => router.push(`/c/${companyId}/invoices/new?edit=${id}`)}
+          onPrint={(id) => router.push(`/c/${companyId}/invoices/${id}?print=1`)}
+          onCancel={handleCancelClick}
+          onUncancel={handleUncancel}
+          onCopy={(id) => router.push(`/c/${companyId}/invoices/new?copy=${id}`)}
+          onCreditNote={handleCreditNote}
+          onDebitNote={handleDebitNote}
+          onDelete={handleDeleteClick}
+          onMarkPayment={handleMarkPayment}
+          onMarkAccounting={handleMarkAccounting}
+        />
+      </ListCard>
+
+      <ConfirmDialog
+        open={confirmCancel !== null}
+        onOpenChange={(open) => !open && setConfirmCancel(null)}
+        title="Анулиране на фактура?"
+        description={
+          confirmCancel
+            ? `Фактура ${confirmCancel.label} ще бъде маркирана като анулирана. Това действие е необратимо — вместо това издайте кредитно известие, ако трябва да я сторнирате.`
+            : undefined
+        }
+        confirmText="Анулирай фактурата"
+        cancelText="Запази фактурата"
+        variant="destructive"
+        onConfirm={handleCancelConfirmed}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        title="Изтриване на документа?"
+        description={
+          confirmDelete
+            ? `Документ ${confirmDelete.label} ще бъде изтрит за постоянно, заедно с редовете му. Това действие е необратимо. За издадена фактура обикновено е по-правилно да я анулирате.`
+            : undefined
+        }
+        confirmText="Изтрий за постоянно"
+        cancelText="Отказ"
+        variant="destructive"
+        onConfirm={handleDeleteConfirmed}
+      />
+    </PageShell>
+  );
+}

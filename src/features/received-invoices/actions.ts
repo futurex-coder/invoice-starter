@@ -573,8 +573,35 @@ export async function getReceivedInvoice(
 async function applyReviewPatch(
   id: number,
   companyId: number,
-  patch: ReceivedInvoiceReviewInput
+  patch: ReceivedInvoiceReviewInput,
+  intent: 'edit' | 'confirm'
 ): Promise<{ partnerId: number | null }> {
+  // KONT-1 (stress #4): a live контировка freezes the document — the ledger row
+  // was filed off these amounts/dates, so rewriting them behind it would
+  // silently desync дневник покупки from the source. Correct via сторниране,
+  // then re-post.
+  //
+  // The guard lives HERE, not in the callers, because both *review* paths
+  // (updateReceivedInvoiceDraft and confirmReceivedInvoice) go through this
+  // function. It previously sat on updateReceivedInvoiceDraft alone, which left
+  // confirm as a second, unguarded door into the same patch
+  // (KONT-EDIT-CONFIRM). Keyed on posting existence, not the user-togglable
+  // accountingStatus.
+  //
+  // ⚠️ This is NOT every writer of the figures. `applyExtractionToRow` (~:309)
+  // also rewrites partner/number/dates/amounts/lines and does NOT pass through
+  // here. It is unreachable behind a posting today only because it early-returns
+  // unless status is 'analyzing'|'failed', while posting requires 'confirmed' —
+  // i.e. it is closed by *status*, which stress #4 says not to rely on. If you
+  // ever let extraction re-run on a confirmed row, guard it there too.
+  if (await receivedInvoiceHasActivePosting(id)) {
+    throw new Error(
+      intent === 'confirm'
+        ? 'Документът е осчетоводен — първо сторнирайте контировката, преди да го потвърдите.'
+        : 'Документът е осчетоводен — първо сторнирайте контировката, преди да го редактирате.'
+    );
+  }
+
   const calc = calculateReceivedInvoice(patch.lineItems);
 
   let partnerId = patch.partnerId ?? null;
@@ -688,18 +715,8 @@ export async function updateReceivedInvoiceDraft(
     if (existing.status === 'discarded') {
       throw new Error('Cannot edit a discarded invoice');
     }
-    // KONT-1 (stress #4): a live контировка freezes the document — the ledger
-    // row was filed off these amounts/dates, so editing them behind it would
-    // silently desync дневник покупки from the source. Correct via сторниране,
-    // then re-post.
-    // Keyed on posting existence, not the user-togglable accountingStatus.
-    if (await receivedInvoiceHasActivePosting(id)) {
-      throw new Error(
-        'Документът е осчетоводен — първо сторнирайте контировката, преди да го редактирате.'
-      );
-    }
 
-    const { partnerId } = await applyReviewPatch(id, companyId, patch);
+    const { partnerId } = await applyReviewPatch(id, companyId, patch, 'edit');
 
     await logActivity(
       companyId,
@@ -757,7 +774,7 @@ export async function confirmReceivedInvoice(
       throw new Error('Issue date is required to confirm');
     }
 
-    const { partnerId } = await applyReviewPatch(id, companyId, patch);
+    const { partnerId } = await applyReviewPatch(id, companyId, patch, 'confirm');
 
     const wasAlreadyConfirmed = existing.status === 'confirmed';
 

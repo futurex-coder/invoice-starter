@@ -268,7 +268,28 @@ _(The agent appends below. Seeded with the known-open product decisions from
   it's just an env limitation. Either way the Меню Контиране UI itself is unverified *in-browser*
   — worth a manual click-through of post → Осчетоводена badge → Сторнирай when you next run it.
 
-### KONT-EDIT-CONFIRM — second edit path into a posted received invoice — OPEN
+### KONT-ARCHIVE-DESYNC — archiving a posted received invoice drops it from дневник покупки — OPEN
+- **When:** found 2026-09-17 by the reviewer of the KONT-EDIT-CONFIRM fix (`7bc6b13`).
+- **Context:** `setReceivedInvoiceArchived` (`src/features/received-invoices/actions.ts:1010`)
+  has **no posting guard** — verified, the function body contains no
+  `receivedInvoiceHasActivePosting`. `getPurchaseLedger` filters
+  `isNull(receivedInvoices.archivedAt)` (`lib/db/queries/dnevnik.ts:165`). So
+  archiving a received invoice that carries a live контировка removes it from
+  дневник покупки while its `journal_entries` / `journal_tax_lines` rows
+  survive. Same desync class as stress #4, reached **without rewriting a
+  figure**, so the KONT-EDIT-CONFIRM fix does not cover it.
+- **Severity:** the дневник and the journal disagree, silently. Unlike stress #4
+  this needs no malice or edit — one archive click does it.
+- **Options:** (a) refuse archiving behind a live контировка, like cancel/delete
+  already do; (b) let it archive but stop filtering archived rows out of the
+  ledger when a posting exists; (c) decide archived-but-posted is legitimate and
+  say so.
+- **What I did:** nothing — out of scope for the KONT-EDIT-CONFIRM task, and
+  which of (a)/(b)/(c) is right is a product call about what "archive" means.
+- **Needs from you:** pick (a), (b) or (c). (a) is the smallest and most
+  consistent with the existing guards.
+
+### KONT-EDIT-CONFIRM — second edit path into a posted received invoice — ✅ RESOLVED 2026-09-17
 - **When:** closing stress #4 (edit-lock guard on `updateReceivedInvoiceDraft`, 2026-09-08).
 - **Context:** the requested guard landed on `updateReceivedInvoiceDraft`
   (`src/features/received-invoices/actions.ts:799`). But `confirmReceivedInvoice`
@@ -284,5 +305,15 @@ _(The agent appends below. Seeded with the known-open product decisions from
 - **What I did:** nothing — the task scoped me to the edit action at :795 only,
   and widening a lock onto a second user-facing action is a product call, not a
   reversible default. Logged instead of silently fixed.
-- **Needs from you:** confirm (b) is wanted (it is the leak-proof version), or say
-  (a) if `applyReviewPatch` should stay guard-free for a future unguarded caller.
+- **Needs from you:** ~~confirm (b) is wanted (it is the leak-proof version), or say
+  (a) if `applyReviewPatch` should stay guard-free for a future unguarded caller.~~
+- **RESOLVED 2026-09-17 — owner said "close whatever is outstanding". Took (b).**
+  The guard moved into `applyReviewPatch` (`received-invoices/actions.ts:573`),
+  so both `updateReceivedInvoiceDraft` and `confirmReceivedInvoice` inherit it
+  and so does any future caller. An `intent: 'edit' | 'confirm'` parameter keeps
+  the Bulgarian message specific to the action the user took. The now-duplicated
+  guard was removed from `updateReceivedInvoiceDraft`. Rationale for (b) over
+  (a): (a) closes today's hole and leaves the same shape open for the next
+  caller. Commit `7bc6b13`. Test: "confirm-lock" case in
+  `purchase-posting.integration.test.ts`. ⚠️ **That test has not been run** —
+  it is in a DB-gated suite and there is no `POSTGRES_URL`.

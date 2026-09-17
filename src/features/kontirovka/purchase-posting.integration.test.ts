@@ -34,6 +34,7 @@ import {
   setReceivedInvoiceAccountingStatus,
   deleteReceivedInvoice,
   updateReceivedInvoiceDraft,
+  confirmReceivedInvoice,
 } from '@/src/features/received-invoices/actions';
 import type { ReceivedInvoiceReviewInput } from '@/src/features/received-invoices/types';
 
@@ -374,7 +375,8 @@ describe('updateReceivedInvoiceDraft — posting-existence edit lock', () => {
         ),
         'edit-while-posted'
       )
-    ).toMatch(/сторнирайте контировката/i);
+      // edit-specific verb, so this case fails if the intent ternary collapses
+    ).toMatch(/преди да го редактирате/i);
 
     // and nothing leaked through the guard
     const [untouched] = await db
@@ -405,6 +407,71 @@ describe('updateReceivedInvoiceDraft — posting-existence edit lock', () => {
       .from(receivedInvoices)
       .where(eq(receivedInvoices.id, riId));
     expect(edited?.number).toBe('F-500-fixed');
+    expect(Number(edited?.net)).toBe(800);
+  });
+});
+
+describe('confirmReceivedInvoice — posting-existence lock (KONT-EDIT-CONFIRM)', () => {
+  it('refuses a re-confirm behind a live контировка, and allows it again after сторниране', async () => {
+    const riId = await seedConfirmedReceived({
+      net: 700,
+      vat: 140,
+      gross: 840,
+      number: 'F-600',
+    });
+
+    unwrap(await postReceivedInvoiceContra(riId), 'post');
+
+    // confirmReceivedInvoice refuses only `discarded` and explicitly handles
+    // wasAlreadyConfirmed, so before the guard was hoisted into
+    // applyReviewPatch this rewrote net/VAT/partner behind a live posting —
+    // the same дневник desync the edit lock closes, through a second door.
+    expect(
+      unwrapError(
+        await confirmReceivedInvoice(
+          riId,
+          reviewPatch({ number: 'F-600-hacked', qty: 99, unitPrice: 100 })
+        ),
+        'confirm-while-posted'
+      )
+      // NOT just /сторнирайте контировката/ — that substring is in both
+      // branches of the intent ternary, so it cannot tell them apart. Assert
+      // the confirm-specific verb, and that the edit verb is absent.
+    ).toMatch(/преди да го потвърдите/i);
+
+    // nothing leaked through — figures AND the fields the дневник reads
+    const [untouched] = await db
+      .select({
+        number: receivedInvoices.invoiceNumber,
+        net: receivedInvoices.netAmount,
+        vat: receivedInvoices.vatAmount,
+        gross: receivedInvoices.grossAmount,
+      })
+      .from(receivedInvoices)
+      .where(eq(receivedInvoices.id, riId));
+    expect(untouched?.number).toBe('F-600');
+    expect(Number(untouched?.net)).toBe(700);
+    expect(Number(untouched?.vat)).toBe(140);
+    expect(Number(untouched?.gross)).toBe(840);
+
+    // сторниране releases it, same as the edit path
+    unwrap(await reverseReceivedInvoiceContra(riId), 'reverse');
+    unwrap(
+      await confirmReceivedInvoice(
+        riId,
+        reviewPatch({ number: 'F-600-fixed', qty: 8, unitPrice: 100 })
+      ),
+      'confirm-after-reverse'
+    );
+
+    const [edited] = await db
+      .select({
+        number: receivedInvoices.invoiceNumber,
+        net: receivedInvoices.netAmount,
+      })
+      .from(receivedInvoices)
+      .where(eq(receivedInvoices.id, riId));
+    expect(edited?.number).toBe('F-600-fixed');
     expect(Number(edited?.net)).toBe(800);
   });
 });

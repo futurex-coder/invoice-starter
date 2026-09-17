@@ -24,6 +24,7 @@ import {
   parsePartySnapshotStrict,
 } from '@/src/features/bulgarian-invoicing/parsers';
 import { InvoicePrintPreview } from './InvoicePrintPreview';
+import { ContiranePanel } from './_components/ContiranePanel';
 import { requireStringParam } from '@/lib/route-params';
 import { ArrowLeft, Pencil, CheckCircle, Printer, XCircle, Trash2, Loader2 } from 'lucide-react';
 import { PageShell } from '@/components/page-shell';
@@ -307,6 +308,17 @@ export default function InvoiceDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {!isDraft && !isCancelled && invoice.docType !== 'proforma' && (
+        <div className="mb-6">
+          <ContiranePanel
+            companyId={companyId}
+            invoiceId={id}
+            currency={invoice.currency}
+            onChanged={() => mutate()}
+          />
+        </div>
+      )}
 
       <Card>
         <CardHeader>

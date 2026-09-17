@@ -24,6 +24,7 @@ import { SupplierCard } from './_components/SupplierCard';
 import { DocumentCard } from './_components/DocumentCard';
 import { LineItemsTable } from './_components/LineItemsTable';
 import { StatusControlsCard } from './_components/StatusControlsCard';
+import { PurchaseContiranePanel } from './_components/PurchaseContiranePanel';
 import { NotesCard } from './_components/NotesCard';
 import { PageShell } from '@/components/page-shell';
 
@@ -137,6 +138,14 @@ export default function ReceivedInvoiceDetailPage() {
               paymentStatus={row.paymentStatus}
               onAccountingChange={handleAccounting}
               onPaymentChange={handlePayment}
+            />
+          )}
+          {row.status === 'confirmed' && (
+            <PurchaseContiranePanel
+              companyId={companyId}
+              receivedInvoiceId={id}
+              currency={row.currency}
+              onChanged={() => refetch()}
             />
           )}
           <NotesCard notes={row.notes} />

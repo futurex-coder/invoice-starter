@@ -41,6 +41,66 @@ use** — not to add big new surfaces. Concretely:
 
 ---
 
+## 0. Where we are — status snapshot
+
+> **As of 2026-09-17** (last merge); re-checked against the code 2026-10-26. Moved here
+> from the retired `.ops/PROGRESS.md`. Rewrite this section when the state changes — don't
+> append to it.
+
+`main` = `5132c6a`, no open PRs, nothing merged since 2026-09-17.
+
+**Last shipped — контировка** (double-entry journal + ДДС дневник), PRs #14–#16, merged
+2026-09-17. Slices 1–4a are in: the 66-account BG chart, the contra engine, post / reverse
+/ re-post from the *Меню Контиране* panel on invoice and received-invoice pages, a
+read-only ДДС дневник with month→document drill-down, the posted-VAT read-out, and the
+edit-lock on posted received invoices. Detail in `KONTIROVKA_PLAN.md`.
+
+**🔴 Blocking — needs a human:**
+1. **Migrations `0008`/`0009` were not applied to production** at merge time. Invoice and
+   received-invoice detail pages read `journal_entries` on load and error until they are
+   → `REVIEW_QUEUE.md` **KONT-MIGRATE**.
+2. **контировка has never been tested against a database.** The 6 DB-gated suites (35
+   tests) are the only tests that touch numbering, `money.ts`, the journal balance
+   triggers, post/reverse and VAT netting. Without `POSTGRES_URL` they don't load and
+   the run reports "274 passed", which proves none of that → **KONT-DB-TESTS**.
+
+**Not built (контировка):** Slice 4b (period lock + month-close entry) · Slices 5–6
+(дневник/декларация as GROUP BY over `journal_tax_lines`, НАП export — both gated on
+accountant sign-off) · Slice 0 (opening balances) · zero-VAT purchase posting · supplier
+credit notes. **You can't file with НАП from the app yet** — no НАП column format, no
+file export. The дневник is built against `knowledge/dds-dnevnik-spec.md`, not the
+owner's `NAP.pdf`, which is still unread (**NAP-DOC**).
+
+**Known broken** (checked in code unless marked):
+- Deleting the newest finalized invoice hands its number to the next document →
+  **DELETE-NUMBER-REUSE**.
+- Archiving a posted received invoice drops it from дневник покупки while its journal
+  rows stay → **KONT-ARCHIVE-DESYNC**.
+- A credit note keeps subtracting after its parent is cancelled, so totals can go
+  negative → **INV11-CANCEL**, `knowledge/money-aggregation-rules.md` edge #2.
+- "Today" is computed in UTC: 11 `toISOString().slice(0, 10)` sites outside tests
+  (**N26**). Between local midnight and 02:00–03:00 documents get yesterday's date.
+- `partial` payment status has no amount behind it — there's no payments table. Don't
+  build reminders or collections reporting on it before **PAY-1**.
+- Cross-company dashboard totals add different base currencies raw (labelled "смесени
+  валути"). Harmless only while every company has the same base — not checked against
+  the database.
+- Editing a finalized invoice leaves no old→new diff, only an `UPDATE_INVOICE` activity
+  entry (**HIST-1**, **N20**).
+- Proforma → invoice copies the proforma but doesn't mark or link it (PROF-1 follow-up,
+  from docs, not re-checked).
+- Stripe webhook has no idempotency (**N3**) — accepted while the product is free;
+  becomes blocking the day billing is switched on.
+
+**Docs known to be stale:**
+- `REFACTOR_BACKLOG.md` still lists **N24** as open — closed by migration `0006` (see
+  NUM-1 in `REVIEW_QUEUE.md`).
+- Phase 1.6 below says invoice delete is deferred — it shipped 2026-07-09 (`1e6fd64`).
+- `.claude/CLAUDE.md` says `npm` and a 214-test baseline. The repo uses pnpm
+  (`pnpm-lock.yaml`), and on 2026-09-17 the suite was 274 unit tests + 35 DB tests.
+
+---
+
 ## 1. How to run this phase — the four gears
 
 | Gear | Claude features | Use for |
@@ -78,6 +138,9 @@ type-check/lint/tests.
 | **D-NUM** | Numbering for notes / all doc types (CN-NUMBERING) | ✅ **RESOLVED 2026-07-08 — REVERSED** | EVERY document (invoice/CN/DN/proforma) gets its **own unique new number**, no duplicates. Reverses run-1's inherit-parent-number. → **NUM-1** (DB-trigger rewrite; closes N24). |
 | **D-AUTH** | Google login approach (AUTH-1) | ⏸️ **DEFERRED 2026-07-08** | Use **Supabase Auth** Google login when revisited. Not this phase. |
 | **D-EMAIL-SEND / READ** | Email transport + ingestion (EMAIL-1/2) | ⏸️ **DEFERRED 2026-07-08** | Leave email for later entirely. |
+| **D-PAYMENTS** | Keep the standalone `/payments` page? | ✅ **RESOLVED 2026-07-09** (owner, `d11b047`) | **Deleted** — it duplicated received-invoices. Its owed/paid/overdue KPI row moved to the top of received-invoices; dashboard tiles link to `received-invoices?paymentStatus=…`. Don't recreate it. A real payment ledger (PAY-1) needs its own decision. |
+| **D-KONT-MERGE** | Merge контировка (PR #15) with no database to run its tests? | ✅ **DECIDED 2026-09-17** (owner: "merge the open PRs", `dfd2f29`) | Merged on type-check, lint, 274 unit tests and a clean build. The 6 DB-gated suites (35 tests) never ran — treat контировка as **unverified** until they do (→ KONT-DB-TESTS). |
+| **D-KONT-LOCK** | Where does the "posted received invoice can't be edited" guard live? | ✅ **DECIDED 2026-09-17** (owner, `9f2e869`) | In **`applyReviewPatch`**, so edit and confirm both inherit it (KONT-EDIT-CONFIRM). Don't re-add it in callers. ⚠️ It is **not** a total chokepoint: `applyExtractionToRow` rewrites figures without it (closed today only by status), and `setReceivedInvoiceArchived` has no guard (KONT-ARCHIVE-DESYNC). A new path that rewrites a received invoice's figures must guard itself. |
 
 ---
 

@@ -267,6 +267,11 @@ _(The agent appends below. Seeded with the known-open product decisions from
   the `(dashboard)` layout / `getNotifications`). If it's only the embedded preview on the HDD,
   it's just an env limitation. Either way the Меню Контиране UI itself is unverified *in-browser*
   — worth a manual click-through of post → Осчетоводена badge → Сторнирай when you next run it.
+- **⚠️ The diagnosis above is probably wrong (2026-09-17 merge review, re-checked 2026-10-26).**
+  When the flood was logged (`5be8367`, 2026-07-10) the branch had **neither** `staleTimes`
+  (`next.config.ts`) nor `keepPreviousData` (`lib/swr/use-list-page-state.ts`) — they landed
+  on `main` in `f248b0f` and reached the branch only through the 2026-09-17 merge. So the
+  storm reproduced without the stale-while-revalidate code. Don't start the hunt there.
 
 ### KONT-ARCHIVE-DESYNC — archiving a posted received invoice drops it from дневник покупки — OPEN
 - **When:** found 2026-09-17 by the reviewer of the KONT-EDIT-CONFIRM fix (`7bc6b13`).
@@ -317,3 +322,46 @@ _(The agent appends below. Seeded with the known-open product decisions from
   caller. Commit `7bc6b13`. Test: "confirm-lock" case in
   `purchase-posting.integration.test.ts`. ⚠️ **That test has not been run** —
   it is in a DB-gated suite and there is no `POSTGRES_URL`.
+
+### KONT-MIGRATE — migrations 0008/0009 not applied to production — OPEN
+- **When:** контировка merged to `main` 2026-09-17 (PR #15, `dfd2f29`).
+- **Context:** `0008_nervous_betty_brant.sql` and `0009_premium_sleeper.sql` create the four
+  `journal_*` tables (additive only, per the 2026-09-17 merge review). `ContiranePanel`
+  renders on every finalized, non-cancelled, non-proforma invoice detail page
+  (`invoices/[invoiceId]/page.tsx:314`) and reads `journal_entries` on mount;
+  `PurchaseContiranePanel` does the same on received-invoice detail pages. Without the
+  tables those pages error.
+- **What I did:** nothing — agents don't apply migrations.
+- **Needs from you:** run `pnpm db:migrate` against production, or confirm it was already
+  done. Unknown since 2026-09-17.
+
+### KONT-DB-TESTS — контировка's database tests have never run — OPEN
+- **When:** контировка merge, 2026-09-17 (decision **D-KONT-MERGE**).
+- **Context:** six suites need `POSTGRES_URL` and fail to load without it:
+  `lib/db/queries/{money,dnevnik}.integration.test.ts`,
+  `src/features/bulgarian-invoicing/lifecycle.integration.test.ts`,
+  `src/features/kontirovka/{posting,purchase-posting,posted-vat}.integration.test.ts`.
+  They hold 35 tests and are the **only** tests that touch the numbering triggers,
+  `money.ts`, the journal balance triggers, post/reverse and VAT netting (including the
+  KONT-EDIT-CONFIRM confirm-lock). Without them the run says "274 passed", which verifies
+  none of that.
+- **What I did:** nothing.
+- **Needs from you:** point `POSTGRES_URL` at a **dev** database with `0008`/`0009` applied
+  and run `pnpm test` — expected 309. The main checkout has had a `.env` since 2026-09-21;
+  check which database it points at first, because the suites write to it (each creates
+  and cleans up a throwaway company).
+
+### DELETE-NUMBER-REUSE — deleting the newest finalized invoice hands its number to the next document — OPEN
+- **When:** found in the 2026-09-08 `.ops` audit; re-checked against `main` 2026-10-26.
+- **Context:** `deleteInvoice` (`src/features/bulgarian-invoicing/actions.ts:959`)
+  hard-deletes (`invoices` has no `deletedAt`), then resets `invoice_sequences` to
+  `MAX(number) + 1` over what's left. It refuses only if the invoice is posted,
+  `accounted`, or has credit/debit notes. So a finalized invoice already sent to a client
+  can be deleted, and if it had the highest number the next document gets the same
+  number. That contradicts D-NUM ("no duplicates") and Phase 1.6's own advice ("safest as
+  a soft delete").
+- **Options:** (a) soft delete, never reclaim the number; (b) hard delete but leave the
+  gap; (c) allow deleting drafts only; (d) keep as is.
+- **What I did:** nothing.
+- **Needs from you:** pick one. Until then, don't add delete to other document types and
+  don't build reporting that assumes a number identifies one document forever.
